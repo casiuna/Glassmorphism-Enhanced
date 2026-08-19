@@ -57,6 +57,7 @@ const earthArcs = computed(() => buildEarthArcs(
   displayNodes.value,
   locationByNodeUuid.value,
 ))
+const persistentEarthArcs = computed(() => appStore.earthArcMode === 'persistent')
 
 const legendDensityClass = computed(() => {
   const count = regionClusters.value.length
@@ -120,7 +121,7 @@ const arcPaths = computed<MapArcPath[]>(() => earthArcs.value.map((arc) => {
 </script>
 
 <template>
-  <div :data-earth-arc-count="earthArcs.length" class="earth-map-scroll relative z-0 h-full w-full overflow-x-auto overflow-y-visible pointer-events-auto">
+  <div :data-earth-arc-count="earthArcs.length" :data-earth-arc-motion="persistentEarthArcs ? 'persistent' : 'dynamic'" class="earth-map-scroll relative z-0 h-full w-full overflow-x-auto overflow-y-visible pointer-events-auto">
     <div class="earth-map-shell relative mx-auto h-full w-full overflow-hidden rounded-[1.5rem] border border-white/35 bg-background/35 shadow-[0_24px_80px_rgb(15_23_42/0.18)] backdrop-blur-2xl dark:border-cyan-200/10 dark:bg-slate-950/35">
       <div class="earth-map relative h-full min-w-0 overflow-hidden">
         <svg class="map-svg absolute inset-0 size-full" :viewBox="`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`" preserveAspectRatio="xMidYMid meet" role="img" aria-label="真实地球贴图节点世界地图">
@@ -136,7 +137,7 @@ const arcPaths = computed<MapArcPath[]>(() => earthArcs.value.map((arc) => {
           <image :href="EARTH_SPECULAR_MAP" x="0" :y="-TEXTURE_SOURCE_Y" :width="MAP_WIDTH" :height="TEXTURE_FULL_HEIGHT" preserveAspectRatio="none" class="earth-image earth-image-water" />
           <rect :width="MAP_WIDTH" :height="MAP_HEIGHT" class="earth-overlay" />
 
-          <g class="earth-arcs" :class="{ 'is-static': appStore.disablePageAnimation }">
+          <g class="earth-arcs" :class="{ 'is-static': appStore.disablePageAnimation, 'is-persistent': persistentEarthArcs }">
             <path
               v-for="arc in arcPaths"
               :key="arc.id"
@@ -260,6 +261,11 @@ const arcPaths = computed<MapArcPath[]>(() => earthArcs.value.map((arc) => {
 }
 
 .earth-arcs.is-static .earth-arc {
+  animation: none;
+}
+
+.earth-arcs.is-persistent .earth-arc {
+  stroke-dasharray: none;
   animation: none;
 }
 

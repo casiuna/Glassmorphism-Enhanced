@@ -2,11 +2,12 @@ import type { NodeGeoLocation, RegionCluster } from '@/composables/useNodeGeoClu
 import type { NodeData } from '@/stores/nodes'
 import { buildNodeUpstreamRelations } from '@/utils/nodeTopology'
 
-export type EarthArcMode = 'auto' | 'upstream' | 'off'
+export type EarthArcMode = 'auto' | 'persistent' | 'upstream' | 'off'
+export type EarthArcSource = 'auto' | 'upstream'
 
 export interface EarthArcData {
   id: string
-  source: Exclude<EarthArcMode, 'off'>
+  source: EarthArcSource
   from: [number, number]
   to: [number, number]
 }

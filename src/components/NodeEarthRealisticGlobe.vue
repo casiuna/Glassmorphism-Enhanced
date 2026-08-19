@@ -78,6 +78,7 @@ const earthArcs = computed(() => buildEarthArcs(
   displayNodes.value,
   locationByNodeUuid.value,
 ))
+const persistentEarthArcs = computed(() => appStore.earthArcMode === 'persistent')
 
 const arcsData = computed<GlobeArc[]>(() => earthArcs.value.map(arc => ({
   id: arc.id,
@@ -183,6 +184,16 @@ function syncDataToGlobe() {
     .ringsData(pointsData.value)
     .arcsData(arcsData.value)
     .htmlElementsData(labelsData.value)
+  applyArcStyle()
+}
+
+function applyArcStyle() {
+  if (!globe)
+    return
+  globe
+    .arcDashLength(persistentEarthArcs.value ? 1 : 0.48)
+    .arcDashGap(persistentEarthArcs.value ? 0 : 1.4)
+    .arcDashAnimateTime(persistentEarthArcs.value ? 0 : 2600)
 }
 
 async function startGlobe() {
@@ -234,9 +245,9 @@ async function startGlobe() {
       .arcColor(() => appStore.isDark ? 'rgba(56, 189, 248, 0.82)' : 'rgba(2, 132, 199, 0.72)')
       .arcAltitudeAutoScale(0.22)
       .arcStroke(0.45)
-      .arcDashLength(0.48)
-      .arcDashGap(1.4)
-      .arcDashAnimateTime(2600)
+      .arcDashLength(persistentEarthArcs.value ? 1 : 0.48)
+      .arcDashGap(persistentEarthArcs.value ? 0 : 1.4)
+      .arcDashAnimateTime(persistentEarthArcs.value ? 0 : 2600)
       .arcsTransitionDuration(500)
       .htmlElementsData(labelsData.value)
       .htmlLat('lat')
@@ -321,6 +332,7 @@ watch([containerWidth, containerHeight], ([width, height]) => {
 watch([
   () => regionClusters.value.map(clusterKey).join(','),
   () => earthArcs.value.map(arc => `${arc.id}:${arc.from.join(',')}:${arc.to.join(',')}`).join('|'),
+  () => appStore.earthArcMode,
 ], () => {
   syncDataToGlobe()
 })
@@ -350,7 +362,7 @@ watch(shouldRender, (visible) => {
 </script>
 
 <template>
-  <div ref="containerRef" :data-earth-arc-count="earthArcs.length" class="relative z-0 aspect-square w-full max-w-md mx-auto translate-y-2 md:-translate-y-1 overflow-visible pointer-events-none">
+  <div ref="containerRef" :data-earth-arc-count="earthArcs.length" :data-earth-arc-motion="persistentEarthArcs ? 'persistent' : 'dynamic'" class="relative z-0 aspect-square w-full max-w-md mx-auto translate-y-2 md:-translate-y-1 overflow-visible pointer-events-none">
     <div ref="globeHostRef" class="earth-globe-host absolute inset-0 z-0 w-full h-full scale-106 select-none touch-auto pointer-events-auto cursor-grab active:cursor-grabbing" />
 
     <div

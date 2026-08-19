@@ -23,7 +23,7 @@
       { "key": "alertContent", "name": "公告内容", "type": "richtext", "default": "", "help": "公告的详细内容（支持简单 Markdown 格式）" },
       { "key": "stopEarth", "name": "停止地球旋转", "type": "switch", "default": false, "help": "开启后地球默认不自动旋转，用户仍可手动拖拽查看" },
       { "key": "earthRenderer", "name": "地球样式", "type": "select", "default": "realistic", "options": "realistic,cobe,tiled", "help": "realistic=贴图，cobe=点阵，tiled=平铺地图。" },
-      { "key": "earthArcMode", "name": "地球连线模式", "type": "select", "default": "auto", "options": "auto,upstream,off", "help": "auto=按有效地理位置生成稳定视觉连线； upstream=按 upstream:节点名 / 上游:节点名 标签连线； off=仅显示节点。" },
+      { "key": "earthArcMode", "name": "地球连线模式", "type": "select", "default": "auto", "options": "auto,persistent,upstream,off", "help": "auto=按有效地理位置生成动态视觉连线； persistent=使用相同自动拓扑绘制常驻实线； upstream=按 upstream:节点名 / 上游:节点名 标签连线； off=仅显示节点。" },
       { "key": "hideEarth", "name": "隐藏地球", "type": "switch", "default": false, "help": "隐藏地球后仅显示总览卡片" },
       { "key": "hideGeneralCard", "name": "隐藏头部", "type": "switch", "default": false, "help": "隐藏地球和总览卡片" },
       { "key": "visitorInfoEnabled", "name": "显示访客信息", "type": "switch", "default": true, "help": "显示底部访客 IP 条和左下角访客详情卡片" },

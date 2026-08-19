@@ -12,6 +12,13 @@
 
 ## 当前任务
 
+- 状态：done，本地 follow-up 已实现并完成回归；等待按最终提交 SHA 生成 ZIP，未 push。
+- 目标：2026-08-19 follow-up：未启用自定义背景时采用 three-network 的明暗翡翠网格背景；地球连线模式新增 `persistent` 常驻实线。
+- 边界：保留最新版自定义图片/视频加载与失败回退；`persistent` 复用自动连线拓扑和数量上限，只改变三种渲染器的线条呈现，不改变 upstream 语义。
+- 验证计划：亮暗背景 DOM/CSS、tiled 常驻实线、realistic/cobe 模式接入、完整 typecheck/lint/build/Playwright、最终 ZIP 结构与 SHA-256。
+- 实现：默认背景只摘取 three-network 的翡翠 spotlight、斜向网格 SVG 和 light/dark 样式，保留官方自定义背景加载/错误回退；`earthArcMode` 新增 `persistent`，复用 auto arcs，realistic 使用完整 dash 且停止 dash 动画，tiled 使用常驻实线，cobe 沿用其原生常驻 arc。
+- 验证：`bun run lint`、`bun run build`（含 type-check）和 `git diff --check` 通过；新增聚焦用例 5/5、完整 Playwright 32/32 通过；更新的两张暗色移动端视觉基线经人工查看，背景与卡片对比度正常。
+
 - 状态：done，本地 feature branch 已实现并验证，按最终提交 SHA 生成可导入 ZIP；未 push、未连接或修改 Komari Server/Agent。
 - 目标：以 v3.3.6 / `b353afb` 为唯一基底，语义移植 three-network 三网 Ping 面板，并增加 `auto | upstream | off` 地球连线模式。
 - 里程碑：M5 新功能 + M4 UI；不修改 Komari Server、Agent 或用户 Ping Task。

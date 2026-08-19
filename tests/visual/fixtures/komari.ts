@@ -28,7 +28,7 @@ export interface VisualFixtureOptions {
   pingTaskOrdering?: boolean
   noPingTasks?: boolean
   multipleTelecomTasks?: boolean
-  earthArcMode?: 'auto' | 'upstream' | 'off'
+  earthArcMode?: 'auto' | 'persistent' | 'upstream' | 'off'
   upstreamTags?: boolean
   missingGeoNode?: boolean
   loggedIn?: boolean

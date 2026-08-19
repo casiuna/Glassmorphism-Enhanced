@@ -94,6 +94,7 @@ const earthArcs = computed(() => buildEarthArcs(
   displayNodes.value,
   locationByNodeUuid.value,
 ))
+const persistentEarthArcs = computed(() => appStore.earthArcMode === 'persistent')
 
 const arcs = computed<Arc[]>(() => earthArcs.value.map(arc => ({
   from: arc.from,
@@ -390,7 +391,7 @@ function onPointerUp(e: PointerEvent) {
 </script>
 
 <template>
-  <div ref="containerRef" :data-earth-arc-count="earthArcs.length" class="relative aspect-square w-full max-w-md mx-auto -translate-y-6 md:-translate-y-12">
+  <div ref="containerRef" :data-earth-arc-count="earthArcs.length" :data-earth-arc-motion="persistentEarthArcs ? 'persistent' : 'dynamic'" class="relative aspect-square w-full max-w-md mx-auto -translate-y-6 md:-translate-y-12">
     <canvas
       ref="canvasRef"
       class="earth-globe-canvas absolute inset-0 w-full h-full select-none touch-none cursor-grab active:cursor-grabbing"

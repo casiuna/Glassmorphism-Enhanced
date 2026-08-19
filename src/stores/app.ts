@@ -955,7 +955,7 @@ const useAppStore = defineStore('app', () => {
   }
 
   function isValidEarthArcMode(value: unknown): value is EarthArcMode {
-    return value === 'auto' || value === 'upstream' || value === 'off'
+    return value === 'auto' || value === 'persistent' || value === 'upstream' || value === 'off'
   }
 
   const nodeCardSize = computed<NodeCardSize>(() => {

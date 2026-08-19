@@ -181,6 +181,45 @@ test('automatic earth arcs render without upstream tags', async ({ page }) => {
   await expect(page.locator('[data-earth-arc]')).toHaveCount(Number(await earth.getAttribute('data-earth-arc-count')))
 })
 
+for (const background of [
+  { dark: false, color: 'rgb(248, 250, 252)', opacity: '0.4' },
+  { dark: true, color: 'rgba(15, 23, 42, 0.5)', opacity: '1' },
+] as const) {
+  test(`three-network default background applies the ${background.dark ? 'dark' : 'light'} palette`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await installKomariFixture(page, { dark: background.dark, hideEarth: true })
+    await openStablePage(page)
+
+    await expect(page.locator('[data-default-background]')).toHaveCSS('background-color', background.color)
+    await expect(page.locator('.default-background__emerald-surface')).toHaveCSS('opacity', background.opacity)
+    await expect(page.locator('.default-background__pattern')).toBeVisible()
+  })
+}
+
+test('persistent earth arcs stay visible as solid lines', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await installKomariFixture(page, { earthRenderer: 'tiled', earthArcMode: 'persistent' })
+  await openStablePage(page)
+
+  const earth = page.locator('[data-earth-arc-count]')
+  await expect(earth).toHaveAttribute('data-earth-arc-motion', 'persistent')
+  await expect.poll(async () => Number(await earth.getAttribute('data-earth-arc-count'))).toBeGreaterThan(0)
+  await expect(page.locator('[data-earth-arc]').first()).toHaveCSS('stroke-dasharray', 'none')
+  await expect(page.locator('[data-earth-arc]').first()).toHaveCSS('animation-name', 'none')
+})
+
+for (const renderer of ['realistic', 'cobe'] as const) {
+  test(`${renderer} globe accepts persistent earth arcs`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await installKomariFixture(page, { earthRenderer: renderer, earthArcMode: 'persistent' })
+    await openStablePage(page)
+
+    const earth = page.locator('[data-earth-arc-count]')
+    await expect(earth).toHaveAttribute('data-earth-arc-motion', 'persistent')
+    await expect.poll(async () => Number(await earth.getAttribute('data-earth-arc-count'))).toBeGreaterThan(0)
+  })
+}
+
 for (const renderer of ['realistic', 'cobe'] as const) {
   test(`${renderer} globe receives automatic earth arcs`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 })
