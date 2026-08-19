@@ -12,6 +12,24 @@
 
 ## 当前任务
 
+- 状态：done，本地 feature branch 已实现并验证，按最终提交 SHA 生成可导入 ZIP；未 push、未连接或修改 Komari Server/Agent。
+- 目标：以 v3.3.6 / `b353afb` 为唯一基底，语义移植 three-network 三网 Ping 面板，并增加 `auto | upstream | off` 地球连线模式。
+- 里程碑：M5 新功能 + M4 UI；不修改 Komari Server、Agent 或用户 Ping Task。
+- 范围：复用官方 Metric Store/legacy fallback 与请求生命周期；独立 carrier matcher/聚合；最新版 NodeCard 三网 UI；共享 upstream parser；realistic/cobe/tiled 统一限量 arcs；确定性回归和可导入 ZIP。
+- 来源快照：three-network `2f172e7`（manifest 2.4.0）；Emerald `1372043` / v1.0.10。Emerald 当前 arcs 为地区 cluster 到访客国家坐标的 hub-and-spoke，不是 upstream 或节点全连接。
+- 分支：`feat/three-network-earth-arcs`。
+- 不做：不覆盖旧 NodeCard/useNodePingStats，不引入后端依赖，不 push 远程，不改变高级标签/ASN-BGP 拓扑语义。
+
+### 2026-08-19 Three-network carrier ping + earth arcs
+
+- 三网实现保持官方 Ping/Metric Store 为唯一数据源：公开任务列表增加共享缓存，`useNodePingStats` 在现有请求结果上派生按任务统计，独立 carrier composable 完成任务名匹配、同运营商多任务聚合、历史色块和 tooltip；没有新增每节点 Ping 历史请求。
+- 运营商关键词覆盖联通/China Unicom/Unicom/CUCC，电信/China Telecom/Telecom/CTCC/ChinaNet/CN2，移动/China Mobile/Mobile/CMCC/CMI/CMIN2；没有匹配任务时三行安全显示 `--`。
+- upstream 标签解析已从高级拓扑面板提取为共享 util，保留 `upstream|parent|上游|父节点` 与 `:|=|：` 语义；高级标签拓扑和 ASN/BGP 工具继续使用同一逻辑。
+- 地球新增 `auto | upstream | off` 设置。自动模式采用确定性、限量 hub-and-spoke：仅取有效且去重的地理点，最多 25 个 cluster / 24 条 arc；upstream 模式仅在两端有合法坐标时生成 child -> upstream，最多 48 条；realistic、cobe 和 tiled 三种渲染器共用同一份 arc 数据。
+- Geo 解析继续以主题已有经纬度为准，并在首选地址解析失败时尝试同节点另一 IP 候选；不会仅因私网 IPv4 排除带公网 IPv6 或已有地区坐标的节点。
+- 验证通过：`bun install --frozen-lockfile`、`bun run type-check`、`bun run lint`、`bun run build`、`git diff --check`；完整 Playwright 27/27 通过，覆盖无任务、普通任务、三网、多电信任务、无 upstream 自动连线、upstream 三段链路、关闭模式、缺失 geo、移动端 containment、realistic/cobe/tiled 与高级 ASN/BGP/标签拓扑回归。
+- Windows 工具链：PowerShell 7.6.5（`C:\Program Files\PowerShell\7\pwsh.exe`），Bun 1.3.14；隔离环境没有全局 Node，验证命令显式把 Codex bundled Node 加入 PATH。
+
 - 状态：in-progress，本地修复与验证完成，正在发布 v3.3.5
 - 目标：修复详情页延迟任务卡片、图例和主页 Ping 指标线与 Komari 后台任务排序不一致的问题。
 - 里程碑：M4 UI/UX 兼容性修复，不修改后端任务权重或接口契约。
