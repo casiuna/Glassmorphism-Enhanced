@@ -10,6 +10,7 @@ import {
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useNodeGeoClusters } from '@/composables/useNodeGeoClusters'
 import { useAppStore } from '@/stores/app'
+import { buildEarthArcs } from '@/utils/earthArcs'
 
 const props = defineProps<{
   nodes?: NodeData[]
@@ -53,13 +54,38 @@ interface GlobeLabel {
   code: string
 }
 
+interface GlobeArc {
+  id: string
+  startLat: number
+  startLng: number
+  endLat: number
+  endLng: number
+}
+
 const {
+  displayNodes,
   regionClusters,
+  locationByNodeUuid,
   totalServers,
   onlineServers,
   offlineServers,
   clusterKey,
 } = useNodeGeoClusters({ nodes: () => props.nodes })
+
+const earthArcs = computed(() => buildEarthArcs(
+  appStore.earthArcMode,
+  regionClusters.value,
+  displayNodes.value,
+  locationByNodeUuid.value,
+))
+
+const arcsData = computed<GlobeArc[]>(() => earthArcs.value.map(arc => ({
+  id: arc.id,
+  startLat: arc.from[0],
+  startLng: arc.from[1],
+  endLat: arc.to[0],
+  endLng: arc.to[1],
+})))
 
 const pointsData = computed<GlobePoint[]>(() => regionClusters.value.map(cluster => ({
   id: cluster.id,
@@ -143,6 +169,7 @@ function applyMaterialStyle() {
   globeMaterial.needsUpdate = true
   globe
     .pointColor(pointColor)
+    .arcColor(() => appStore.isDark ? 'rgba(56, 189, 248, 0.82)' : 'rgba(2, 132, 199, 0.72)')
     .ringColor(() => appStore.isDark ? 'rgba(45, 212, 191, 0.34)' : 'rgba(14, 165, 233, 0.28)')
     .atmosphereColor(appStore.isDark ? '#38bdf8' : '#60a5fa')
     .atmosphereAltitude(appStore.isDark ? 0.14 : 0.11)
@@ -154,6 +181,7 @@ function syncDataToGlobe() {
   globe
     .pointsData(pointsData.value)
     .ringsData(pointsData.value)
+    .arcsData(arcsData.value)
     .htmlElementsData(labelsData.value)
 }
 
@@ -198,6 +226,18 @@ async function startGlobe() {
       .ringMaxRadius(1.4)
       .ringPropagationSpeed(0.8)
       .ringRepeatPeriod(2400)
+      .arcsData(arcsData.value)
+      .arcStartLat('startLat')
+      .arcStartLng('startLng')
+      .arcEndLat('endLat')
+      .arcEndLng('endLng')
+      .arcColor(() => appStore.isDark ? 'rgba(56, 189, 248, 0.82)' : 'rgba(2, 132, 199, 0.72)')
+      .arcAltitudeAutoScale(0.22)
+      .arcStroke(0.45)
+      .arcDashLength(0.48)
+      .arcDashGap(1.4)
+      .arcDashAnimateTime(2600)
+      .arcsTransitionDuration(500)
       .htmlElementsData(labelsData.value)
       .htmlLat('lat')
       .htmlLng('lng')
@@ -278,7 +318,10 @@ watch([containerWidth, containerHeight], ([width, height]) => {
   resizeGlobe()
 })
 
-watch(() => regionClusters.value.map(clusterKey).join(','), () => {
+watch([
+  () => regionClusters.value.map(clusterKey).join(','),
+  () => earthArcs.value.map(arc => `${arc.id}:${arc.from.join(',')}:${arc.to.join(',')}`).join('|'),
+], () => {
   syncDataToGlobe()
 })
 
@@ -307,7 +350,7 @@ watch(shouldRender, (visible) => {
 </script>
 
 <template>
-  <div ref="containerRef" class="relative z-0 aspect-square w-full max-w-md mx-auto translate-y-2 md:-translate-y-1 overflow-visible pointer-events-none">
+  <div ref="containerRef" :data-earth-arc-count="earthArcs.length" class="relative z-0 aspect-square w-full max-w-md mx-auto translate-y-2 md:-translate-y-1 overflow-visible pointer-events-none">
     <div ref="globeHostRef" class="earth-globe-host absolute inset-0 z-0 w-full h-full scale-106 select-none touch-auto pointer-events-auto cursor-grab active:cursor-grabbing" />
 
     <div

@@ -22,8 +22,15 @@ export interface RegionCluster {
   onlineServers: number
 }
 
+export interface NodeGeoLocation {
+  uuid: string
+  clusterId: string
+  coord: [number, number]
+}
+
 interface ClusterSummary {
   clusters: RegionCluster[]
+  locationByNodeUuid: Map<string, NodeGeoLocation>
   totalServers: number
   onlineServers: number
 }
@@ -32,6 +39,10 @@ const CITY_SLUG_INVALID_REGEX = /[^a-z0-9]+/g
 const CITY_SLUG_EDGE_REGEX = /^-+|-+$/g
 const IP_GEO_LOOKUP_BATCH_SIZE = 8
 const IP_GEO_RETRY_INTERVAL_MS = 10 * 60 * 1000
+
+function nodeIpCandidates(node: NodeData): string[] {
+  return [...new Set([node.ipv4, node.ipv6].filter((ip): ip is string => Boolean(ip?.trim())))]
+}
 
 export function useNodeGeoClusters(options: UseNodeGeoClustersOptions = {}) {
   const nodesStore = useNodesStore()
@@ -46,12 +57,17 @@ export function useNodeGeoClusters(options: UseNodeGeoClustersOptions = {}) {
     const now = Date.now()
 
     for (const node of nodes) {
-      const ip = node.ipv4 || node.ipv6
-      if (!ip || seenIps.has(ip) || ipGeoMap.value.has(ip))
+      const candidates = nodeIpCandidates(node)
+      if (candidates.some(ip => ipGeoMap.value.has(ip)))
         continue
 
-      const failedAt = failedIpAttempts.get(ip)
-      if (failedAt && now - failedAt < IP_GEO_RETRY_INTERVAL_MS)
+      const ip = candidates.find((candidate) => {
+        if (seenIps.has(candidate) || ipGeoMap.value.has(candidate))
+          return false
+        const failedAt = failedIpAttempts.get(candidate)
+        return !failedAt || now - failedAt >= IP_GEO_RETRY_INTERVAL_MS
+      })
+      if (!ip)
         continue
 
       seenIps.add(ip)
@@ -82,12 +98,20 @@ export function useNodeGeoClusters(options: UseNodeGeoClustersOptions = {}) {
       }
       ipGeoMap.value = next
     }
+
+    const hasUnusedFallback = nodes.some(node => (
+      !nodeIpCandidates(node).some(ip => ipGeoMap.value.has(ip))
+      && nodeIpCandidates(node).some(ip => !seenIps.has(ip) && !failedIpAttempts.has(ip))
+    ))
+    if (hasUnusedFallback)
+      await resolveNodeCities(nodes)
   }
 
   function nodeClusterInfo(node: NodeData): { id: string, code: string, coord: [number, number], label: string, asn?: string, org?: string } | null {
     const countryCode = getCountryCodeFromRegion(node.region)
-    const ip = node.ipv4 || node.ipv6
-    const geo = ip ? ipGeoMap.value.get(ip) : undefined
+    const geo = nodeIpCandidates(node)
+      .map(ip => ipGeoMap.value.get(ip))
+      .find((candidate): candidate is IpGeo => Boolean(candidate))
 
     if (geo && Number.isFinite(geo.lat) && Number.isFinite(geo.lng)) {
       const code = (geo.countryCode || countryCode || '').toUpperCase()
@@ -117,6 +141,7 @@ export function useNodeGeoClusters(options: UseNodeGeoClustersOptions = {}) {
 
   const clusterSummary = computed<ClusterSummary>(() => {
     const clustersById = new Map<string, RegionCluster>()
+    const locationByNodeUuid = new Map<string, NodeGeoLocation>()
     let onlineServers = 0
 
     for (const node of displayNodes.value) {
@@ -126,6 +151,8 @@ export function useNodeGeoClusters(options: UseNodeGeoClustersOptions = {}) {
       const info = nodeClusterInfo(node)
       if (!info)
         continue
+
+      locationByNodeUuid.set(node.uuid, { uuid: node.uuid, clusterId: info.id, coord: info.coord })
 
       let cluster = clustersById.get(info.id)
       if (!cluster) {
@@ -144,12 +171,14 @@ export function useNodeGeoClusters(options: UseNodeGeoClustersOptions = {}) {
 
     return {
       clusters: Array.from(clustersById.values()).sort((a, b) => b.servers - a.servers),
+      locationByNodeUuid,
       totalServers: displayNodes.value.length,
       onlineServers,
     }
   })
 
   const regionClusters = computed<RegionCluster[]>(() => clusterSummary.value.clusters)
+  const locationByNodeUuid = computed(() => clusterSummary.value.locationByNodeUuid)
   const totalServers = computed(() => clusterSummary.value.totalServers)
   const onlineServers = computed(() => clusterSummary.value.onlineServers)
   const offlineServers = computed(() => totalServers.value - onlineServers.value)
@@ -159,7 +188,7 @@ export function useNodeGeoClusters(options: UseNodeGeoClustersOptions = {}) {
   }
 
   const nodeIpSignature = computed(() => displayNodes.value
-    .map(node => node.ipv4 || node.ipv6 || '')
+    .flatMap(nodeIpCandidates)
     .filter(Boolean)
     .join('|'))
 
@@ -170,6 +199,7 @@ export function useNodeGeoClusters(options: UseNodeGeoClustersOptions = {}) {
   return {
     displayNodes,
     regionClusters,
+    locationByNodeUuid,
     totalServers,
     onlineServers,
     offlineServers,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { COBEOptions, Globe, Marker } from 'cobe'
+import type { Arc, COBEOptions, Globe, Marker } from 'cobe'
 import type { ComponentPublicInstance } from 'vue'
 import type { NodeData } from '@/stores/nodes'
 import {
@@ -12,6 +12,7 @@ import createGlobe from 'cobe'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useNodeGeoClusters } from '@/composables/useNodeGeoClusters'
 import { useAppStore } from '@/stores/app'
+import { buildEarthArcs } from '@/utils/earthArcs'
 
 const props = defineProps<{
   nodes?: NodeData[]
@@ -78,12 +79,26 @@ function shouldKeepStaticRedraw(): boolean {
 }
 
 const {
+  displayNodes,
   regionClusters,
+  locationByNodeUuid,
   totalServers,
   onlineServers,
   offlineServers,
   clusterKey,
 } = useNodeGeoClusters({ nodes: () => props.nodes })
+
+const earthArcs = computed(() => buildEarthArcs(
+  appStore.earthArcMode,
+  regionClusters.value,
+  displayNodes.value,
+  locationByNodeUuid.value,
+))
+
+const arcs = computed<Arc[]>(() => earthArcs.value.map(arc => ({
+  from: arc.from,
+  to: arc.to,
+})))
 
 function markerId(code: string): string {
   return `cdn-${code.toLowerCase()}`
@@ -163,6 +178,7 @@ const themeColors = computed(() => {
       baseColor: [0.95, 0.95, 0.98] as [number, number, number],
       markerColor: [0.18, 0.78, 1.0] as [number, number, number],
       glowColor: [0.78, 0.90, 1.0] as [number, number, number],
+      arcColor: [0.22, 0.74, 0.98] as [number, number, number],
     }
   }
   return {
@@ -171,6 +187,7 @@ const themeColors = computed(() => {
     baseColor: [0.98, 0.98, 0.99] as [number, number, number],
     markerColor: [0.05, 0.35, 0.90] as [number, number, number],
     glowColor: [0.80, 0.90, 1.0] as [number, number, number],
+    arcColor: [0.03, 0.52, 0.78] as [number, number, number],
   }
 })
 
@@ -204,6 +221,10 @@ function buildInitialOptions(): COBEOptions {
     markerColor: colors.markerColor,
     glowColor: colors.glowColor,
     markers: markers.value,
+    arcs: arcs.value,
+    arcColor: colors.arcColor,
+    arcWidth: 0.8,
+    arcHeight: 0.4,
     markerElevation: 0,
 
   }
@@ -316,11 +337,14 @@ watch(
 )
 
 watch(
-  () => regionClusters.value.map(clusterKey).join(','),
+  [
+    () => regionClusters.value.map(clusterKey).join(','),
+    () => earthArcs.value.map(arc => `${arc.id}:${arc.from.join(',')}:${arc.to.join(',')}`).join('|'),
+  ],
   () => {
     if (!globe)
       return
-    globe.update({ markers: markers.value })
+    globe.update({ markers: markers.value, arcs: arcs.value })
     applyLabelStyles()
     if (!shouldAutoRotate.value)
       triggerStaticRedrawWindow(600)
@@ -366,7 +390,7 @@ function onPointerUp(e: PointerEvent) {
 </script>
 
 <template>
-  <div ref="containerRef" class="relative aspect-square w-full max-w-md mx-auto -translate-y-6 md:-translate-y-12">
+  <div ref="containerRef" :data-earth-arc-count="earthArcs.length" class="relative aspect-square w-full max-w-md mx-auto -translate-y-6 md:-translate-y-12">
     <canvas
       ref="canvasRef"
       class="earth-globe-canvas absolute inset-0 w-full h-full select-none touch-none cursor-grab active:cursor-grabbing"
