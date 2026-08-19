@@ -26,6 +26,12 @@ export interface VisualFixtureOptions {
   expiryThresholds?: boolean
   missingCpuMetricHistory?: boolean
   pingTaskOrdering?: boolean
+  noPingTasks?: boolean
+  multipleTelecomTasks?: boolean
+  earthArcMode?: 'auto' | 'upstream' | 'off'
+  upstreamTags?: boolean
+  missingGeoNode?: boolean
+  loggedIn?: boolean
   generalCardKeys?: string[]
 }
 
@@ -33,7 +39,7 @@ function uuidFor(index: number): string {
   return `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`
 }
 
-function buildClients(freePriceNode = false, expiryThresholds = false) {
+function buildClients(options: VisualFixtureOptions = {}) {
   return Object.fromEntries(Array.from({ length: 12 }, (_, index) => {
     const fixture = REGION_FIXTURES[index % REGION_FIXTURES.length]
     const uuid = uuidFor(index)
@@ -48,26 +54,28 @@ function buildClients(freePriceNode = false, expiryThresholds = false) {
       os: index % 2 === 0 ? 'Ubuntu 24.04.4 LTS' : 'Debian GNU/Linux 12',
       kernel_version: '6.8.0-visual-test',
       gpu_name: index === 3 ? 'NVIDIA A100 80GB PCIe' : '',
-      ipv4: `192.0.2.${index + 10}`,
-      ipv6: `2001:db8:abcd:${index + 1}::${index + 10}`,
-      region: fixture.code,
+      ipv4: options.missingGeoNode && index === 11 ? '' : `192.0.2.${index + 10}`,
+      ipv6: options.missingGeoNode && index === 11 ? '' : `2001:db8:abcd:${index + 1}::${index + 10}`,
+      region: options.missingGeoNode && index === 11 ? '' : fixture.code,
       public_remark: index === 1 ? '长备注用于验证文本换行与裁切' : '',
       mem_total: (index % 4 + 1) * GIB,
       swap_total: index % 3 === 0 ? 2 * GIB : 0,
       disk_total: (index % 3 + 1) * 40 * GIB,
       version: '1.2.6-visual',
       weight: index,
-      price: freePriceNode && index === 0 ? -1 : index === 5 ? 0 : 9.9 + index,
+      price: options.freePriceNode && index === 0 ? -1 : index === 5 ? 0 : 9.9 + index,
       billing_cycle: 365,
       auto_renewal: index % 2 === 0,
       currency: 'USD',
-      expired_at: expiryThresholds && index === 0
+      expired_at: options.expiryThresholds && index === 0
         ? '2026-07-30T12:00:00.000Z'
-        : expiryThresholds && index === 1
+        : options.expiryThresholds && index === 1
           ? '2026-08-04T12:00:00.000Z'
           : index === 6 ? '2026-08-02T00:00:00.000Z' : '2027-07-25T00:00:00.000Z',
       group: index < 6 ? '生产' : '测试,边缘',
-      tags: index % 2 === 0 ? 'core<jade>,visual<blue>' : 'edge<orange>',
+      tags: options.upstreamTags && index >= 1 && index <= 3
+        ? `upstream:${REGION_FIXTURES[index - 1]!.name}`
+        : index % 2 === 0 ? 'core<jade>,visual<blue>' : 'edge<orange>',
       hidden: false,
       traffic_limit: index === 6 ? 2 * TIB : 20 * TIB,
       traffic_limit_type: 'sum',
@@ -244,7 +252,15 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
         { id: 10, name: '浙江联通', interval: 60, loss: 0, weight: 1 },
         { id: 20, name: '浙江电信', interval: 60, loss: 0, weight: 2 },
       ]
-    : [{ id: 1, name: 'Tokyo', interval: 60, loss: 3.2, weight: 1 }]
+    : options.multipleTelecomTasks
+      ? [
+          { id: 10, name: '中国联通', interval: 60, loss: 0, weight: 0 },
+          { id: 20, name: '上海电信', interval: 60, loss: 0, weight: 1 },
+          { id: 21, name: '广州电信', interval: 60, loss: 0, weight: 2 },
+          { id: 22, name: '北京电信', interval: 60, loss: 0, weight: 3 },
+          { id: 30, name: '中国移动', interval: 60, loss: 0, weight: 4 },
+        ]
+      : options.noPingTasks ? [] : [{ id: 1, name: 'Tokyo', interval: 60, loss: 3.2, weight: 1 }]
   const metricPingTasks = options.pingTaskOrdering
     ? [pingTasks[2]!, pingTasks[0]!, pingTasks[1]!]
     : pingTasks
@@ -293,7 +309,7 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
       result = buildMetricResponse(payload.params ?? {}, options, pingTasks)
       break
     case 'public:getPingMetricStats':
-      result = options.pingTaskOrdering
+      result = options.pingTaskOrdering || options.multipleTelecomTasks
         ? {
             start: FIXED_NOW,
             end: FIXED_NOW,
@@ -321,7 +337,7 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
       result = Object.values(clientFixtures)
       break
     case 'public:getMe':
-      result = { logged_in: false }
+      result = { logged_in: options.loggedIn ?? false }
       break
     case 'public:getVersion':
     case 'common:getBackendVersion':
@@ -339,9 +355,7 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
 }
 
 export async function installKomariFixture(page: Page, options: VisualFixtureOptions = {}): Promise<void> {
-  const clientFixtures = options.freePriceNode || options.expiryThresholds
-    ? buildClients(options.freePriceNode, options.expiryThresholds)
-    : clients
+  const clientFixtures = Object.keys(options).length ? buildClients(options) : clients
   const settings = {
     themeMode: options.dark ? 'dark' : 'light',
     dataUpdateInterval: 60,
@@ -349,6 +363,7 @@ export async function installKomariFixture(page: Page, options: VisualFixtureOpt
     defaultViewMode: options.viewMode ?? 'card',
     nodeCardSize: options.nodeCardSize ?? 'compact',
     earthRenderer: options.earthRenderer ?? 'realistic',
+    earthArcMode: options.earthArcMode ?? 'auto',
     hideEarth: options.hideEarth ?? false,
     stopEarth: true,
     visitorInfoEnabled: true,
@@ -409,7 +424,7 @@ export async function installKomariFixture(page: Page, options: VisualFixtureOpt
   }))
   await page.route('**/api/me', route => route.fulfill({
     contentType: 'application/json',
-    body: JSON.stringify({ logged_in: false, username: 'visual-guest' }),
+    body: JSON.stringify({ logged_in: options.loggedIn ?? false, username: options.loggedIn ? 'visual-admin' : 'visual-guest' }),
   }))
   await page.route('**/api/version', route => route.fulfill({
     contentType: 'application/json',

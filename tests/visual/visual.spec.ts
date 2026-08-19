@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { matchChinaCarrier } from '../../src/utils/carrierPing'
 import { installKomariFixture } from './fixtures/komari'
 
 const STABLE_STYLE = `
@@ -34,6 +35,28 @@ async function expectNodePingBars(page: Page): Promise<void> {
     await expect.poll(() => bars.evaluate(element => element.getBoundingClientRect().width)).toBeGreaterThan(0)
   }
 }
+
+function firstNodeCard(page: Page) {
+  return page.getByRole('button', { name: '查看节点 主控-洛杉矶 详情' })
+}
+
+async function expectCarrierRows(page: Page): Promise<void> {
+  const card = firstNodeCard(page)
+  for (const carrier of ['unicom', 'telecom', 'mobile']) {
+    await expect(card.locator(`[data-carrier-ping="${carrier}-latency"]`)).toBeVisible()
+    await expect(card.locator(`[data-carrier-ping="${carrier}-loss"]`)).toBeVisible()
+  }
+}
+
+test('carrier matcher recognizes supported task-name aliases', () => {
+  for (const name of ['联通', 'China Unicom', 'Unicom', 'CUCC'])
+    expect(matchChinaCarrier(name)).toBe('unicom')
+  for (const name of ['电信', 'China Telecom', 'Telecom', 'CTCC', 'ChinaNet', 'CN2'])
+    expect(matchChinaCarrier(name)).toBe('telecom')
+  for (const name of ['移动', 'China Mobile', 'Mobile', 'CMCC', 'CMI', 'CMIN2'])
+    expect(matchChinaCarrier(name)).toBe('mobile')
+  expect(matchChinaCarrier('Tokyo')).toBeNull()
+})
 
 test('home light desktop', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 })
@@ -100,6 +123,116 @@ test('home mini card metric icons remain accessible', async ({ page }) => {
   await expect(card.locator('[data-node-metric-icon="traffic"]')).toBeVisible()
   await expect(card.getByRole('img', { name: 'CPU' })).toBeVisible()
   await expect(card.getByRole('img', { name: '内存' })).toBeVisible()
+})
+
+test('node card degrades cleanly with no ping tasks', async ({ page }) => {
+  const errors: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error')
+      errors.push(message.text())
+  })
+  page.on('pageerror', error => errors.push(error.message))
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await installKomariFixture(page, { noPingTasks: true, hideEarth: true })
+  await openStablePage(page)
+  await expectCarrierRows(page)
+  await expect(firstNodeCard(page).locator('[data-carrier-ping$="-latency"]')).toContainText([/联通\s*--/, /电信\s*--/, /移动\s*--/])
+  expect(errors).toEqual([])
+})
+
+test('node card degrades cleanly with one ordinary ping task', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await installKomariFixture(page, { hideEarth: true })
+  await openStablePage(page)
+  await expectCarrierRows(page)
+  await expect(firstNodeCard(page).locator('[data-carrier-ping$="-loss"]')).toContainText([/联通\s*--/, /电信\s*--/, /移动\s*--/])
+})
+
+test('node card renders all three carrier latency and loss groups', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await installKomariFixture(page, { pingTaskOrdering: true, hideEarth: true })
+  await openStablePage(page)
+  await expectCarrierRows(page)
+
+  const card = firstNodeCard(page)
+  for (const carrier of ['unicom', 'telecom', 'mobile']) {
+    await expect(card.locator(`[data-carrier-ping="${carrier}-latency"]`)).toContainText('ms')
+    await expect(card.locator(`[data-carrier-ping="${carrier}-loss"]`)).toContainText('%')
+  }
+})
+
+test('multiple telecom ping tasks aggregate into one carrier row', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await installKomariFixture(page, { multipleTelecomTasks: true, hideEarth: true })
+  await openStablePage(page)
+
+  const telecomLatency = firstNodeCard(page).locator('[data-carrier-ping="telecom-latency"]')
+  await expect(telecomLatency).toContainText('101 ms')
+  await expect(telecomLatency).toHaveAttribute('title', /上海电信 \/ 广州电信 \/ 北京电信/)
+})
+
+test('automatic earth arcs render without upstream tags', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await installKomariFixture(page, { earthRenderer: 'tiled', earthArcMode: 'auto' })
+  await openStablePage(page)
+
+  const earth = page.locator('[data-earth-arc-count]')
+  await expect.poll(async () => Number(await earth.getAttribute('data-earth-arc-count'))).toBeGreaterThan(0)
+  await expect(page.locator('[data-earth-arc]')).toHaveCount(Number(await earth.getAttribute('data-earth-arc-count')))
+})
+
+for (const renderer of ['realistic', 'cobe'] as const) {
+  test(`${renderer} globe receives automatic earth arcs`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await installKomariFixture(page, { earthRenderer: renderer, earthArcMode: 'auto' })
+    await openStablePage(page)
+    await expect.poll(async () => Number(await page.locator('[data-earth-arc-count]').getAttribute('data-earth-arc-count'))).toBeGreaterThan(0)
+  })
+}
+
+test('upstream earth arcs follow shared upstream tags', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await installKomariFixture(page, { earthRenderer: 'tiled', earthArcMode: 'upstream', upstreamTags: true })
+  await openStablePage(page)
+  await expect(page.locator('[data-earth-arc-count]')).toHaveAttribute('data-earth-arc-count', '3')
+  await expect(page.locator('[data-earth-arc]')).toHaveCount(3)
+})
+
+test('earth arc off mode keeps markers and removes arcs', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await installKomariFixture(page, { earthRenderer: 'tiled', earthArcMode: 'off' })
+  await openStablePage(page)
+  await expect(page.locator('[data-earth-arc-count]')).toHaveAttribute('data-earth-arc-count', '0')
+  await expect(page.locator('[data-earth-arc]')).toHaveCount(0)
+  await expect(page.locator('.city-dot').first()).toBeVisible()
+})
+
+test('missing node geo does not break automatic earth arcs', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await installKomariFixture(page, { earthRenderer: 'tiled', earthArcMode: 'auto', missingGeoNode: true })
+  await openStablePage(page)
+  await expect.poll(async () => Number(await page.locator('[data-earth-arc-count]').getAttribute('data-earth-arc-count'))).toBeGreaterThan(0)
+})
+
+test('carrier panels stay contained on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await installKomariFixture(page, { pingTaskOrdering: true, hideEarth: true })
+  await openStablePage(page)
+  await expectCarrierRows(page)
+  await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 390)
+})
+
+test('advanced ASN and shared upstream topology remain available', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await installKomariFixture(page, { loggedIn: true, upstreamTags: true, hideEarth: true })
+  await openStablePage(page)
+
+  await page.getByRole('button', { name: '显示首页工具' }).click()
+  await page.getByRole('button', { name: /拓扑/ }).click()
+  await expect(page.getByText('ASN / BGP 拓扑', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '标签上游视图' }).click()
+  await expect(page.getByText('标签上游拓扑', { exact: true })).toBeVisible()
+  await expect(page.getByText('还没有解析到 upstream 标签')).toHaveCount(0)
 })
 
 test('node card expiry uses red through 5 days and yellow through 10 days', async ({ page }) => {
