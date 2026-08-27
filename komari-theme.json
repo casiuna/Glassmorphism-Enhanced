@@ -1,10 +1,10 @@
 {
-  "name": "Komari Glassmorphism",
+  "name": "Glassmorphism Enhanced",
   "short": "Glassmorphism",
-  "description": "A Glassmorphism theme for Komari",
-  "version": "3.3.7",
+  "description": "Glassmorphism Enhanced with three-network latency/loss panels and automatic globe arcs",
+  "version": "3.3.7-enhanced.1",
   "author": "sanrokamlan",
-  "url": "https://github.com/sanrokamlan-prog/komari-theme-Glassmorphism",
+  "url": "https://github.com/casiuna/komari-theme-Glassmorphism-Enhanced",
   "preview": "preview.png",
   "configuration": {
     "type": "managed",

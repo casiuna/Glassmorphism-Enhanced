@@ -12,6 +12,15 @@
 
 ## 当前任务
 
+- 状态：release-ready，v3.3.7-enhanced.1 的本地发布整理、合规审计与完整验证已完成；远端 push、tag、Release 与资产核验由本次发布流程继续执行。
+- 目标：基于已合并 upstream v3.3.7 的 `cb4b1fa`，完成安全/许可证审计、增强版文档与 metadata、完整验证、标准 GitHub Fork/main/tag/Release/ZIP 发布。
+- 发布身份：GitHub repository `casiuna/komari-theme-Glassmorphism-Enhanced`；显示名 `Glassmorphism Enhanced`；内部 `short` 保持 `Glassmorphism`。
+- 安全边界：不 force push、不 push upstream、不操作 Komari/Krystal/生产环境；移除 Git 跟踪的 `.env` 但保留本地文件。
+- 许可证：Glassmorphism、three-network、Emerald 当前均为 MIT；根 LICENSE 原样保留，THIRD_PARTY 准确记录实质适配与算法参考边界。
+- 安全审计：未发现私钥、硬编码 token/API key、真实用户路径或被跟踪的 build cache/node_modules；upstream 跟踪的 `.env` 仅保留本地并从发布索引移除，`.gitignore` 已覆盖。
+- 验证：Bun 1.3.14 install 通过；`bun run type-check`、`bun run lint`、`bun run build` 通过；合并 v3.3.7 后完整 Playwright/视觉回归 33/33 通过。仅保留既有 globe chunk >600 kB 警告。
+- Fork：标准公开 Fork 已创建并安全重命名为 `casiuna/komari-theme-Glassmorphism-Enhanced`，GitHub `isFork=true` 且 parent 为 `sanrokamlan-prog/komari-theme-Glassmorphism`；origin/upstream 已按约定设置为 HTTPS。
+
 - 状态：done，本地 follow-up 已实现并完成回归；等待按最终提交 SHA 生成 ZIP，未 push。
 - 目标：2026-08-19 follow-up：未启用自定义背景时采用 three-network 的明暗翡翠网格背景；地球连线模式新增 `persistent` 常驻实线。
 - 边界：保留最新版自定义图片/视频加载与失败回退；`persistent` 复用自动连线拓扑和数量上限，只改变三种渲染器的线条呈现，不改变 upstream 语义。
