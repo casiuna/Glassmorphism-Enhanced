@@ -12,6 +12,40 @@
 
 ## 当前任务
 
+- 状态：release-ready，v3.3.7-enhanced.1 的本地发布整理、合规审计与完整验证已完成；远端 push、tag、Release 与资产核验由本次发布流程继续执行。
+- 目标：基于已合并 upstream v3.3.7 的 `cb4b1fa`，完成安全/许可证审计、增强版文档与 metadata、完整验证、标准 GitHub Fork/main/tag/Release/ZIP 发布。
+- 发布身份：GitHub repository `casiuna/komari-theme-Glassmorphism-Enhanced`；显示名 `Glassmorphism Enhanced`；内部 `short` 保持 `Glassmorphism`。
+- 安全边界：不 force push、不 push upstream、不操作 Komari/Krystal/生产环境；移除 Git 跟踪的 `.env` 但保留本地文件。
+- 许可证：Glassmorphism、three-network、Emerald 当前均为 MIT；根 LICENSE 原样保留，THIRD_PARTY 准确记录实质适配与算法参考边界。
+- 安全审计：未发现私钥、硬编码 token/API key、真实用户路径或被跟踪的 build cache/node_modules；upstream 跟踪的 `.env` 仅保留本地并从发布索引移除，`.gitignore` 已覆盖。
+- 验证：Bun 1.3.14 install 通过；`bun run type-check`、`bun run lint`、`bun run build` 通过；合并 v3.3.7 后完整 Playwright/视觉回归 33/33 通过。仅保留既有 globe chunk >600 kB 警告。
+- Fork：标准公开 Fork 已创建并安全重命名为 `casiuna/komari-theme-Glassmorphism-Enhanced`，GitHub `isFork=true` 且 parent 为 `sanrokamlan-prog/komari-theme-Glassmorphism`；origin/upstream 已按约定设置为 HTTPS。
+
+- 状态：done，本地 follow-up 已实现并完成回归；等待按最终提交 SHA 生成 ZIP，未 push。
+- 目标：2026-08-19 follow-up：未启用自定义背景时采用 three-network 的明暗翡翠网格背景；地球连线模式新增 `persistent` 常驻实线。
+- 边界：保留最新版自定义图片/视频加载与失败回退；`persistent` 复用自动连线拓扑和数量上限，只改变三种渲染器的线条呈现，不改变 upstream 语义。
+- 验证计划：亮暗背景 DOM/CSS、tiled 常驻实线、realistic/cobe 模式接入、完整 typecheck/lint/build/Playwright、最终 ZIP 结构与 SHA-256。
+- 实现：默认背景只摘取 three-network 的翡翠 spotlight、斜向网格 SVG 和 light/dark 样式，保留官方自定义背景加载/错误回退；`earthArcMode` 新增 `persistent`，复用 auto arcs，realistic 使用完整 dash 且停止 dash 动画，tiled 使用常驻实线，cobe 沿用其原生常驻 arc。
+- 验证：`bun run lint`、`bun run build`（含 type-check）和 `git diff --check` 通过；新增聚焦用例 5/5、完整 Playwright 32/32 通过；更新的两张暗色移动端视觉基线经人工查看，背景与卡片对比度正常。
+
+- 状态：done，本地 feature branch 已实现并验证，按最终提交 SHA 生成可导入 ZIP；未 push、未连接或修改 Komari Server/Agent。
+- 目标：以 v3.3.6 / `b353afb` 为唯一基底，语义移植 three-network 三网 Ping 面板，并增加 `auto | upstream | off` 地球连线模式。
+- 里程碑：M5 新功能 + M4 UI；不修改 Komari Server、Agent 或用户 Ping Task。
+- 范围：复用官方 Metric Store/legacy fallback 与请求生命周期；独立 carrier matcher/聚合；最新版 NodeCard 三网 UI；共享 upstream parser；realistic/cobe/tiled 统一限量 arcs；确定性回归和可导入 ZIP。
+- 来源快照：three-network `2f172e7`（manifest 2.4.0）；Emerald `1372043` / v1.0.10。Emerald 当前 arcs 为地区 cluster 到访客国家坐标的 hub-and-spoke，不是 upstream 或节点全连接。
+- 分支：`feat/three-network-earth-arcs`。
+- 不做：不覆盖旧 NodeCard/useNodePingStats，不引入后端依赖，不 push 远程，不改变高级标签/ASN-BGP 拓扑语义。
+
+### 2026-08-19 Three-network carrier ping + earth arcs
+
+- 三网实现保持官方 Ping/Metric Store 为唯一数据源：公开任务列表增加共享缓存，`useNodePingStats` 在现有请求结果上派生按任务统计，独立 carrier composable 完成任务名匹配、同运营商多任务聚合、历史色块和 tooltip；没有新增每节点 Ping 历史请求。
+- 运营商关键词覆盖联通/China Unicom/Unicom/CUCC，电信/China Telecom/Telecom/CTCC/ChinaNet/CN2，移动/China Mobile/Mobile/CMCC/CMI/CMIN2；没有匹配任务时三行安全显示 `--`。
+- upstream 标签解析已从高级拓扑面板提取为共享 util，保留 `upstream|parent|上游|父节点` 与 `:|=|：` 语义；高级标签拓扑和 ASN/BGP 工具继续使用同一逻辑。
+- 地球新增 `auto | upstream | off` 设置。自动模式采用确定性、限量 hub-and-spoke：仅取有效且去重的地理点，最多 25 个 cluster / 24 条 arc；upstream 模式仅在两端有合法坐标时生成 child -> upstream，最多 48 条；realistic、cobe 和 tiled 三种渲染器共用同一份 arc 数据。
+- Geo 解析继续以主题已有经纬度为准，并在首选地址解析失败时尝试同节点另一 IP 候选；不会仅因私网 IPv4 排除带公网 IPv6 或已有地区坐标的节点。
+- 验证通过：`bun install --frozen-lockfile`、`bun run type-check`、`bun run lint`、`bun run build`、`git diff --check`；完整 Playwright 27/27 通过，覆盖无任务、普通任务、三网、多电信任务、无 upstream 自动连线、upstream 三段链路、关闭模式、缺失 geo、移动端 containment、realistic/cobe/tiled 与高级 ASN/BGP/标签拓扑回归。
+- Windows 工具链：PowerShell 7.6.5（`C:\Program Files\PowerShell\7\pwsh.exe`），Bun 1.3.14；隔离环境没有全局 Node，验证命令显式把 Codex bundled Node 加入 PATH。
+
 - 状态：in-progress，本地修复与验证完成，正在发布 v3.3.5
 - 目标：修复详情页延迟任务卡片、图例和主页 Ping 指标线与 Komari 后台任务排序不一致的问题。
 - 里程碑：M4 UI/UX 兼容性修复，不修改后端任务权重或接口契约。

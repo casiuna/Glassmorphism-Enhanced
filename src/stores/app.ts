@@ -1,5 +1,6 @@
 import type { PermissionKey, VerifyLoginOptions } from '@/services/auth.service'
 import type { MeInfo, PublicSettings } from '@/utils/api'
+import type { EarthArcMode } from '@/utils/earthArcs'
 import type { ByteDecimalsConfig } from '@/utils/helper'
 import { useStorageAsync } from '@vueuse/core'
 import { defineStore } from 'pinia'
@@ -953,6 +954,10 @@ const useAppStore = defineStore('app', () => {
     return value === 'realistic' || value === 'cobe' || value === 'tiled'
   }
 
+  function isValidEarthArcMode(value: unknown): value is EarthArcMode {
+    return value === 'auto' || value === 'persistent' || value === 'upstream' || value === 'off'
+  }
+
   const nodeCardSize = computed<NodeCardSize>(() => {
     const settings = themeSettings.value
     if (isValidNodeCardSize(settings.nodeCardSize))
@@ -1009,6 +1014,11 @@ const useAppStore = defineStore('app', () => {
   const earthRenderer = computed<EarthRenderer>(() => {
     const value = themeSettings.value.earthRenderer
     return isValidEarthRenderer(value) ? value : 'realistic'
+  })
+
+  const earthArcMode = computed<EarthArcMode>(() => {
+    const value = themeSettings.value.earthArcMode
+    return isValidEarthArcMode(value) ? value : 'auto'
   })
 
   const hideEarth = computed<boolean>(() => readBooleanSetting(themeSettings.value, 'hideEarth', false))
@@ -1315,6 +1325,7 @@ const useAppStore = defineStore('app', () => {
     dataUpdateInterval,
     stopEarth,
     earthRenderer,
+    earthArcMode,
     hideEarth,
     hideGeneralCard,
     visitorInfoEnabled,

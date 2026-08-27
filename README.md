@@ -1,25 +1,91 @@
 <div align="center">
 
-# 🌌 Komari Glassmorphism
+# Glassmorphism Enhanced
 
-## 给 Komari Monitor 的一套「玻璃拟态 · 运维驾驶舱」主题
+## 基于 Komari Glassmorphism 的三网监控与地球连线增强 Fork
 
 从好看的监控首页，逐步成长为好用、可配置、适合长期运行的 Komari 主题。
 
-![Version](https://img.shields.io/github/v/release/sanrokamlan-prog/komari-theme-Glassmorphism?style=for-the-badge&label=release&color=10b981)
+![Version](https://img.shields.io/github/v/release/casiuna/komari-theme-Glassmorphism-Enhanced?style=for-the-badge&label=release&color=10b981)
 ![Vue](https://img.shields.io/badge/Vue-3-42b883?style=for-the-badge&logo=vue.js)
 ![Vite](https://img.shields.io/badge/Vite-7-646cff?style=for-the-badge&logo=vite)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8?style=for-the-badge&logo=tailwindcss)
 ![Bun](https://img.shields.io/badge/Bun-%3E%3D1.2-000000?style=for-the-badge&logo=bun)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
-**[📥 下载 Release](https://github.com/sanrokamlan-prog/komari-theme-Glassmorphism/releases)** ·
+**[📥 下载 Release](https://github.com/casiuna/komari-theme-Glassmorphism-Enhanced/releases)** ·
 **[🚀 安装](#-安装--升级)** ·
 **[✨ 功能](#-节点详情页全面升级)** ·
 **[⚙️ 设置](#️-主题设置)** ·
 **[🛠️ 开发](#️-本地开发)**
 
 </div>
+
+---
+
+## 项目说明
+
+这是基于 [Komari Glassmorphism](https://github.com/sanrokamlan-prog/komari-theme-Glassmorphism) 的增强 Fork。项目保留 upstream 的完整 Git 历史、MIT License、当前 Metric/Ping 数据链路、节点卡片、响应式布局、登录后高级工具和主题设置，并以小型 feature patch 增加三网监控与地球视觉连线。
+
+- **Based on:** Komari Glassmorphism
+- **Upstream:** <https://github.com/sanrokamlan-prog/komari-theme-Glassmorphism>
+- **Enhanced baseline:** Glassmorphism v3.3.7
+- **Release:** v3.3.7-enhanced.1
+
+第三方来源与代码使用边界见 [THIRD_PARTY.md](THIRD_PARTY.md)，增强版变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+
+## Screens / Features
+
+### Three-Network Monitoring
+
+节点卡片可同时显示中国联通、中国电信和中国移动的：
+
+- latency
+- packet loss
+- Ping history blocks
+- tooltip 与延迟/丢包颜色等级
+
+Ping Task 名称按以下关键词识别，不区分大小写：
+
+| 运营商   | 兼容关键词                                                    |
+| :------- | :------------------------------------------------------------ |
+| 中国联通 | `联通`、`China Unicom`、`Unicom`、`CUCC`                      |
+| 中国电信 | `电信`、`China Telecom`、`Telecom`、`CTCC`、`ChinaNet`、`CN2` |
+| 中国移动 | `移动`、`China Mobile`、`Mobile`、`CMCC`、`CMI`、`CMIN2`      |
+
+推荐直接创建名为 `中国联通`、`中国电信`、`中国移动` 的三个 Ping Task。一个运营商可以存在多个任务，例如 `上海电信`、`广州电信`、`北京电信`；增强版会先按任务统计，再将同运营商任务聚合到对应运营商行。没有匹配任务时安全显示 `--`，不会影响节点卡片其他内容。
+
+### Globe Arcs
+
+地球连线使用主题已经取得的合法节点 geo/lat/lon，不会仅因 IPv4 是私网地址排除仍有合法位置或公网 IPv6 的节点。自动模式不要求 upstream 标签，采用稳定、去重、限量的 hub-and-spoke 视觉连接，避免全节点两两相连和刷新后随机跳变。
+
+连线模式：
+
+- `Automatic (auto)`：稳定生成动态视觉 arcs。
+- `Persistent (persistent)`：使用相同自动拓扑绘制常驻实线。
+- `Upstream (upstream)`：根据 `upstream:NodeName` / `上游:NodeName` 绘制 child → upstream arcs。
+- `Off (off)`：保留节点 marker，不绘制 arcs。
+
+自动 arcs 只是视觉效果，**不代表真实网络路由或 BGP 路径**。
+
+### Topology
+
+以下三种能力彼此独立：
+
+```text
+Automatic Globe Arcs
+  ≠ upstream tag topology
+  ≠ ASN / BGP topology
+```
+
+原版高级工具及标签语义保持不变：
+
+```text
+upstream:NodeName
+上游:NodeName
+```
+
+标签上游拓扑和地球 upstream 模式复用同一解析逻辑；ASN/BGP 拓扑继续使用 Glassmorphism 原有实现。
 
 ---
 
@@ -35,14 +101,14 @@
 
 ## 🚀 项目定位
 
-| 项目     | 说明                                                      |
-| :------- | :-------------------------------------------------------- |
-| 当前版本 | **v3.3.7**                                                |
-| 主题定位 | Komari Monitor 可导入 zip 主题，不是普通 Web App 部署包   |
-| 视觉风格 | 毛玻璃卡片、动态背景、浅色 / 深色 / 北京时间自动日夜模式  |
-| 数据能力 | Metric Store 优先，旧接口自动 fallback，兼容 Komari 1.2.x |
-| 高级工具 | 拓扑、性价比、健康摘要、快照导出、访客安全审计            |
-| 发布产物 | `komari-theme-Glassmorphism-build-<short-sha>.zip`        |
+| 项目     | 说明                                                       |
+| :------- | :--------------------------------------------------------- |
+| 当前版本 | **v3.3.7-enhanced.1**                                      |
+| 主题定位 | Komari Monitor 可导入 zip 主题，不是普通 Web App 部署包    |
+| 视觉风格 | 毛玻璃卡片、动态背景、浅色 / 深色 / 北京时间自动日夜模式   |
+| 数据能力 | Metric Store 优先，旧接口自动 fallback，兼容 Komari 1.2.x  |
+| 高级工具 | 拓扑、性价比、健康摘要、快照导出、访客安全审计             |
+| 发布产物 | `komari-theme-Glassmorphism-enhanced-3.3.7-enhanced.1.zip` |
 
 > 好看只是外壳。v3 真正的重点，是把 Metric、Ping、流量、费用、健康分析和运维工具整合成日常真的会打开来看的监控面板。
 
@@ -456,13 +522,13 @@ API / RPC
 Komari 后台支持直接填写仓库地址并拉取最新 Release：
 
 ```text
-https://github.com/sanrokamlan-prog/komari-theme-Glassmorphism
+https://github.com/casiuna/komari-theme-Glassmorphism-Enhanced
 ```
 
 ### 方式二：手动安装 Release
 
-1. 打开 [Releases](https://github.com/sanrokamlan-prog/komari-theme-Glassmorphism/releases)
-2. 下载最新的 `komari-theme-Glassmorphism-build-*.zip`
+1. 打开 [Releases](https://github.com/casiuna/komari-theme-Glassmorphism-Enhanced/releases)
+2. 下载最新的 `komari-theme-Glassmorphism-enhanced-*.zip`
 3. 登录 Komari Monitor 后台，进入 **设置 → 主题管理**
 4. 上传 zip 并启用主题
 5. 在主题设置中调整视觉、卡片、快捷控制和高级工具
@@ -695,7 +761,7 @@ dist/
 
 </details>
 
-更多历史版本请查看 [Releases](https://github.com/sanrokamlan-prog/komari-theme-Glassmorphism/releases)。
+更多 upstream 历史版本请查看 [Komari Glassmorphism Releases](https://github.com/sanrokamlan-prog/komari-theme-Glassmorphism/releases)。增强版发布记录见本 Fork 的 [Releases](https://github.com/casiuna/komari-theme-Glassmorphism-Enhanced/releases)。
 
 ---
 

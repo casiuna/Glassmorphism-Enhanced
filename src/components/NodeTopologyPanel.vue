@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button'
 import { CardX } from '@/components/ui/card-x'
 import { useNodeProviderMetadata } from '@/composables/useNodeProviderMetadata'
 import { useAppStore } from '@/stores/app'
+import { buildNodeUpstreamRelations } from '@/utils/nodeTopology'
 import { getRegionDisplayName } from '@/utils/regionHelper'
-import { parseTags } from '@/utils/tagHelper'
 
 interface TopologyNodeView {
   node: NodeData
@@ -48,10 +48,7 @@ interface RootCauseGroup {
 const props = defineProps<{
   nodes: NodeData[]
 }>()
-const NORMALIZE_SPACE_REGEX = /\s+/g
 const ASN_CODE_REGEX = /AS\d+/i
-const UPSTREAM_PREFIXES = new Set(['upstream', 'parent', '上游', '父节点'])
-const UPSTREAM_SEPARATORS = [':', '=', '：'] as const
 
 const appStore = useAppStore()
 const activeMode = ref<'asn' | 'tags' | 'rootcause'>('asn')
@@ -63,10 +60,6 @@ const { metadataByUuid } = useNodeProviderMetadata({
   allowGeoLookup: () => appStore.privateFeaturesAllowed,
   geoPermission: 'nodeTopology',
 })
-
-function normalizeRef(value: string): string {
-  return value.trim().toLowerCase().replace(NORMALIZE_SPACE_REGEX, ' ')
-}
 
 function stripAsn(value: string | undefined): string {
   const match = value?.match(ASN_CODE_REGEX)
@@ -89,59 +82,17 @@ function getNodeProvider(node: NodeData): string {
   return metadataOf(node)?.provider?.displayName || '未知厂商'
 }
 
-function parseUpstreamRef(text: string): string {
-  const trimmed = text.trim()
-  const lower = trimmed.toLowerCase()
-
-  for (const separator of UPSTREAM_SEPARATORS) {
-    const separatorIndex = lower.indexOf(separator)
-    if (separatorIndex <= 0)
-      continue
-
-    const key = lower.slice(0, separatorIndex).trim()
-    if (!UPSTREAM_PREFIXES.has(key))
-      continue
-
-    return trimmed.slice(separatorIndex + separator.length).trim()
-  }
-
-  return ''
-}
-
-function getUpstreamRefs(node: NodeData): string[] {
-  return parseTags(node.tags)
-    .map(tag => parseUpstreamRef(tag.text))
-    .filter(Boolean)
-}
-
-const nodeLookup = computed(() => {
-  const map = new Map<string, NodeData>()
-  for (const node of props.nodes) {
-    map.set(normalizeRef(node.uuid), node)
-    map.set(normalizeRef(node.name), node)
-    if (node.remark)
-      map.set(normalizeRef(node.remark), node)
-    if (node.public_remark)
-      map.set(normalizeRef(node.public_remark), node)
-  }
-  return map
-})
-
-function resolveUpstream(refText: string): NodeData | undefined {
-  return nodeLookup.value.get(normalizeRef(refText))
-}
+const upstreamByChildUuid = computed(() => new Map(
+  buildNodeUpstreamRelations(props.nodes).map(relation => [relation.child.uuid, relation.upstream]),
+))
 
 const topologyNodes = computed<TopologyNodeView[]>(() => props.nodes.map((node) => {
-  const upstream = getUpstreamRefs(node)
-    .map(resolveUpstream)
-    .find((candidate): candidate is NodeData => Boolean(candidate && candidate.uuid !== node.uuid))
-
   return {
     node,
     asn: getNodeAsn(node),
     org: getNodeOrg(node),
     provider: getNodeProvider(node),
-    upstream,
+    upstream: upstreamByChildUuid.value.get(node.uuid),
   }
 }))
 

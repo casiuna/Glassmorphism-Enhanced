@@ -2,10 +2,13 @@
 import type { NodeData } from '@/stores/nodes'
 import { computed } from 'vue'
 import { useNodeGeoClusters } from '@/composables/useNodeGeoClusters'
+import { useAppStore } from '@/stores/app'
+import { buildEarthArcs } from '@/utils/earthArcs'
 
 const props = defineProps<{
   nodes?: NodeData[]
 }>()
+const appStore = useAppStore()
 
 const MAP_WIDTH = 1440
 const MAP_HEIGHT = 720
@@ -34,12 +37,27 @@ interface ClusterMarker {
   statusClass: string
 }
 
+interface MapArcPath {
+  id: string
+  path: string
+}
+
 const {
+  displayNodes,
   regionClusters,
+  locationByNodeUuid,
   totalServers,
   onlineServers,
   offlineServers,
 } = useNodeGeoClusters({ nodes: () => props.nodes })
+
+const earthArcs = computed(() => buildEarthArcs(
+  appStore.earthArcMode,
+  regionClusters.value,
+  displayNodes.value,
+  locationByNodeUuid.value,
+))
+const persistentEarthArcs = computed(() => appStore.earthArcMode === 'persistent')
 
 const legendDensityClass = computed(() => {
   const count = regionClusters.value.length
@@ -89,10 +107,21 @@ const clusterMarkers = computed<ClusterMarker[]>(() => regionClusters.value.map(
     statusClass: cluster.onlineServers > 0 ? 'is-online' : 'is-offline',
   }
 }))
+
+const arcPaths = computed<MapArcPath[]>(() => earthArcs.value.map((arc) => {
+  const from = projectCoord(arc.from)
+  const to = projectCoord(arc.to)
+  const controlX = (from.x + to.x) / 2
+  const controlY = Math.max(MAP_PADDING, (from.y + to.y) / 2 - Math.max(26, Math.abs(to.x - from.x) * 0.12))
+  return {
+    id: arc.id,
+    path: `M ${from.x.toFixed(1)} ${from.y.toFixed(1)} Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}`,
+  }
+}))
 </script>
 
 <template>
-  <div class="earth-map-scroll relative z-0 h-full w-full overflow-x-auto overflow-y-visible pointer-events-auto">
+  <div :data-earth-arc-count="earthArcs.length" :data-earth-arc-motion="persistentEarthArcs ? 'persistent' : 'dynamic'" class="earth-map-scroll relative z-0 h-full w-full overflow-x-auto overflow-y-visible pointer-events-auto">
     <div class="earth-map-shell relative mx-auto h-full w-full overflow-hidden rounded-[1.5rem] border border-white/35 bg-background/35 shadow-[0_24px_80px_rgb(15_23_42/0.18)] backdrop-blur-2xl dark:border-cyan-200/10 dark:bg-slate-950/35">
       <div class="earth-map relative h-full min-w-0 overflow-hidden">
         <svg class="map-svg absolute inset-0 size-full" :viewBox="`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`" preserveAspectRatio="xMidYMid meet" role="img" aria-label="真实地球贴图节点世界地图">
@@ -107,6 +136,16 @@ const clusterMarkers = computed<ClusterMarker[]>(() => regionClusters.value.map(
           <image :href="EARTH_BUMP_MAP" x="0" :y="-TEXTURE_SOURCE_Y" :width="MAP_WIDTH" :height="TEXTURE_FULL_HEIGHT" preserveAspectRatio="none" class="earth-image earth-image-bump" filter="url(#earth-relief)" />
           <image :href="EARTH_SPECULAR_MAP" x="0" :y="-TEXTURE_SOURCE_Y" :width="MAP_WIDTH" :height="TEXTURE_FULL_HEIGHT" preserveAspectRatio="none" class="earth-image earth-image-water" />
           <rect :width="MAP_WIDTH" :height="MAP_HEIGHT" class="earth-overlay" />
+
+          <g class="earth-arcs" :class="{ 'is-static': appStore.disablePageAnimation, 'is-persistent': persistentEarthArcs }">
+            <path
+              v-for="arc in arcPaths"
+              :key="arc.id"
+              :d="arc.path"
+              data-earth-arc
+              class="earth-arc"
+            />
+          </g>
 
           <g class="city-points">
             <template v-for="marker in clusterMarkers" :key="`${marker.id}-point`">
@@ -205,6 +244,41 @@ const clusterMarkers = computed<ClusterMarker[]>(() => regionClusters.value.map(
 .earth-overlay {
   fill: rgb(255 255 255 / 0.05);
   mix-blend-mode: soft-light;
+}
+
+.earth-arc {
+  fill: none;
+  stroke: rgb(14 165 233 / 0.72);
+  stroke-dasharray: 12 9;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+  vector-effect: non-scaling-stroke;
+  animation: earth-arc-flow 2.8s linear infinite;
+}
+
+:global(.dark .earth-arc) {
+  stroke: rgb(56 189 248 / 0.78);
+}
+
+.earth-arcs.is-static .earth-arc {
+  animation: none;
+}
+
+.earth-arcs.is-persistent .earth-arc {
+  stroke-dasharray: none;
+  animation: none;
+}
+
+@keyframes earth-arc-flow {
+  to {
+    stroke-dashoffset: -42;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .earth-arc {
+    animation: none;
+  }
 }
 
 :global(.dark .earth-image-base) {
