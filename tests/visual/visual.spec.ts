@@ -348,6 +348,35 @@ test('detail short history falls back when metric history omits CPU', async ({ p
   }
 })
 
+test('detail history keeps cumulative traffic counters on their last value', async ({ page }) => {
+  const historyCalls: Array<Record<string, unknown>> = []
+
+  page.on('request', (request) => {
+    if (!request.url().endsWith('/api/rpc2'))
+      return
+
+    const payload = request.postDataJSON() as { method?: string, params?: Record<string, unknown> } | null
+    const metricKeys = Array.isArray(payload?.params?.metric_keys) ? payload.params.metric_keys : []
+    if (payload?.method === 'public:queryMetrics' && metricKeys.includes('net.total.up'))
+      historyCalls.push(payload.params ?? {})
+  })
+
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await installKomariFixture(page)
+  await openStablePage(page, '/instance/00000000-0000-4000-8000-000000000001')
+
+  await page.locator('[data-load-chart-range]').getByRole('tab', { name: '1 天', exact: true }).click()
+  await expect.poll(() => historyCalls.length).toBeGreaterThan(0)
+
+  expect(historyCalls.at(-1)).toMatchObject({
+    aggregation: 'avg',
+    aggregation_by_metric: {
+      'net.total.up': 'last',
+      'net.total.down': 'last',
+    },
+  })
+})
+
 test('detail ping requests stay scoped to the current node', async ({ page }) => {
   const currentUuid = '00000000-0000-4000-8000-000000000001'
   const metricCalls: Array<{ method: string, params: Record<string, unknown> }> = []
