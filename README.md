@@ -184,7 +184,7 @@ git diff --check
 
 构建输出 `dist/` 和主题 ZIP。测试使用虚构节点及保留的示例地址，不连接生产主控；报告输出到 `playwright-report/` 和 `test-results/`。不要为了让测试变绿而直接覆盖截图基准，先检查差异原因。
 
-发布版本的唯一来源是 `komari-theme.json.version`，不要为 `package.json` 增加顶层 `version`。发布 tag 使用 `v<version>`，本轮对应 `v1.0.0`。发布与维护细节见 [独立版本发布说明](docs/enhanced-release.md)，开发架构和贡献规范见 [开发指南](AIAGENTREADME.md)。
+发布版本的唯一来源是 `komari-theme.json.version`，不要为 `package.json` 增加顶层 `version`。发布 tag 使用 `v<version>`，本轮对应 `v1.0.0`。发布与维护细节见 [独立版本发布说明](docs/releasing.md)，开发架构和贡献规范见 [开发指南](AIAGENTREADME.md)。
 
 ## Credits
 
