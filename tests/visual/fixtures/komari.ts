@@ -16,6 +16,13 @@ const REGION_FIXTURES = [
 ] as const
 
 export interface VisualFixtureOptions {
+  transit?: boolean
+  transitEnabled?: boolean
+  transitRules?: string
+  relayOffline?: boolean
+  transitMissingCarrier?: boolean
+  transitEmptyLink?: boolean
+  transitLegacy?: boolean
   dark?: boolean
   earthRenderer?: 'cobe' | 'realistic' | 'tiled'
   colorVisionFriendly?: boolean
@@ -45,7 +52,7 @@ function buildClients(options: VisualFixtureOptions = {}) {
     const uuid = uuidFor(index)
     return [uuid, {
       uuid,
-      name: index < REGION_FIXTURES.length ? fixture.name : `${fixture.name}-${index + 1}`,
+      name: options.transit && index < 4 ? ['TargetNode', 'RelayNode', 'TargetB', 'RelayOther'][index]! : index < REGION_FIXTURES.length ? fixture.name : `${fixture.name}-${index + 1}`,
       cpu_name: fixture.cpu,
       virtualization: index % 3 === 0 ? 'docker' : 'kvm',
       arch: index % 4 === 0 ? 'aarch64' : 'x86_64',
@@ -232,7 +239,9 @@ function buildMetricResponse(
         tags: task ? { task_id: String(task.id), task_name: task.name } : {},
         points: points.map(point => ({
           time: point.time,
-          value: metricValue(key, point.index) + (task?.id ?? 0),
+          value: options.transit && task
+            ? key === 'ping.loss' ? (task.id === 40 ? 2 : 1) : task.id === 40 ? 63 : 32 + (task.id - 10)
+            : metricValue(key, point.index) + (task?.id ?? 0),
         })),
       }))
     })
@@ -245,22 +254,29 @@ function jsonRpcResult(id: unknown, result: unknown) {
 
 async function handleRpc(route: Route, clientFixtures = clients, options: VisualFixtureOptions = {}): Promise<void> {
   const payload = route.request().postDataJSON() as { id: unknown, method: string, params?: Record<string, unknown> }
-  const uuid = typeof payload.params?.uuid === 'string' ? payload.params.uuid : uuidFor(0)
-  const pingTasks = options.pingTaskOrdering
+  const uuid = typeof payload.params?.uuid === 'string' ? payload.params.uuid : typeof payload.params?.entity_id === 'string' ? payload.params.entity_id : uuidFor(0)
+  const pingTasks = options.transit
     ? [
-        { id: 30, name: '浙江移动', interval: 60, loss: 0, weight: 0 },
-        { id: 10, name: '浙江联通', interval: 60, loss: 0, weight: 1 },
-        { id: 20, name: '浙江电信', interval: 60, loss: 0, weight: 2 },
-      ]
-    : options.multipleTelecomTasks
+        { id: 10, name: '中国联通', interval: 60, loss: 1, weight: 0 },
+        { id: 20, name: '中国电信', interval: 60, loss: 1, weight: 1 },
+        { id: 30, name: '中国移动', interval: 60, loss: 1, weight: 2 },
+        { id: 40, name: 'Relay-Target-v6', interval: 60, loss: 2, weight: 3 },
+      ].filter(task => !options.transitMissingCarrier || task.id !== 20)
+    : options.pingTaskOrdering
       ? [
-          { id: 10, name: '中国联通', interval: 60, loss: 0, weight: 0 },
-          { id: 20, name: '上海电信', interval: 60, loss: 0, weight: 1 },
-          { id: 21, name: '广州电信', interval: 60, loss: 0, weight: 2 },
-          { id: 22, name: '北京电信', interval: 60, loss: 0, weight: 3 },
-          { id: 30, name: '中国移动', interval: 60, loss: 0, weight: 4 },
+          { id: 30, name: '浙江移动', interval: 60, loss: 0, weight: 0 },
+          { id: 10, name: '浙江联通', interval: 60, loss: 0, weight: 1 },
+          { id: 20, name: '浙江电信', interval: 60, loss: 0, weight: 2 },
         ]
-      : options.noPingTasks ? [] : [{ id: 1, name: 'Tokyo', interval: 60, loss: 3.2, weight: 1 }]
+      : options.multipleTelecomTasks
+        ? [
+            { id: 10, name: '中国联通', interval: 60, loss: 0, weight: 0 },
+            { id: 20, name: '上海电信', interval: 60, loss: 0, weight: 1 },
+            { id: 21, name: '广州电信', interval: 60, loss: 0, weight: 2 },
+            { id: 22, name: '北京电信', interval: 60, loss: 0, weight: 3 },
+            { id: 30, name: '中国移动', interval: 60, loss: 0, weight: 4 },
+          ]
+        : options.noPingTasks ? [] : [{ id: 1, name: 'Tokyo', interval: 60, loss: 3.2, weight: 1 }]
   const metricPingTasks = options.pingTaskOrdering
     ? [pingTasks[2]!, pingTasks[0]!, pingTasks[1]!]
     : pingTasks
@@ -268,7 +284,7 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
     task_id: task.id,
     client: uuid,
     time: new Date(Date.parse(FIXED_NOW) - (47 - index) * 75_000).toISOString(),
-    value: index % 17 === 0 ? -1 : 76 + index + task.id,
+    value: options.transit ? task.id === 40 ? 63 : 32 + (task.id - 10) : index % 17 === 0 ? -1 : 76 + index + task.id,
   })))
   let result: unknown
 
@@ -280,7 +296,7 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
       result = clientFixtures
       break
     case 'common:getNodesLatestStatus':
-      result = statuses
+      result = options.relayOffline ? { ...statuses, [uuidFor(1)]: { ...statuses[uuidFor(1)], online: false } } : statuses
       break
     case 'common:getNodeRecentStatus':
       result = { count: 48, records: buildRecords(uuid) }
@@ -306,15 +322,15 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
       result = METRIC_KEYS.map(name => ({ name, description: name, type: 'gauge', retention_days: 30 }))
       break
     case 'public:queryMetrics':
-      result = buildMetricResponse(payload.params ?? {}, options, pingTasks)
+      result = buildMetricResponse(payload.params ?? {}, options, options.transitLegacy ? [] : pingTasks.filter(task => !options.transitEmptyLink || task.id !== 40))
       break
     case 'public:getPingMetricStats':
-      result = options.pingTaskOrdering || options.multipleTelecomTasks
+      result = !options.transitLegacy && (options.transit || options.pingTaskOrdering || options.multipleTelecomTasks)
         ? {
             start: FIXED_NOW,
             end: FIXED_NOW,
             interval_seconds: 60,
-            stats: metricPingTasks.map(task => ({
+            stats: metricPingTasks.filter(task => !options.transitEmptyLink || task.id !== 40).map(task => ({
               entity_id: uuid,
               task_id: String(task.id),
               name: task.name,
@@ -322,11 +338,11 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
               tags: { task_id: String(task.id), task_name: task.name },
               total: 48,
               valid: 48,
-              loss: 0,
+              loss: options.transit ? task.loss : 0,
               loss_approximate: false,
               min: 40 + task.id,
               max: 120 + task.id,
-              avg: 80 + task.id,
+              avg: options.transit ? task.id === 40 ? 63 : 32 + (task.id - 10) : 80 + task.id,
               latest: 90 + task.id,
             })),
             count: metricPingTasks.length,
@@ -357,6 +373,8 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
 export async function installKomariFixture(page: Page, options: VisualFixtureOptions = {}): Promise<void> {
   const clientFixtures = Object.keys(options).length ? buildClients(options) : clients
   const settings = {
+    transitCarrierPingEnabled: options.transitEnabled ?? options.transit ?? false,
+    transitCarrierPingRules: options.transitRules ?? (options.transit ? 'TargetNode|RelayNode|Relay-Target-v6\nTargetB|RelayNode|Relay-Target-v6' : ''),
     themeMode: options.dark ? 'dark' : 'light',
     dataUpdateInterval: 60,
     rpcTransportMode: 'http',

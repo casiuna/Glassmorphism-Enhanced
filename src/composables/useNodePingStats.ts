@@ -49,6 +49,7 @@ function normalizeMaxCount(maxCount: number | null | undefined): number | undefi
 }
 
 interface SharedPingRecordsState {
+  knownTaskNames?: string[]
   recordsByClient: Map<string, PingRecord[]>
   tasks: PingTaskInfo[]
   source: 'metric' | 'legacy'
@@ -396,6 +397,7 @@ async function loadPingMetricRecords(nodeUuid: string, hours: number, maxCount?:
   return {
     recordsByClient,
     tasks: orderPingTasksByBackend([...taskMap.values()], backendTasks),
+    knownTaskNames: backendTasks.map(task => task.name.trim()),
     source: 'metric',
     metricStats: stats,
     metricLossPoints,
@@ -867,6 +869,13 @@ export function useNodePingStats(
   return {
     stats,
     taskStats,
+    knownTaskNames: computed(() => {
+      const { uuid: nodeUuid, hours, maxCount, enabled } = resolved.value
+      if (!enabled || !nodeUuid.trim())
+        return []
+      const state = getSharedPingRecordsEntry(hours, maxCount, nodeUuid).data.value
+      return state?.knownTaskNames ?? state?.tasks.map(task => task.name.trim()) ?? []
+    }),
     loading,
     error,
     history: computed(() => stats.value.history),

@@ -12,6 +12,24 @@
 
 ## 当前任务
 
+### Transit Carrier Ping / independent 1.0.0
+
+- 状态：in-progress；M5 通用中转三网估算、M4 展示、M6 README/版本/测试/ZIP，以及仓库 rename 与身份分层。
+- 当前 branch：`feat/transit-carrier-ping`，基线 `09816bf6332ed847f2f04b153655f8918032ba94`；未在 main 开发。
+- 用户已完成 rename；认证 API 读回确认 `casiuna/Glassmorphism-Enhanced`，parent 保持 `sanrokamlan-prog/komari-theme-Glassmorphism`。
+- origin 已改新仓库 SSH；upstream 使用已核实 parent HTTPS，已 fetch 两者，不合并新 upstream。
+- CLI SSH 成功认证为 casiuna，fingerprint 与任务书一致，keypair 未修改。GitHub API credential configured；Fine-grained PAT，权限按用户配置为 Metadata Read / Contents Read-Write / Pull requests Read-Write / Actions Read。仓库角色不是 token scope 证明，实际端点另行验证。
+- 版本策略以用户最新决定为准：manifest `1.0.0`，以后使用独立 SemVer，不再使用 enhanced 后缀；旧 tag/Release 保留。Upstream base: Glassmorphism v3.3.7。
+- 纯 parser/RTT/loss/history 放 utils，app store 归一化，source composable 选择唯一 direct/relay UUID，NodeCard 不解析设置。共享 task catalog 仅用于区分不存在任务与无数据，不新增请求。
+- 本地验证：`bun run lint`、`bun run type-check`、`bun run build`、`bun run test:visual`、`git diff --check` 全部通过；完整 Playwright 49/49（原 33 + 新增 16），原视觉快照未更新。桌面与移动测试确认两个目标共用 relay 时仅 1 次 relay queryMetrics + 1 次 relay stats，全局 tasks 请求 1 次；动态关闭/删除规则/relay 离线与恢复、多 relay 独立性通过。
+- README 按 UTF-8 字节精简至原文 30.4%；当前版本与发布文档统一为 1.0.0。新旧地址只在上轮历史日志保留，不机械改写历史。
+- 安全检查：Git 跟踪与待添加文件中未发现生产节点名、PAT 模式、私钥头；实际 API credential 字节扫描通过，没有回显凭据。API Contents/PR/Actions/Release 读取端点均 HTTP 200。
+- 构建仅保留既有 globe chunk >600 kB 警告；待最终提交后重建同 SHA ZIP、校验 manifest/顶层与 SHA-256，再 push feature branch 并创建/读回 PR。最终远端 CI 与产物信息补充于 PR，避免为了填写自身 SHA 引入循环提交。
+- 发布边界：feature branch/PR review only；不 push main、不 merge、不 tag、不 Release；未修改 Server/Agent。
+- 真实生产验收尚未进行，不能将虚构 fixture 测试作为生产通过证据。
+
+### 上轮发布记录
+
 - 状态：release-ready，v3.3.7-enhanced.1 的本地发布整理、合规审计与完整验证已完成；远端 push、tag、Release 与资产核验由本次发布流程继续执行。
 - 目标：基于已合并 upstream v3.3.7 的 `cb4b1fa`，完成安全/许可证审计、增强版文档与 metadata、完整验证、标准 GitHub Fork/main/tag/Release/ZIP 发布。
 - 发布身份：GitHub repository `casiuna/komari-theme-Glassmorphism-Enhanced`；显示名 `Glassmorphism Enhanced`；内部 `short` 保持 `Glassmorphism`。

@@ -1,6 +1,13 @@
 # AGENTS.md
 
-Root-scope guide for AI agents working in `komari-theme-Glassmorphism`.
+Root-scope guide for **Glassmorphism Enhanced** (`casiuna/Glassmorphism-Enhanced`).
+
+Independent SemVer starts at **1.0.0** (`v1.0.0` tag/Release when approved).
+Bugfix: 1.0.x; compatible features: 1.x.0; breaking changes: 2.0.0.
+Never use `-enhanced.x` again or copy upstream's version into our manifest.
+Upstream base: Glassmorphism v3.3.7. Historical tags/releases remain intact.
+See [docs/releasing.md](docs/releasing.md); this task stops at Ready for review,
+without pushing main, creating a tag/Release, or merging the PR.
 
 For the complete AI/developer manual, read [AIAGENTREADME.md](AIAGENTREADME.md). For persistent task handoff and progress tracking, read and update [AICACHE.md](AICACHE.md).
 
@@ -48,7 +55,7 @@ bun run build
 bun run preview
 ```
 
-There is no test suite. Do not invent `bun test` / Vitest commands.
+Playwright tests exist: run `bun run test:visual` (includes deterministic transit tests and visual regression). Also run `bun run type-check`. Do not invent `bun test` / Vitest commands.
 
 ## Root map
 

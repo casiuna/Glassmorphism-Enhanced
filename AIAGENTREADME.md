@@ -17,7 +17,11 @@
 
 ## 1. 项目是什么
 
-**Komari Glassmorphism** 是一个 Komari Monitor 主题，使用 Vue 3 + Vite 构建。它的发布产物是 Komari 可以导入的 zip 包，不是普通 Web App 部署包。
+**Glassmorphism Enhanced** 是独立维护的 Komari Monitor 主题，仓库为 https://github.com/casiuna/Glassmorphism-Enhanced 。使用 Vue 3 + Vite 构建，发布产物是 Komari 可以导入的 ZIP，不是普通 Web App 部署包。
+
+独立 SemVer 从 **1.0.0** 开始，对应获准发布后的 `v1.0.0`。修复使用 `1.0.x`，兼容新功能使用 `1.x.0`，破坏性变更使用 `2.0.0`；不再使用 `-enhanced.x`，不跟随 upstream 版本。Upstream base: Glassmorphism v3.3.7，仅作为来源记录。旧 tag/Release 保留。发布边界见 [docs/releasing.md](docs/releasing.md)。
+
+Transit Carrier Ping 遵循 Component → Composable → shared Ping source：store 归一化规则，`transitCarrierPing.ts` 纯函数派生，`useNodeCarrierPingSource` 仅选择一个 direct/relay source，沿用 `useNodeCarrierPingDisplay`。配置默认关闭；不得增加生产名称/地址或第二套请求链。确定性与 UI 测试位于 `tests/visual/transit.spec.ts`，使用现有 Playwright 体系。
 
 关键事实：
 
@@ -61,7 +65,7 @@ bun run preview   # 预览 production build
 bun run lint      # eslint --fix --cache
 ```
 
-当前没有测试套件。验证源码变更通常只跑：
+当前有 Playwright 确定性测试与视觉回归套件。验证源码变更至少运行 `bun run type-check`、`bun run test:visual`，并执行：
 
 ```bash
 bun run lint

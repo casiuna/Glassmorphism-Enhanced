@@ -1,6 +1,7 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { NodePingTaskStatsState } from '@/composables/useNodePingStats'
 import type { ChinaCarrierKey } from '@/utils/carrierPing'
+import type { TransitCarrierEstimate } from '@/utils/transitCarrierPing'
 import { computed } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { aggregateChinaCarrierPingStats } from '@/utils/carrierPing'
@@ -100,9 +101,10 @@ function buildEmptyBars(carrierKey: ChinaCarrierKey, metric: 'latency' | 'loss',
 export function useNodeCarrierPingDisplay(
   source: NodePingTaskStatsSource,
   pingStatsEnabled: ComputedRef<boolean>,
+  transit?: ComputedRef<{ relay: string, task: string, reason: string, carriers: TransitCarrierEstimate[] } | undefined>,
 ) {
   const appStore = useAppStore()
-  const carrierStats = computed(() => aggregateChinaCarrierPingStats(source.taskStats.value))
+  const carrierStats = computed(() => transit?.value?.carriers ?? aggregateChinaCarrierPingStats(source.taskStats.value))
 
   const carrierDisplays = computed<CarrierPingDisplay[]>(() => carrierStats.value.map((carrier) => {
     const label = appStore.lang === 'zh-CN' ? carrier.labelZh : carrier.labelEn
@@ -140,17 +142,23 @@ export function useNodeCarrierPingDisplay(
       ? `${taskHint}\n${appStore.lang === 'zh-CN' ? '平均丢包' : 'Average loss'} ${carrier.stats.avgLoss.toFixed(1)}%${volatility}`
       : taskHint
 
+    const estimate = transit?.value
+    const segment = estimate?.carriers.find(item => item.key === carrier.key)
+    const transitHint = estimate
+      ? `中转：${estimate.relay}\n链路任务：${estimate.task}\n${estimate.reason || `三网段：${segment?.carrierLatency == null ? '--' : Math.round(segment.carrierLatency)} ms\n中转段：${segment?.linkLatency == null ? '--' : Math.round(segment.linkLatency)} ms\n估算 RTT：${carrier.hasLatency ? `${Math.round(carrier.stats.avgLatency)} ms` : '--'}`}`
+      : ''
+
     return {
       key: carrier.key,
       label,
       dotClass: CARRIER_DOT_CLASSES[carrier.key],
       taskNames: carrier.taskNames,
-      latencyDisplay,
-      lossDisplay,
-      latencyBars,
-      lossBars,
-      latencyTooltip,
-      lossTooltip,
+      latencyDisplay: estimate ? (carrier.hasLatency ? `≈${latencyDisplay}` : '--') : latencyDisplay,
+      lossDisplay: estimate ? (carrier.stats.hasData ? `≈${lossDisplay}` : '--') : lossDisplay,
+      latencyBars: estimate ? latencyBars.map(bar => ({ ...bar, tooltip: `${transitHint}\n估算历史\n${bar.tooltip}` })) : latencyBars,
+      lossBars: estimate ? lossBars.map(bar => ({ ...bar, tooltip: `${transitHint}\n估算历史\n${bar.tooltip}` })) : lossBars,
+      latencyTooltip: estimate ? transitHint : latencyTooltip,
+      lossTooltip: estimate ? `${transitHint}\n估算丢包：${carrier.stats.hasData ? `${carrier.stats.avgLoss.toFixed(1)}%` : '--'}` : lossTooltip,
     }
   }))
 
