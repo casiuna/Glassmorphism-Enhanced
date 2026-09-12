@@ -7,6 +7,8 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { getAuthSession, requirePermission, setAuthSessionFromLogin, verifyLogin } from '@/services/auth.service'
 
+import { parseTransitCarrierPingRules } from '@/utils/transitCarrierPing'
+
 export type ThemeMode = 'auto' | 'light' | 'dark'
 export type ManagedThemeMode = 'beijing' | 'light' | 'dark'
 export type GeneralCardKey
@@ -913,6 +915,8 @@ const useAppStore = defineStore('app', () => {
   }
 
   const themeSettings = computed(() => normalizeThemeSettings(publicSettings.value?.theme_settings))
+  const transitCarrierPingEnabled = computed(() => readBooleanSetting(themeSettings.value, 'transitCarrierPingEnabled', false))
+  const transitCarrierPingRules = computed(() => parseTransitCarrierPingRules(themeSettings.value.transitCarrierPingRules))
   const visitorAuditSupported = computed(() => typeof publicSettings.value?.visitor_audit_enabled === 'boolean')
   const visitorAuditEnabled = computed(() => publicSettings.value?.visitor_audit_enabled === true)
 
@@ -1339,6 +1343,8 @@ const useAppStore = defineStore('app', () => {
     colorVisionFriendly,
     visitorAuditSupported,
     visitorAuditEnabled,
+    transitCarrierPingEnabled,
+    transitCarrierPingRules,
     homeQuickControlsEnabled,
     homeQuickControlOrder,
     nodeListMetadataEnabled,

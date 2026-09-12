@@ -2,9 +2,9 @@
   "name": "Glassmorphism Enhanced",
   "short": "Glassmorphism",
   "description": "Glassmorphism Enhanced with three-network latency/loss panels and automatic globe arcs",
-  "version": "3.3.7-enhanced.1",
-  "author": "sanrokamlan",
-  "url": "https://github.com/casiuna/komari-theme-Glassmorphism-Enhanced",
+  "version": "1.0.0",
+  "author": "casiuna",
+  "url": "https://github.com/casiuna/Glassmorphism-Enhanced",
   "preview": "preview.png",
   "configuration": {
     "type": "managed",
@@ -67,7 +67,11 @@
       { "key": "chartDashboardPreset", "name": "详情负载图方案", "type": "select", "default": "默认", "options": "默认,精简,资源,网络,GPU,延迟,运维,完整,自定义", "help": "资源、网络、GPU、延迟和运维按指标族组合；完整覆盖官方 25 个指标。自定义读取下方 keys。" },
       { "key": "chartDashboardTemplate", "name": "自定义详情图表 keys", "type": "richtext", "default": "cpu\nmemory\ndisk\nnetwork\ngpu\nconnections\nprocess", "help": "逗号、空格或换行分隔。 cpu=CPU/负载； memory=RAM/Swap及总量； disk=磁盘/总量； network=实时上下行； traffic=累计与周期流量； gpu=GPU/设备利用率； gpuMemory=GPU显存/总量； temperature=系统/GPU温度； connections=TCP/UDP； process=进程； ping=Ping延迟； pingLoss=Ping丢包。旧 JSON 仍兼容。" },
 
-      { "name": "08 · 自定义背景", "type": "title" },
+      { "name": "08 · 三网与中转延迟", "type": "title" },
+      { "key": "transitCarrierPingEnabled", "name": "启用中转三网延迟估算", "type": "switch", "default": false, "help": "开启后，仅对中转规则中匹配的节点使用中转三网估算；其他节点继续使用自身 Ping 数据。" },
+      { "key": "transitCarrierPingRules", "name": "中转规则", "type": "richtext", "default": "", "help": "每行：目标节点|中转节点|链路任务名，例如 TargetNode|RelayNode|Relay-Target-v6。名称精确匹配且应唯一；忽略空行、# 注释和无效行，同一目标最后一条有效规则生效。不支持自中转。" },
+
+      { "name": "09 · 自定义背景", "type": "title" },
       { "key": "backgroundEnabled", "name": "启用自定义背景", "type": "switch", "default": false, "help": "启用后可设置自定义图片或视频作为页面背景" },
       { "key": "backgroundType", "name": "背景类型", "type": "select", "default": "image", "options": "image,video", "help": "image=图片； video=视频。" },
       { "key": "lightBackgroundUrl", "name": "亮色模式背景地址", "type": "string", "default": "", "help": "支持 http(s) URL、站内 / 路径；持久本地文件放在 data/theme/user-assets/ 后填写 local:文件名。" },

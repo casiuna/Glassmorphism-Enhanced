@@ -8,6 +8,7 @@ Glassmorphism Enhanced is an enhanced fork, not a clean-room or wholly original 
 - Role: main upstream and complete code base
 - License: MIT
 - Copyright notice: Copyright (c) 2025 Tony Liu (tonyliuzj, tony-liu.com)
+- Upstream maintainer attribution: sanrokamlan
 
 The complete upstream history, copyright notice, and MIT license remain in this repository. Glassmorphism v3.3.7 (`bf8376587c720de915ac48789a8a180357c762d6`) is the release baseline for v3.3.7-enhanced.1.
 

@@ -6,8 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { CardX } from '@/components/ui/card-x'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import { ProgressThin } from '@/components/ui/progress-thin'
-import { useNodeCarrierPingDisplay } from '@/composables/useNodeCarrierPingDisplay'
-import { useNodePingDisplay } from '@/composables/useNodePingDisplay'
+import { useNodeCarrierPingSource } from '@/composables/useNodeCarrierPingSource'
 import { useAppStore } from '@/stores/app'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, getStatus, getUptimeDays } from '@/utils/helper'
 import { getDiskPercentage, getMemoryPercentage, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
@@ -90,12 +89,7 @@ const swapTooltip = computed(() => {
 const diskPercentage = computed(() => getDiskPercentage(props.node))
 const diskStatus = computed(() => getStatus(diskPercentage.value))
 
-const pingDisplay = useNodePingDisplay(() => props.node.uuid, { enabled: () => props.pingEnabled })
-const {
-  pingStats,
-  pingStatsEnabled,
-} = pingDisplay
-const { carrierDisplays } = useNodeCarrierPingDisplay(pingStats, pingStatsEnabled)
+const { carrierDisplays, isTransit } = useNodeCarrierPingSource(() => props.node, () => props.pingEnabled)
 
 const trafficUsedPercentage = computed(() => getTrafficUsedPercentage(props.node))
 const trafficUsed = computed(() => getTrafficUsed(props.node))
@@ -465,7 +459,7 @@ function hasRegion(region: string | null | undefined): boolean {
           >
             <div class="flex items-center justify-between text-[11px] leading-none">
               <span class="text-muted-foreground">延迟</span>
-              <span class="text-[10px] text-muted-foreground/70">三网</span>
+              <span class="text-[10px] text-muted-foreground/70">{{ isTransit ? (appStore.lang === 'zh-CN' ? '中转估算' : 'Transit estimate') : '三网' }}</span>
             </div>
 
             <div class="grid min-h-0 flex-1 grid-rows-3 gap-1">
@@ -511,7 +505,7 @@ function hasRegion(region: string | null | undefined): boolean {
           >
             <div class="flex items-center justify-between text-[11px] leading-none">
               <span class="text-muted-foreground">丢包</span>
-              <span class="text-[10px] text-muted-foreground/70">三网</span>
+              <span class="text-[10px] text-muted-foreground/70">{{ isTransit ? (appStore.lang === 'zh-CN' ? '中转估算' : 'Transit estimate') : '三网' }}</span>
             </div>
 
             <div class="grid min-h-0 flex-1 grid-rows-3 gap-1">
