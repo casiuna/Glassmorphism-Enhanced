@@ -66,7 +66,7 @@ function card(page: Page, name = 'TargetNode') {
   return page.getByRole('button', { name: `查看节点 ${name} 详情`, exact: true })
 }
 
-async function updateLiveState(page: Page, change: { enabled?: boolean, rules?: string, online?: boolean }) {
+async function updateLiveState(page: Page, change: { enabled?: boolean, rules?: string, online?: boolean, lang?: 'zh-CN' | 'en-US' }) {
   await page.evaluate((change) => {
     interface TestStore {
       publicSettings: { theme_settings: Record<string, unknown> }
@@ -83,6 +83,8 @@ async function updateLiveState(page: Page, change: { enabled?: boolean, rules?: 
       settings.transitCarrierPingRules = change.rules
     if (change.online !== undefined)
       stores.get('nodes')!.nodes.find(node => node.name === 'RelayNode')!.online = change.online
+    if (change.lang !== undefined)
+      (stores.get('app') as TestStore & { lang: 'zh-CN' | 'en-US' }).lang = change.lang
   }, change)
 }
 
@@ -118,6 +120,30 @@ test('transit targets independently select multiple relays', async ({ page }) =>
   await updateLiveState(page, { online: false })
   await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /中转节点离线/)
   await expect(card(page, 'TargetB').locator('[data-carrier-ping="unicom-latency"]')).toContainText('≈95 ms')
+})
+
+test('transit localizes new labels and tooltip fields in English', async ({ page }) => {
+  await installKomariFixture(page, { transit: true, hideEarth: true })
+  await page.goto('/')
+  await updateLiveState(page, { lang: 'en-US' })
+  await expect(card(page).getByText('Transit estimate', { exact: true })).toHaveCount(2)
+  await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /Relay: RelayNode[\s\S]*Link task: Relay-Target-v6[\s\S]*Carrier segment: 32 ms[\s\S]*Relay segment: 63 ms[\s\S]*Estimated RTT: 95 ms/)
+  await expect(card(page).locator('[data-carrier-ping="unicom-loss"]')).toHaveAttribute('title', /Estimated loss: 3\.0%/)
+  await updateLiveState(page, { rules: 'TargetNode|AbsentRelay|Missing-link' })
+  await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /Configured relay node not found/)
+  await updateLiveState(page, { rules: 'TargetNode|RelayNode|Missing-link' })
+  await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /Relay link Ping task not found/)
+  await updateLiveState(page, { online: false })
+  await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /Relay node is offline/)
+})
+
+test('public transit never resolves a hidden relay', async ({ page }) => {
+  await installKomariFixture(page, { transit: true, hiddenRelay: true, hideEarth: true })
+  await page.goto('/')
+  const row = card(page).locator('[data-carrier-ping="unicom-latency"]')
+  await expect(row).toContainText('--')
+  await expect(row).toHaveAttribute('title', /未找到配置的中转节点/)
+  await expect(card(page)).not.toContainText('≈')
 })
 
 for (const width of [1280, 390]) {

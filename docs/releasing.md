@@ -17,7 +17,7 @@ The independent version line begins at **1.0.0**, with Git tag / GitHub Release 
 
 The transit feature task stops at **Ready for review**: feature branch and PR only. Do not push main, force push, merge, create tags, or publish a Release automatically. Do not delete historical releases or tags.
 
-The existing `Release On Version Bump` workflow runs on main pushes or manual dispatch. It compares manifest versions for inequality, so the transition to `1.0.0` is supported. A future merge of this PR may trigger publication; the owner must review that consequence before merging. Do not dispatch the workflow during this task. The workflow itself is not changed, avoiding extra Actions/Workflows write permissions.
+The existing `Release On Version Bump` workflow runs on pushes to `main` only; it does not use `workflow_dispatch`. It compares manifest versions for inequality, so the transition to `1.0.0` is supported. After this PR is approved and merged into `main`, the manifest change to `1.0.0` is expected to trigger the `v1.0.0` tag and GitHub Release. Do not dispatch the workflow during this task. The workflow itself is not changed, avoiding extra Actions/Workflows write permissions.
 
 ## Verification
 

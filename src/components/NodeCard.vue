@@ -459,7 +459,7 @@ function hasRegion(region: string | null | undefined): boolean {
           >
             <div class="flex items-center justify-between text-[11px] leading-none">
               <span class="text-muted-foreground">延迟</span>
-              <span class="text-[10px] text-muted-foreground/70">{{ isTransit ? '中转估算' : '三网' }}</span>
+              <span class="text-[10px] text-muted-foreground/70">{{ isTransit ? (appStore.lang === 'zh-CN' ? '中转估算' : 'Transit estimate') : '三网' }}</span>
             </div>
 
             <div class="grid min-h-0 flex-1 grid-rows-3 gap-1">
@@ -505,7 +505,7 @@ function hasRegion(region: string | null | undefined): boolean {
           >
             <div class="flex items-center justify-between text-[11px] leading-none">
               <span class="text-muted-foreground">丢包</span>
-              <span class="text-[10px] text-muted-foreground/70">{{ isTransit ? '中转估算' : '三网' }}</span>
+              <span class="text-[10px] text-muted-foreground/70">{{ isTransit ? (appStore.lang === 'zh-CN' ? '中转估算' : 'Transit estimate') : '三网' }}</span>
             </div>
 
             <div class="grid min-h-0 flex-1 grid-rows-3 gap-1">

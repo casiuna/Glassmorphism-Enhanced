@@ -7,6 +7,31 @@ import { useAppStore } from '@/stores/app'
 import { useNodesStore } from '@/stores/nodes'
 import { deriveTransitCarrierPing } from '@/utils/transitCarrierPing'
 
+type TransitReason = 'relay-missing' | 'relay-offline' | 'records-disabled' | 'loading' | 'load-failed' | 'task-missing' | 'link-empty'
+
+function formatTransitReason(reason: TransitReason, isZh: boolean): string {
+  if (isZh) {
+    return {
+      'relay-missing': '未找到配置的中转节点（名称需唯一）',
+      'relay-offline': '中转节点离线',
+      'records-disabled': '未启用 Ping 记录',
+      'loading': '加载中',
+      'load-failed': '中转数据加载失败',
+      'task-missing': '未找到中转链路 Ping 任务（名称需唯一）',
+      'link-empty': '中转链路没有数据',
+    }[reason]
+  }
+  return {
+    'relay-missing': 'Configured relay node not found (name must be unique)',
+    'relay-offline': 'Relay node is offline',
+    'records-disabled': 'Ping records disabled',
+    'loading': 'Loading',
+    'load-failed': 'Relay data failed to load',
+    'task-missing': 'Relay link Ping task not found (name must be unique)',
+    'link-empty': 'Relay link has no data',
+  }[reason]
+}
+
 /** Select one source only; relay subscriptions use the same cache key as its own card. */
 export function useNodeCarrierPingSource(node: MaybeRefOrGetter<NodeData>, enabled: MaybeRefOrGetter<boolean>) {
   const app = useAppStore()
@@ -28,21 +53,22 @@ export function useNodeCarrierPingSource(node: MaybeRefOrGetter<NodeData>, enabl
       return undefined
     const tasks = display.pingStats.taskStats.value
     const links = tasks.filter(task => task.name === rule.value?.task)
-    const reason = !relay.value
-      ? '未找到配置的中转节点（名称需唯一）'
+    const reasonKey: TransitReason | undefined = !relay.value
+      ? 'relay-missing'
       : !relay.value.online
-          ? '中转节点离线'
+          ? 'relay-offline'
           : !display.pingStatsEnabled.value
-              ? '未启用 Ping 记录'
+              ? 'records-disabled'
               : display.pingStats.loading.value
-                ? '加载中'
+                ? 'loading'
                 : display.pingStats.error.value
-                  ? '中转数据加载失败'
+                  ? 'load-failed'
                   : links.length > 1 || (links.length === 0 && !display.pingStats.knownTaskNames.value.includes(rule.value.task))
-                    ? '未找到中转链路 Ping 任务（名称需唯一）'
+                    ? 'task-missing'
                     : !links[0]?.stats.hasData
-                        ? '中转链路没有数据'
-                        : ''
+                        ? 'link-empty'
+                        : undefined
+    const reason = reasonKey ? formatTransitReason(reasonKey, app.lang === 'zh-CN') : ''
     return {
       relay: rule.value.relay,
       task: rule.value.task,

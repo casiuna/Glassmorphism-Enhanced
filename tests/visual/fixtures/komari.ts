@@ -23,6 +23,7 @@ export interface VisualFixtureOptions {
   transitMissingCarrier?: boolean
   transitEmptyLink?: boolean
   transitLegacy?: boolean
+  hiddenRelay?: boolean
   dark?: boolean
   earthRenderer?: 'cobe' | 'realistic' | 'tiled'
   colorVisionFriendly?: boolean
@@ -83,7 +84,7 @@ function buildClients(options: VisualFixtureOptions = {}) {
       tags: options.upstreamTags && index >= 1 && index <= 3
         ? `upstream:${REGION_FIXTURES[index - 1]!.name}`
         : index % 2 === 0 ? 'core<jade>,visual<blue>' : 'edge<orange>',
-      hidden: false,
+      hidden: !!(options.hiddenRelay && index === 1),
       traffic_limit: index === 6 ? 2 * TIB : 20 * TIB,
       traffic_limit_type: 'sum',
       created_at: '2026-01-01T00:00:00.000Z',
