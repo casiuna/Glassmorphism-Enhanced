@@ -70,14 +70,16 @@ function buildHistoryBars(
   history: Array<{ time: string, latency: number | null, loss: number | null }>,
   metric: 'latency' | 'loss',
   noSampleText: string,
+  tooltipLabel = carrierLabel,
+  estimated = false,
 ): CarrierPingBar[] {
   return history.map((point, index) => {
     const value = point[metric]
     const valueText = value === null
       ? noSampleText
       : metric === 'latency'
-        ? `${Math.round(value)} ms`
-        : `${value.toFixed(1)}%`
+        ? `${estimated ? '≈' : ''}${Math.round(value)} ms`
+        : `${estimated ? '≈' : ''}${value.toFixed(1)}%`
 
     return {
       key: `${carrierKey}-${metric}-${point.time}-${index}`,
@@ -86,7 +88,7 @@ function buildHistoryBars(
         : metric === 'latency'
           ? getLatencyToneClass(value)
           : getLossToneClass(value),
-      tooltip: `${carrierLabel}\n${formatDateTime(point.time, 'HH:mm:ss')}\n${valueText}`,
+      tooltip: `${tooltipLabel}\n${formatDateTime(point.time, 'HH:mm:ss')}\n${valueText}`,
     }
   })
 }
@@ -111,7 +113,10 @@ export function useNodeCarrierPingDisplay(
     const isZh = appStore.lang === 'zh-CN'
     const label = isZh ? carrier.labelZh : carrier.labelEn
     const loadingText = isZh ? '加载中' : 'Loading'
-    const formatLabel = (zh: string, en: string) => isZh ? `${zh}：` : `${en}: `
+    const estimate = transit?.value
+    const segment = estimate?.carriers.find(item => item.key === carrier.key)
+    const transitLabel = isZh ? '中转估算' : 'Transit estimate'
+    const transitHistoryLabel = `${label} · ${transitLabel}`
     const taskHint = carrier.taskNames.length
       ? carrier.taskNames.join(' / ')
       : isZh
@@ -125,11 +130,11 @@ export function useNodeCarrierPingDisplay(
             ? (isZh ? '未启用 Ping 记录' : 'Ping records disabled')
             : taskHint
     const latencyBars = carrier.stats.history.length
-      ? buildHistoryBars(label, carrier.key, carrier.stats.history, 'latency', isZh ? '无采样数据' : 'No sample data')
-      : buildEmptyBars(carrier.key, 'latency', emptyReason)
+      ? buildHistoryBars(label, carrier.key, carrier.stats.history, 'latency', isZh ? '无采样数据' : 'No sample data', estimate ? transitHistoryLabel : label, Boolean(estimate))
+      : buildEmptyBars(carrier.key, 'latency', estimate ? `${transitHistoryLabel}\n${emptyReason}` : emptyReason)
     const lossBars = carrier.stats.history.length
-      ? buildHistoryBars(label, carrier.key, carrier.stats.history, 'loss', isZh ? '无采样数据' : 'No sample data')
-      : buildEmptyBars(carrier.key, 'loss', emptyReason)
+      ? buildHistoryBars(label, carrier.key, carrier.stats.history, 'loss', isZh ? '无采样数据' : 'No sample data', estimate ? transitHistoryLabel : label, Boolean(estimate))
+      : buildEmptyBars(carrier.key, 'loss', estimate ? `${transitHistoryLabel}\n${emptyReason}` : emptyReason)
     const latencyDisplay = carrier.hasLatency
       ? `${Math.round(carrier.stats.avgLatency)} ms`
       : source.loading.value ? loadingText : '--'
@@ -146,10 +151,16 @@ export function useNodeCarrierPingDisplay(
       ? `${taskHint}\n${isZh ? '平均丢包' : 'Average loss'} ${carrier.stats.avgLoss.toFixed(1)}%${volatility}`
       : taskHint
 
-    const estimate = transit?.value
-    const segment = estimate?.carriers.find(item => item.key === carrier.key)
-    const transitHint = estimate
-      ? `${formatLabel('中转', 'Relay')}${estimate.relay}\n${formatLabel('链路任务', 'Link task')}${estimate.task}\n${estimate.reason || `${formatLabel('三网段', 'Carrier segment')}${segment?.carrierLatency == null ? '--' : Math.round(segment.carrierLatency)} ms\n${formatLabel('中转段', 'Relay segment')}${segment?.linkLatency == null ? '--' : Math.round(segment.linkLatency)} ms\n${formatLabel('估算 RTT', 'Estimated RTT')}${carrier.hasLatency ? `${Math.round(carrier.stats.avgLatency)} ms` : '--'}`}`
+    const transitSummary = estimate ? `${transitHistoryLabel}\n${isZh ? '经' : 'Via'} ${estimate.relay}` : ''
+    const transitReason = estimate?.reason ? `${transitSummary}\n${estimate.reason}` : ''
+    const carrierLatencyText = segment?.carrierLatency == null ? '--' : `${Math.round(segment.carrierLatency)} ms`
+    const linkLatencyText = segment?.linkLatency == null ? '--' : `${Math.round(segment.linkLatency)} ms`
+    const estimatedLatencyText = carrier.hasLatency ? `≈${Math.round(carrier.stats.avgLatency)} ms` : '--'
+    const transitLatencyTooltip = estimate
+      ? transitReason || `${transitSummary}\n${carrierLatencyText} + ${linkLatencyText} = ${estimatedLatencyText}`
+      : ''
+    const transitLossTooltip = estimate
+      ? transitReason || `${transitSummary}\n${isZh ? '估算丢包' : 'Estimated loss'}: ${carrier.stats.hasData ? `≈${carrier.stats.avgLoss.toFixed(1)}%` : '--'}`
       : ''
 
     return {
@@ -159,10 +170,10 @@ export function useNodeCarrierPingDisplay(
       taskNames: carrier.taskNames,
       latencyDisplay: estimate ? (carrier.hasLatency ? `≈${latencyDisplay}` : '--') : latencyDisplay,
       lossDisplay: estimate ? (carrier.stats.hasData ? `≈${lossDisplay}` : '--') : lossDisplay,
-      latencyBars: estimate ? latencyBars.map(bar => ({ ...bar, tooltip: `${transitHint}\n${formatLabel('估算历史', 'Estimated history')}\n${bar.tooltip}` })) : latencyBars,
-      lossBars: estimate ? lossBars.map(bar => ({ ...bar, tooltip: `${transitHint}\n${formatLabel('估算历史', 'Estimated history')}\n${bar.tooltip}` })) : lossBars,
-      latencyTooltip: estimate ? transitHint : latencyTooltip,
-      lossTooltip: estimate ? `${transitHint}\n${formatLabel('估算丢包', 'Estimated loss')}${carrier.stats.hasData ? `${carrier.stats.avgLoss.toFixed(1)}%` : '--'}` : lossTooltip,
+      latencyBars,
+      lossBars,
+      latencyTooltip: estimate ? transitLatencyTooltip : latencyTooltip,
+      lossTooltip: estimate ? transitLossTooltip : lossTooltip,
     }
   }))
 

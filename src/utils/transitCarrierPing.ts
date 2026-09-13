@@ -10,6 +10,7 @@ export interface TransitCarrierPingRule {
 
 /** Exact, case-sensitive names; last valid rule wins. Invalid input is inert. */
 const RULE_NEWLINE = /\r?\n/
+const TRANSIT_HISTORY_SLOT_COUNT = 20
 
 export function parseTransitCarrierPingRules(value: unknown): TransitCarrierPingRule[] {
   if (typeof value !== 'string')
@@ -41,36 +42,76 @@ export function mergeTransitLoss(a: number | null, b: number | null): number | n
   return 100 * (1 - (1 - a / 100) * (1 - b / 100))
 }
 
+interface NormalizedTransitHistory {
+  start: number
+  end: number
+  slots: Array<NodePingHistoryPoint | undefined>
+}
+
+function averageHistoryMetric(points: NodePingHistoryPoint[], metric: 'latency' | 'loss'): number | null {
+  const values = points
+    .map(point => point[metric])
+    .filter((value): value is number => value !== null && Number.isFinite(value))
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null
+}
+
+/** Normalize each segment by its own slot order, while keeping disjoint windows separate. */
+function normalizeTransitHistory(points: NodePingHistoryPoint[]): NormalizedTransitHistory | undefined {
+  const timedPoints = points
+    .map(point => ({ point, timestamp: Date.parse(point.time) }))
+    .filter((entry): entry is { point: NodePingHistoryPoint, timestamp: number } => Number.isFinite(entry.timestamp))
+    .sort((left, right) => left.timestamp - right.timestamp)
+  if (!timedPoints.length)
+    return undefined
+
+  const slotPoints: NodePingHistoryPoint[][] = []
+  for (let index = 0; index < TRANSIT_HISTORY_SLOT_COUNT; index++)
+    slotPoints.push([])
+  timedPoints.forEach(({ point }, index) => {
+    const slot = timedPoints.length === 1
+      ? 0
+      : Math.round(index * (TRANSIT_HISTORY_SLOT_COUNT - 1) / (timedPoints.length - 1))
+    slotPoints[slot]!.push(point)
+  })
+
+  return {
+    start: timedPoints[0]!.timestamp,
+    end: timedPoints.at(-1)!.timestamp,
+    slots: slotPoints.map((slot) => {
+      if (!slot.length)
+        return undefined
+      return {
+        time: slot.at(-1)!.time,
+        latency: averageHistoryMetric(slot, 'latency'),
+        loss: averageHistoryMetric(slot, 'loss'),
+      }
+    }),
+  }
+}
+
 /** Align both segments on one 20-slot timeline; an absent segment stays null. */
 export function mergeTransitHistory(a: NodePingHistoryPoint[], b: NodePingHistoryPoint[]): NodePingHistoryPoint[] {
-  const times = [...a, ...b].map(point => Date.parse(point.time)).filter(Number.isFinite)
-  if (!times.length)
+  const left = normalizeTransitHistory(a)
+  const right = normalizeTransitHistory(b)
+  if (!left && !right)
     return []
-  const start = Math.min(...times)
-  const end = Math.max(...times)
-  const width = Math.max(1, (end - start) / 19)
-  const bucket = (points: NodePingHistoryPoint[]) => {
-    const slots = new Map<number, NodePingHistoryPoint[]>()
-    for (const point of points) {
-      const time = Date.parse(point.time)
-      if (!Number.isFinite(time))
-        continue
-      const index = Math.min(19, Math.floor((time - start) / width))
-      slots.set(index, [...(slots.get(index) ?? []), point])
+
+  const start = Math.min(left?.start ?? Number.POSITIVE_INFINITY, right?.start ?? Number.POSITIVE_INFINITY)
+  const end = Math.max(left?.end ?? Number.NEGATIVE_INFINITY, right?.end ?? Number.NEGATIVE_INFINITY)
+  const width = Math.max(1, (end - start) / (TRANSIT_HISTORY_SLOT_COUNT - 1))
+  const windowsOverlap = left && right
+    ? Math.max(left.start, right.start) <= Math.min(left.end, right.end)
+    : false
+
+  return Array.from({ length: TRANSIT_HISTORY_SLOT_COUNT }, (_, index) => {
+    const leftPoint = left?.slots[index]
+    const rightPoint = windowsOverlap ? right?.slots[index] : undefined
+    return {
+      time: new Date(start + index * width).toISOString(),
+      latency: mergeTransitLatency(leftPoint?.latency ?? null, rightPoint?.latency ?? null),
+      loss: mergeTransitLoss(leftPoint?.loss ?? null, rightPoint?.loss ?? null),
     }
-    return slots
-  }
-  const left = bucket(a)
-  const right = bucket(b)
-  const average = (points: NodePingHistoryPoint[] | undefined, metric: 'latency' | 'loss') => {
-    const values = points?.map(point => point[metric]).filter((value): value is number => value !== null && Number.isFinite(value)) ?? []
-    return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null
-  }
-  return Array.from({ length: 20 }, (_, index) => ({
-    time: new Date(start + index * width).toISOString(),
-    latency: mergeTransitLatency(average(left.get(index), 'latency'), average(right.get(index), 'latency')),
-    loss: mergeTransitLoss(average(left.get(index), 'loss'), average(right.get(index), 'loss')),
-  }))
+  })
 }
 
 export interface TransitCarrierEstimate extends NodeCarrierPingStatsState {
