@@ -22,7 +22,7 @@
 - README 已基于当前源码重写为成熟首页，使用泛化规则示例；明确 frontend-only、非严格 end-to-end、RTT 不除以 2、loss 概率公式、Hidden Relay 可见性和 fallback。
 - Preview 当前 `docs/preview.png` 为既有 1280×720 资产。公开入口探测未获得含 Hebe/Moka 的真实主题页面；不伪造、不用 fixture 替代，待 owner 提供生产截图后再替换。
 - 认证边界：Hermes CLI SSH 与独立 Fine-grained PAT 不变；不修改 Server/Agent、GitHub 权限、Secrets、upstream，不 merge/tag/Release。
-- 当前验证：Transit 专项 19/19、完整 `bun run test:visual` 52/52 已通过；最终提交后仍需按要求再跑全套命令。远端 Actions 是否运行单独记录，不能把本地结果写成远端 CI PASS。
+- 当前验证：在最终代码修改上 `bun run lint`、`bun run type-check`、`bun run build`、`bun run test:visual` 52/52、`git diff --check` 均通过；新增 history/Tooltip/安全用例全部通过。AICACHE 本次只更新交接记录，不改变运行代码。远端 Actions 是否运行单独记录，不能把本地结果写成远端 CI PASS。
 
 ### 上一轮 1.0.0 发布记录
 
