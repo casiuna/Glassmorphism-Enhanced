@@ -16,9 +16,9 @@ Upstream base: Glassmorphism Enhanced v1.0.0 (`42e0190b1812edfb95fe90c518e84cb06
 - Rewrote README as a project homepage based on current behavior, including Transit limitations, `nodes.visibleNodes` Hidden Relay protection, direct compatibility and the `1.0.1` release path.
 - Corrected release documentation to describe the actual `main`-push-only automation.
 
-### Pending
+### Changed
 
-- `docs/preview.png` remains the last approved repository asset. A real production screenshot containing the production Transit state is required before replacing it; no fixture or generated image is used.
+- Replaced `docs/preview.png` with the owner-provided 1280×720 production Komari screenshot. The asset is copied unchanged; no fixture, AI-generated or synthetic image is used.
 
 ## 1.0.0 — Released
 
