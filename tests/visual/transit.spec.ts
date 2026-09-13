@@ -62,6 +62,25 @@ test('transit history aligns timestamps, preserves null and never joins disjoint
   expect(mergeTransitHistory([], [])).toEqual([])
 })
 
+test('transit history preserves all 20 long-running slots with small timestamp drift', () => {
+  const start = Date.parse('2026-01-01T00:00:00Z')
+  const makeHistory = (offset: number, latency: (index: number) => number) => Array.from({ length: 20 }, (_, index) => ({
+    time: new Date(start + offset + index * 3_600_000).toISOString(),
+    latency: latency(index),
+    loss: 1,
+  }))
+  const merged = mergeTransitHistory(makeHistory(0, index => 40 + index), makeHistory(30_000, () => 50).map(point => ({ ...point, loss: 2 })))
+  const timestamps = merged.map(point => Date.parse(point.time))
+
+  expect(merged).toHaveLength(20)
+  expect(merged.every(point => point.latency !== null && point.loss !== null)).toBe(true)
+  expect(merged[0]!.latency).toBe(90)
+  expect(merged[19]!.latency).toBe(109)
+  for (const point of merged)
+    expect(point.loss).toBeCloseTo(2.98, 10)
+  expect(timestamps.every((time, index) => index === 0 || time >= timestamps[index - 1]!)).toBe(true)
+})
+
 function card(page: Page, name = 'TargetNode') {
   return page.getByRole('button', { name: `查看节点 ${name} 详情`, exact: true })
 }
@@ -116,7 +135,7 @@ test('transit targets independently select multiple relays', async ({ page }) =>
   })
   await page.goto('/')
   await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toContainText('≈95 ms')
-  await expect(card(page, 'TargetB').locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /中转：RelayOther/)
+  await expect(card(page, 'TargetB').locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /联通 · 中转估算[\s\S]*经 RelayOther[\s\S]*32 ms \+ 63 ms = ≈95 ms/)
   await updateLiveState(page, { online: false })
   await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /中转节点离线/)
   await expect(card(page, 'TargetB').locator('[data-carrier-ping="unicom-latency"]')).toContainText('≈95 ms')
@@ -127,8 +146,8 @@ test('transit localizes new labels and tooltip fields in English', async ({ page
   await page.goto('/')
   await updateLiveState(page, { lang: 'en-US' })
   await expect(card(page).getByText('Transit estimate', { exact: true })).toHaveCount(2)
-  await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /Relay: RelayNode[\s\S]*Link task: Relay-Target-v6[\s\S]*Carrier segment: 32 ms[\s\S]*Relay segment: 63 ms[\s\S]*Estimated RTT: 95 ms/)
-  await expect(card(page).locator('[data-carrier-ping="unicom-loss"]')).toHaveAttribute('title', /Estimated loss: 3\.0%/)
+  await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /Unicom · Transit estimate[\s\S]*Via RelayNode[\s\S]*32 ms \+ 63 ms = ≈95 ms/)
+  await expect(card(page).locator('[data-carrier-ping="unicom-loss"]')).toHaveAttribute('title', /Estimated loss: ≈3\.0%/)
   await updateLiveState(page, { rules: 'TargetNode|AbsentRelay|Missing-link' })
   await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /Configured relay node not found/)
   await updateLiveState(page, { rules: 'TargetNode|RelayNode|Missing-link' })
@@ -161,9 +180,10 @@ for (const width of [1280, 390]) {
     await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toContainText('≈95 ms')
     await expect(card(page).locator('[data-carrier-ping="unicom-loss"]')).toContainText('≈3.0%')
     await expect(card(page).getByText('中转估算', { exact: true })).toHaveCount(2)
-    await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /中转：RelayNode[\s\S]*三网段：32 ms[\s\S]*中转段：63 ms/)
+    await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /联通 · 中转估算[\s\S]*经 RelayNode[\s\S]*32 ms \+ 63 ms = ≈95 ms/)
     await expect(card(page).locator('[data-carrier-ping="unicom-loss"]')).not.toHaveAttribute('title', /平均波动/)
-    await expect(card(page).locator('[data-carrier-ping="unicom-latency"] [role="tooltip"]').filter({ hasText: '估算历史' })).toHaveCount(20)
+    await expect(card(page).locator('[data-carrier-ping="unicom-latency"] [role="tooltip"]').filter({ hasText: '联通 · 中转估算' })).toHaveCount(20)
+    await expect(card(page).locator('[data-carrier-ping="unicom-latency"] [role="tooltip"]').filter({ hasText: 'Relay-Target-v6' })).toHaveCount(0)
     await expect(card(page, 'RelayNode').locator('[data-carrier-ping="unicom-latency"]')).toContainText('32 ms')
     await expect(card(page, 'RelayNode')).not.toContainText('≈')
     await expect(card(page, 'TargetB').locator('[data-carrier-ping="unicom-latency"]')).toContainText('≈95 ms')
@@ -184,7 +204,7 @@ for (const scenario of [
   { name: 'missing task', options: { transitRules: 'TargetNode|RelayNode|AbsentLink' }, display: '--', reason: '未找到中转链路 Ping 任务' },
   { name: 'offline relay', options: { relayOffline: true }, display: '--', reason: '中转节点离线' },
   { name: 'empty link', options: { transitEmptyLink: true }, display: '--', reason: '中转链路没有数据' },
-  { name: 'legacy fallback', options: { transitLegacy: true }, display: '≈95 ms', reason: '中转：RelayNode' },
+  { name: 'legacy fallback', options: { transitLegacy: true }, display: '≈95 ms', reason: '联通 · 中转估算' },
 ]) {
   test(`transit ${scenario.name}`, async ({ page }) => {
     await installKomariFixture(page, { transit: true, hideEarth: true, ...scenario.options })
