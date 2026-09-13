@@ -22,7 +22,7 @@
 - README 已基于当前源码重写为成熟首页，使用泛化规则示例；明确 frontend-only、非严格 end-to-end、RTT 不除以 2、loss 概率公式、Hidden Relay 可见性和 fallback。
 - Preview 已替换为 owner 提供的真实生产页面截图：`docs/preview.png`，1280×720，原样复制，无 EXIF；来源文件为 `/home/hermes/preview-owner-1280x720.png`，不进入仓库。
 - 认证边界：Hermes CLI SSH 与独立 Fine-grained PAT 不变；不修改 Server/Agent、GitHub 权限、Secrets、upstream，不 merge/tag/Release。
-- 当前验证：Preview 替换后 `bun run lint`、`bun run type-check`、`bun run build`、`bun run test:visual` 52/52、`git diff --check` 均通过；新增 history/Tooltip/安全用例全部通过。PR #2 当前 HEAD `702efa5` 的 Code Quality 与 Visual Regression 均已远端成功。远端结果不能用本地结果替代。
+- 当前验证：Preview 替换后 `bun run lint`、`bun run type-check`、`bun run build`、`bun run test:visual` 52/52、`git diff --check` 均通过；新增 history/Tooltip/安全用例全部通过。PR #2 当前 HEAD 的 Code Quality 与 Visual Regression 均已远端成功；精确 commit、ZIP/hash 和 CI 链接记录在 PR #2。远端结果不能用本地结果替代。
 - 远端异常：未由本轮创建的 annotated `v1.0.1` tag 已指向旧 commit `8274ec53a91890a3dfca886454d687bca721527f`，目前没有对应 Release；未删除、移动或覆盖它。由于 release workflow 对异 commit tag 会跳过，merge 前需由 owner 决定如何处理该冲突。
 
 ### 上一轮 1.0.0 发布记录
