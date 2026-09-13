@@ -14,16 +14,18 @@
 
 ### Transit production polish / v1.0.1
 
-- 状态：Ready for review；Preview 已由 owner 提供并替换，当前只在 `fix/transit-polish-docs` 工作，基于 `origin/main` / merge `42e0190b1812edfb95fe90c518e84cb063ae2939`，禁止直接 push main。
-- 目标：Transit production polish + README / Preview refresh；manifest 目标版本 `1.0.1`。`v1.0.0` 已正式发布，`upstream-v1.0.0`、`v1.0.0` 与旧历史 tag 保留。
+- 状态：PR #2 finalization in progress；Preview 已由 owner 提供并替换，当前只在 `fix/transit-polish-docs` 工作，基于 `origin/main` / merge `42e0190b1812edfb95fe90c518e84cb063ae2939`，不直接 push main。
+- 目标：Transit production polish + README / Preview refresh + release collision hard-fail；manifest 目标版本 `1.0.1`。`v1.0.0` 已正式发布，`upstream-v1.0.0`、`v1.0.0` 与旧历史 tag 保留。
 - 真实生产 Transit 已由 owner 启用；RTT/loss 核心模型已有真实对照结论，本轮不重写公式。已确认 UX 问题是 Tooltip 信息在窄 NodeCard 中过度换行。
 - 已完成代码：历史 Tooltip 仅显示运营商、Transit 标识、时间和估算值；当前 Tooltip 保留 Relay 与两段 RTT 简式；继续使用 `nodes.visibleNodes`、shared Ping cache 和现有 Metric/Legacy 链。
 - 已确认并修复 history bug：旧绝对时间分桶在两段长期 20 槽数据仅有小时间漂移时会丢槽；现在按各段自身有序槽位归一到共同 20 槽，同时保留不重叠时间窗不合并的安全行为。RTT/loss 数学模型未改。
 - README 已基于当前源码重写为成熟首页，使用泛化规则示例；明确 frontend-only、非严格 end-to-end、RTT 不除以 2、loss 概率公式、Hidden Relay 可见性和 fallback。
 - Preview 已替换为 owner 提供的真实生产页面截图：`docs/preview.png`，1280×720，原样复制，无 EXIF；来源文件为 `/home/hermes/preview-owner-1280x720.png`，不进入仓库。
-- 认证边界：Hermes CLI SSH 与独立 Fine-grained PAT 不变；不修改 Server/Agent、GitHub 权限、Secrets、upstream，不 merge/tag/Release。
+- inherited tag namespace sanitation 已完成：审计确认并删除 43 个原始 inherited SemVer refs，逐项保留为 `upstream-<original-tag>`；`v1.0.1` 已释放，`v1.0.0`、`v3.3.7-enhanced.1`、`upstream-v1.0.0`、`komari` 未变。upstream 仓库未修改。
+- release workflow hardening 已加入当前 PR：缺失 tag 才创建；tag peeled commit 等于当前目标 commit 时继续 build 并创建/更新 Release；指向其他 commit 时输出 `::error::` 并 hard-fail，不再绿色跳过冲突；仍保持 main-push-only，不新增 `workflow_dispatch`。
+- 认证边界：Hermes CLI SSH 与独立 Fine-grained PAT 不变；不修改 Server/Agent、GitHub 权限或 Secrets。
 - 当前验证：Preview 替换后 `bun run lint`、`bun run type-check`、`bun run build`、`bun run test:visual` 52/52、`git diff --check` 均通过；新增 history/Tooltip/安全用例全部通过。PR #2 当前 HEAD 的 Code Quality 与 Visual Regression 均已远端成功；精确 commit、ZIP/hash 和 CI 链接记录在 PR #2。远端结果不能用本地结果替代。
-- 远端异常：未由本轮创建的 annotated `v1.0.1` tag 已指向旧 commit `8274ec53a91890a3dfca886454d687bca721527f`，目前没有对应 Release；未删除、移动或覆盖它。由于 release workflow 对异 commit tag 会跳过，merge 前需由 owner 决定如何处理该冲突。
+- PR #2 收尾：owner 已授权在全部检查成功、mergeable 且保护条件保持不变时合并；合并后的 `main` push 预期由既有 release workflow 自动产生 `v1.0.1`，不手工创建、移动或补发 tag/Release。
 
 ### 上一轮 1.0.0 发布记录
 
