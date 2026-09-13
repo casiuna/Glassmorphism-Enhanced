@@ -163,7 +163,7 @@ Playwright 使用确定性 fixture，不连接生产 Komari。修改 Transit 时
 - 向后兼容的新功能：`1.1.0`、`1.2.0`……
 - Breaking changes：`2.0.0`。
 
-`release-on-version-bump.yml` 只响应 `main` push，不使用 `workflow_dispatch`。本 PR 获准 merge 后，manifest 从 `1.0.0` 变为 `1.0.1`，预期触发 `v1.0.1` tag 和 GitHub Release。发布前请核对构建 ZIP、版本和 Release 资产。
+`release-on-version-bump.yml` 只响应 `main` push，不使用 `workflow_dispatch`。本 PR 获准 merge 后，manifest 从 `1.0.0` 变为 `1.0.1`，预期触发 `v1.0.1` tag 和 GitHub Release。发布前请核对构建 ZIP、版本和 Release 资产；如果目标 tag 已存在于其他 commit，当前 workflow 会按设计跳过发布，必须由 owner 先处理 tag 冲突，本项目不会自动删除或改写 tag。
 
 Upstream 版本只作为来源基线记录，不进入本项目版本号。历史 `v3.3.7-enhanced.1`、`upstream-v1.0.0` 和 `v1.0.0` 均保留。
 
