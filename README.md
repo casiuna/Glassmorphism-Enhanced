@@ -157,9 +157,9 @@ Playwright 使用确定性 fixture，不连接生产 Komari。修改 Transit 时
 
 ## Versioning and Release
 
-本项目从 `v1.0.0` 开始使用独立 SemVer。本分支目标版本为 **1.0.1**：
+本项目从 `v1.0.0` 开始使用独立 SemVer。本分支目标版本为 **1.0.3**：
 
-- Bugfix：`1.0.1`、`1.0.2`……
+- Bugfix：`1.0.1`、`1.0.2`、`1.0.3`……
 - 向后兼容的新功能：`1.1.0`、`1.2.0`……
 - Breaking changes：`2.0.0`。
 

@@ -12,19 +12,16 @@
 
 ## 当前任务
 
-### Renewal-aware monthly traffic / SGD / v1.0.2
+### v1.0.2 incident / v1.0.3 traffic-load hotfix
 
-- 状态：implementation and validation in progress；当前分支 `fix/renewal-traffic-sgd`，基于 `origin/main` `060f66018ef9b2de93cfe24c0b56d2a229b66054`，不直接 push main、不 merge、不创建 tag/Release。
-- 目标：manifest `1.0.2`；validated compatibility target: Komari Server `1.5.0`，同时保留旧版 RPC/history/legacy frontend fallback 兼容。
-- Bug 1 根因：旧 quota 展示直接使用持久累计 `net_total_up/down`，没有续费日月周期派生；1.5.0 latest status 不返回 `traffic_up/down`，不能从 latest status 读取“本月累计”。
-- 月周期：复用 `billing_cycle` 与 `expired_at` 的 calendar day；年付只影响费用周期，流量仍按月滚动；29/30/31 日短月取月末，下一长月恢复原日；周期起点为 UTC 00:00 以对齐 Komari metric rollup bucket。
-- 新链路：`useMonthlyTrafficUsage` 提供单一共享时钟/context；`traffic.service.ts` 按 cycle/entity 批量调用现有 `metrics.service.ts::queryMetrics`，使用 `traffic.up/down`、`start`、`end`、`aggregation=sum`，累加所有 bucket；结果按 node+cycle 共享缓存并由 requestManager 去重。
-- 兼容链：metric method 不可用/失败，或某个节点的 metric series 缺失/全为 null 时，经现有 `history.service.ts` / `common:getRecords` 的 bounded range/history compatibility path 读取 network history，仅累加 `traffic_up/down` delta；第一条请求同时带完整周期的 safe `hours`、`start/end`、`load_type=network` 和 `maxCount=-1`，旧服务即使静默忽略 `start/end` 也不会退回默认 1 小时。返回记录仍严格按周期过滤；没有可用周期 delta 才保留 v1.0.1 累计 legacy fallback，不伪造月流量。
-- 已确认 1.5.0 rollup 边界：server 以 UTC epoch bucket 对齐，周期从 UTC 日起点开始，且官方 1m/5m/1h/24h rollup 分辨率均与该边界对齐；实现不接受未对齐首 bucket 的过计方案。测试覆盖多 bucket SUM、单 batch 内 per-node metric/history 分流、有效零值和旧版 hours 窗口，不依赖单点，也不把 history 链描述为未经重构的数据或无误差来源。
-- Bug 2：`financeHelper` 增加 `SGD`、`S$`、默认汇率与 formatter symbol；`$` 仍为 USD，`C$` 仍为 CAD。
-- 1.5.0 GPU latest/history 字段已有 optional 类型覆盖；本轮不新增 GPU 功能。Agent v1 protocol removal 与主题 RPC/frontend fallback 是不同层，不删除 legacy fallback。
-- 当前 follow-up 验证：targeted traffic spec `13/13`；完整 `bun run test:visual` `65/65`；`bun run lint`、`bun run type-check` 和 `git diff --check` 已通过。独立 `bun run build`、不回显值的 secret scan、commit-matched ZIP 与 follow-up 远端 CI 仍待完成。
-- 远端交付：PR #3 `fix/renewal-traffic-sgd -> main` 当前 head 为 `bc4b7187070bb0d335dc6f8629e6158d8c971fb0`，open、非 draft、未 merge；已有 Code Quality / Visual Regression 成功。本 follow-up 正在修补 per-node metric/history capability fallback 和 bounded history safe-hours 兼容性，完成后继续更新同一 PR；当前禁止 merge/tag/Release。
+- 状态：implementation and validation in progress；当前分支 `hotfix/v1.0.3-traffic-load`，基于 merged `main` `f9b566f9b67a610dea0e5386c6847c1aef0c1b86`，不 push main、不 merge、不创建 tag/Release。
+- 目标：manifest `1.0.3`；validated compatibility target: Komari Server `1.5.0`，不修改 Server/Agent。
+- 生产 incident：owner 已 rollback 到 v1.0.1；v1.0.2 出现月流量消失/归零、Ping/三网与其他数据延迟或停止加载、上传 100% 卡住。证据指向 frontend shared request-pool/backend pressure：shared clock 每分钟刷新而 traffic cache 仅 30 秒，metric 缺失时 shared home 对多节点 fan-out full-cycle history；没有数据库写入、counter reset 或数据损坏证据。
+- Hotfix 设计：`useMonthlyTrafficUsage` 保留单一 shared clock，仅用 cycle key 变化触发边界 reload；正常刷新限制为 5 分钟，monthly cache TTL 提高到 10 分钟，并合并并发 refresh。加载/失败期间保留 v1.0.1 cumulative display，不闪为 0。
+- Shared/home 只走一次 batched `public:queryMetrics`；method unavailable 或 node metric series 缺失/空/null 时直接 metric->legacy，不启动 N-node `common:getRecords` fan-out。显式单节点 detail 仍可使用 bounded history compatibility path，并由 requestManager/cache 去重。
+- UTC 00:00 renewal-day cycle、annual billing monthly quota、29/30/31 short-month clamp、SGD/S$/C$/USD 与 1.5.0 optional GPU 类型兼容保持不变；Agent v1 protocol removal 与主题 RPC fallback 分层。
+- Regression：fake clock 多分钟不重复 monthly query；cycle boundary 只 reload 一次；shared home 无 history fan-out；monthly unavailable 不阻塞 ping/三网 RPC；loading 保留 legacy；detail history predicate 等待完整 `uuid+start+end+hours`，修复 v1.0.2 CI flake。
+- 当前验证：targeted traffic tests `18/18`；`bun run type-check`、`bun run lint` 已通过。完整 `bun run build`、`bun run test:visual`、secret scan、commit-matched ZIP、push/PR/CI 待完成。
 
 ### 上一轮 1.0.0 发布记录
 

@@ -2,7 +2,28 @@
 
 All notable Glassmorphism Enhanced changes are documented here. Upstream history remains in the upstream repository and preserved Git history.
 
-## 1.0.2 — Unreleased
+## 1.0.3 — Unreleased
+
+Hotfix for the v1.0.2 production regression. Validated compatibility target: Komari Server 1.5.0. No Komari Server or Agent changes are included.
+
+### Fixed
+
+- Monthly traffic no longer refreshes the full shared usage path on every one-minute clock tick. The clock only detects a renewal-cycle key change; normal refresh is bounded to a five-minute policy and a ten-minute usage cache.
+- Shared/home traffic usage now prefers one batched `public:queryMetrics` request and falls directly back to the v1.0.1 cumulative display when the metric method or a node's required traffic series is unavailable. Automatic per-node full-cycle `common:getRecords` fan-out is removed from the shared path.
+- Existing traffic values remain visible while a monthly request is pending or fails; loading no longer flashes `0` usage when legacy cumulative data is available.
+- Explicit detail usage may still use a single-node bounded history compatibility path; it is not used by home/shared polling and remains request-deduplicated.
+
+### Incident
+
+- v1.0.2 could create excessive frontend request pressure: the shared monthly clock refreshed every minute while its cache expired after 30 seconds, and missing metric data could fan out full-cycle history requests for many nodes. The resulting shared request-pool/backend pressure was consistent with missing monthly traffic, delayed Ping/three-network data, and a theme upload appearing stuck at 100%. There is no evidence that v1.0.2 wrote, reset, or corrupted Komari cumulative counters or database data.
+
+### Compatibility
+
+- Annual billing still uses a monthly traffic renewal window derived from the UTC `expired_at` calendar day; 29/30/31-day short-month clamping and later restoration remain unchanged.
+- SGD/S$ support remains compatible with C$ (CAD) and `$` (USD).
+- Komari Server 1.5.0 latest status payloads without `traffic_up/down` remain supported. Agent v1 protocol changes are separate from the theme's RPC and frontend fallback layers.
+
+## 1.0.2 — Released
 
 Validated compatibility target: Komari Server 1.5.0. The theme keeps the existing RPC and legacy frontend fallback paths for older compatible servers.
 

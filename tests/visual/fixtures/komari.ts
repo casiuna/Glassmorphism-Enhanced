@@ -47,6 +47,8 @@ export interface VisualFixtureOptions {
   trafficMetricZeroNode?: number
   trafficHistoryNode?: number
   legacyHistoryByHours?: boolean
+  trafficMetricDelayMs?: number
+  useNativeClock?: boolean
 }
 
 function uuidFor(index: number): string {
@@ -348,12 +350,17 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
   let result: unknown
 
   if (payload.method === 'public:queryMetrics' && options.trafficMetricUnavailable && payload.params?.aggregation === 'sum') {
+    if (options.trafficMetricDelayMs && options.trafficMetricDelayMs > 0)
+      await new Promise(resolve => setTimeout(resolve, options.trafficMetricDelayMs))
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({ jsonrpc: '2.0', id: payload.id, error: { code: -32601, message: 'Method not found' } }),
     })
     return
   }
+
+  if (payload.method === 'public:queryMetrics' && payload.params?.aggregation === 'sum' && options.trafficMetricDelayMs && options.trafficMetricDelayMs > 0)
+    await new Promise(resolve => setTimeout(resolve, options.trafficMetricDelayMs))
 
   switch (payload.method) {
     case 'rpc.ping':
@@ -469,21 +476,29 @@ export async function installKomariFixture(page: Page, options: VisualFixtureOpt
     )).join('\n'),
   }
 
-  await page.addInitScript(({ fixedNow }) => {
-    localStorage.clear()
-    sessionStorage.clear()
-    const NativeDate = Date
-    class FixedDate extends NativeDate {
-      constructor(...args: ConstructorParameters<typeof Date>) {
-        super(args.length ? args[0] : fixedNow)
-      }
+  if (options.useNativeClock) {
+    await page.addInitScript(() => {
+      localStorage.clear()
+      sessionStorage.clear()
+    })
+  }
+  else {
+    await page.addInitScript(({ fixedNow }) => {
+      localStorage.clear()
+      sessionStorage.clear()
+      const NativeDate = Date
+      class FixedDate extends NativeDate {
+        constructor(...args: ConstructorParameters<typeof Date>) {
+          super(args.length ? args[0] : fixedNow)
+        }
 
-      static now() {
-        return new NativeDate(fixedNow).getTime()
+        static now() {
+          return new NativeDate(fixedNow).getTime()
+        }
       }
-    }
-    window.Date = FixedDate as DateConstructor
-  }, { fixedNow: FIXED_NOW })
+      window.Date = FixedDate as DateConstructor
+    }, { fixedNow: FIXED_NOW })
+  }
 
   await page.route('**/api/public', route => route.fulfill({
     contentType: 'application/json',
