@@ -23,8 +23,8 @@
 - 已确认 1.5.0 rollup 边界：server 以 UTC epoch bucket 对齐，周期从 UTC 日起点开始，避免首 SUM bucket 跨入前一日；测试覆盖多 bucket SUM，不依赖单点。
 - Bug 2：`financeHelper` 增加 `SGD`、`S$`、默认汇率与 formatter symbol；`$` 仍为 USD，`C$` 仍为 CAD。
 - 1.5.0 GPU latest/history 字段已有 optional 类型覆盖；本轮不新增 GPU 功能。Agent v1 protocol removal 与主题 RPC/frontend fallback 是不同层，不删除 legacy fallback。
-- 当前验证：targeted traffic spec `9/9`；完整 visual suite 最近一次为 `60 passed / 1 failed`，唯一失败是测试错误地要求所有 cycle batch 总数为 1；已修正该测试，targeted `9/9` 已再次通过。`bun run lint`、`bun run type-check`、`build-only` 已通过。
-- 尚未完成：最终完整验证、secret scan、候选 ZIP 合约核验、最终 commit/push/PR/CI；完成后停在 Ready for review，禁止 merge/tag/Release。
+- 当前验证：targeted traffic spec `9/9`；完整 `bun run test:visual` `61/61`；`bun run lint`、`bun run type-check`、`bun run build`、`git diff --check` 和不回显值的 secret scan 均通过。`bun run build` 已生成并校验 `komari-theme-Glassmorphism-build-3e942bc.zip`：772 entries、CRC PASS、manifest `1.0.2`、Preview 与 `docs/preview.png` byte-for-byte 一致。
+- 远端交付：PR #3 `fix/renewal-traffic-sgd -> main` 已创建并读回，包含实现 commit `3e942bc7e6db880ec83549a866729ff2c082bb55`，open、非 draft、未 merge、`mergeable_state=clean`。Code Quality / Visual Regression 已成功（workflow runs `34847204675` / `34847204602`）；本 handoff note 是文档状态更新，随后会产生一个 docs-only follow-up commit。当前仍 Ready for review；本轮禁止 merge/tag/Release。
 
 ### 上一轮 1.0.0 发布记录
 
