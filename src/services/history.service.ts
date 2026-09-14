@@ -161,9 +161,10 @@ export async function loadNodeLoadRecords(uuid: string, hours: number, maxCount?
 }
 
 /**
- * Load network records for an exact UTC window. Komari 1.5.0 supports the
- * start/end form on common:getRecords; older servers fall back to the existing
- * hours-based RPC and are filtered by the caller.
+ * Load network records through the bounded range/history compatibility path.
+ * Komari 1.5.0 accepts start/end on common:getRecords; older servers may
+ * ignore those fields, so hours is sent in the first request as well and the
+ * returned records are still filtered by the caller.
  */
 export async function loadNodeLoadRecordsByRange(
   uuid: string,
@@ -178,6 +179,7 @@ export async function loadNodeLoadRecordsByRange(
 
   const startIso = start.toISOString()
   const endIso = end.toISOString()
+  const safeHours = Math.max(1, Math.ceil((endTime - startTime) / (60 * 60 * 1000)) + 1)
   const key = getNodeLoadRecordsRangeRequestKey(uuid, startIso, endIso, maxCount)
   return requestManager.run(
     key,
@@ -186,6 +188,7 @@ export async function loadNodeLoadRecordsByRange(
         const result = await getSharedRpc().getRecords({
           type: 'load',
           uuid,
+          hours: safeHours,
           start: startIso,
           end: endIso,
           load_type: 'network',
@@ -196,13 +199,12 @@ export async function loadNodeLoadRecordsByRange(
         return normalizeStatusRecordsPayload(records)
       }
       catch {
-        const hours = Math.max(1, Math.ceil((endTime - startTime) / (60 * 60 * 1000)) + 1)
         try {
-          const result = await getSharedRpc().getLoadRecords(uuid, hours, 'network', maxCount > 0 ? maxCount : undefined, signal)
+          const result = await getSharedRpc().getLoadRecords(uuid, safeHours, 'network', maxCount > 0 ? maxCount : undefined, signal)
           return normalizeStatusRecordsPayload(result.records)
         }
         catch {
-          return loadNodeLoadRecords(uuid, hours, maxCount > 0 ? maxCount : undefined)
+          return loadNodeLoadRecords(uuid, safeHours, maxCount > 0 ? maxCount : undefined)
         }
       }
     },

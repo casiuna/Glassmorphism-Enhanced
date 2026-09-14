@@ -23,7 +23,7 @@ The validated compatibility target for this bugfix is **Komari Server 1.5.0**. T
 
 The monthly window uses the existing `expired_at` calendar day as the renewal-day anchor. Annual billing changes the fee cycle only; traffic still rolls monthly. Short months clamp day 29/30/31 to the last day, and the original day is restored in the next month that contains it. The cycle starts at UTC midnight so Komari's UTC-aligned rollup buckets do not include the previous calendar day.
 
-If `public:queryMetrics` is unavailable, the theme uses the existing `common:getRecords` / history chain, filters network records to the active window, and sums only `traffic_up` / `traffic_down` deltas. If no cycle history is available, the v1.0.1 cumulative display remains as an explicit legacy fallback. This is separate from Komari 1.5.0 removing the Agent v1 protocol; the theme's frontend/RPC fallback is not an Agent protocol fallback.
+If `public:queryMetrics` is unavailable, or a node has no usable traffic series in a successful batch, the theme uses the existing `common:getRecords` / history bounded range compatibility path, sends both the active-window `start/end` and a safe covering `hours` value, filters returned network records to the active window, and sums only `traffic_up` / `traffic_down` deltas. This history path is not described as un-reconstructed or error-free data because Komari may reconstruct records through its metric store and rollups. If no cycle delta is available, the v1.0.1 cumulative display remains as an explicit legacy fallback. This is separate from Komari 1.5.0 removing the Agent v1 protocol; the theme's frontend/RPC fallback is not an Agent protocol fallback.
 
 ## Review gate
 

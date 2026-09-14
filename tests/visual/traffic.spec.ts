@@ -2,7 +2,7 @@ import type { NodeData } from '../../src/stores/nodes'
 import type { MetricQueryResponse } from '../../src/utils/rpc'
 import { expect, test } from '@playwright/test'
 import { normalizeStatusRecord } from '../../src/services/history.service'
-import { sumTrafficMetricSeries } from '../../src/services/traffic.service'
+import { hasUsableTrafficMetricData, sumTrafficMetricSeries } from '../../src/services/traffic.service'
 import * as financeHelper from '../../src/utils/financeHelper'
 import { getMonthlyTrafficCycle } from '../../src/utils/trafficCycle'
 import { installKomariFixture } from './fixtures/komari'
@@ -120,6 +120,27 @@ test.describe('monthly traffic cycle and compatibility helpers', () => {
     expect(sumTrafficMetricSeries(response, 'traffic.up', 'node-b')).toBe(99)
   })
 
+  test('requires the metric sides needed by the quota mode while accepting zero points', () => {
+    const response: MetricQueryResponse = {
+      start: '2026-07-25T00:00:00.000Z',
+      end: '2026-07-25T01:00:00.000Z',
+      series: [
+        { metric_key: 'traffic.up', entity_id: 'node-zero', count: 1, points: [{ time: '2026-07-25T00:00:00.000Z', value: 0 }] },
+        { metric_key: 'traffic.down', entity_id: 'node-zero', count: 1, points: [{ time: '2026-07-25T00:00:00.000Z', value: 0 }] },
+        { metric_key: 'traffic.up', entity_id: 'node-null', count: 1, points: [{ time: '2026-07-25T00:00:00.000Z', value: null }] },
+      ],
+      count: 3,
+    }
+
+    expect(hasUsableTrafficMetricData(response, 'node-zero', 'sum')).toBe(true)
+    expect(hasUsableTrafficMetricData(response, 'node-zero', 'min')).toBe(true)
+    expect(hasUsableTrafficMetricData(response, 'node-zero', 'max')).toBe(true)
+    expect(hasUsableTrafficMetricData(response, 'node-zero', 'up')).toBe(true)
+    expect(hasUsableTrafficMetricData(response, 'node-zero', 'down')).toBe(true)
+    expect(hasUsableTrafficMetricData(response, 'node-null', 'up')).toBe(false)
+    expect(hasUsableTrafficMetricData(response, 'node-null', 'sum')).toBe(false)
+  })
+
   test('preserves missing history delta fields instead of converting them to zero', () => {
     const base = {
       client: 'node-a',
@@ -170,7 +191,60 @@ test('Komari 1.5 latest status without traffic fields uses batched metric SUM', 
   await expect(page.getByRole('button', { name: '查看节点 主控-洛杉矶 详情' }).getByText('0.5%', { exact: true })).toBeVisible()
 })
 
-test('metric method unavailable falls back to exact network history deltas', async ({ page }) => {
+test('a missing entity series uses history only for that entity', async ({ page }) => {
+  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
+  page.on('request', (request) => {
+    if (!request.url().endsWith('/rpc2'))
+      return
+    const payload = request.postDataJSON() as { method: string, params?: Record<string, unknown> }
+    rpcRequests.push(payload)
+  })
+
+  await installKomariFixture(page, {
+    hideEarth: true,
+    latestStatusWithoutTraffic: true,
+    trafficMetricEmptyNode: 1,
+    trafficHistoryNode: 1,
+    generalCardKeys: ['trafficQuota'],
+  })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
+
+  const nodeA = '00000000-0000-4000-8000-000000000001'
+  const nodeB = '00000000-0000-4000-8000-000000000002'
+  await expect.poll(() => rpcRequests.filter(request => request.method === 'common:getRecords' && request.params?.uuid === nodeB).length).toBe(1)
+  const metricRequest = rpcRequests.find(request => request.method === 'public:queryMetrics' && request.params?.start === '2026-07-25T00:00:00.000Z')
+  const historyRequests = rpcRequests.filter(request => request.method === 'common:getRecords' && request.params?.type === 'load')
+  expect(metricRequest?.params?.entity_ids).toEqual(expect.arrayContaining([nodeA, nodeB]))
+  expect(historyRequests.filter(request => request.params?.uuid === nodeA)).toHaveLength(0)
+  expect(historyRequests.filter(request => request.params?.uuid === nodeB)).toHaveLength(1)
+  await expect(page.getByRole('button', { name: '查看节点 香港边缘节点-超长名称布局测试 详情' }).getByText('15.0%', { exact: true })).toBeVisible()
+})
+
+test('a zero-valued metric point remains metric data and does not trigger history', async ({ page }) => {
+  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
+  page.on('request', (request) => {
+    if (!request.url().endsWith('/rpc2'))
+      return
+    const payload = request.postDataJSON() as { method: string, params?: Record<string, unknown> }
+    rpcRequests.push(payload)
+  })
+
+  await installKomariFixture(page, {
+    hideEarth: true,
+    latestStatusWithoutTraffic: true,
+    trafficMetricZeroNode: 2,
+    generalCardKeys: ['trafficQuota'],
+  })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
+
+  await expect.poll(() => rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum').length).toBeGreaterThan(0)
+  await expect(page.getByRole('button', { name: '查看节点 东京-高负载 详情' }).getByText('0.0%', { exact: true })).toBeVisible()
+  expect(rpcRequests.some(request => request.method === 'common:getRecords' && request.params?.type === 'load' && request.params?.uuid === '00000000-0000-4000-8000-000000000003')).toBe(false)
+})
+
+test('metric method unavailable falls back to bounded network history deltas', async ({ page }) => {
   const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
   page.on('request', (request) => {
     if (!request.url().endsWith('/rpc2'))
@@ -190,10 +264,47 @@ test('metric method unavailable falls back to exact network history deltas', asy
 
   await expect.poll(() => rpcRequests.filter(request => request.method === 'common:getRecords' && request.params?.type === 'load').length).toBeGreaterThan(0)
   const metricRequest = rpcRequests.find(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum')
-  const historyRequest = rpcRequests.find(request => request.method === 'common:getRecords' && request.params?.type === 'load')
+  const historyRequest = rpcRequests.find(request => request.method === 'common:getRecords' && request.params?.type === 'load' && request.params?.start === '2026-07-25T00:00:00.000Z')
   expect(metricRequest).toBeTruthy()
+  expect(historyRequest?.params?.hours).toBe(13)
   expect(historyRequest?.params?.start).toBe('2026-07-25T00:00:00.000Z')
   expect(historyRequest?.params?.end).toBe('2026-07-25T12:00:00.000Z')
   expect(historyRequest?.params?.load_type).toBe('network')
+  expect(historyRequest?.params?.maxCount).toBe(-1)
+  expect(historyRequest?.params?.max_count).toBe(-1)
   await expect(page.getByRole('button', { name: '查看节点 主控-洛杉矶 详情' }).getByText('1.9%', { exact: true })).toBeVisible()
+})
+
+test('legacy common:getRecords receives safe hours when it ignores start and end', async ({ page }) => {
+  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
+  page.on('request', (request) => {
+    if (!request.url().endsWith('/rpc2'))
+      return
+    const payload = request.postDataJSON() as { method: string, params?: Record<string, unknown> }
+    rpcRequests.push(payload)
+  })
+
+  await installKomariFixture(page, {
+    hideEarth: true,
+    latestStatusWithoutTraffic: true,
+    trafficMetricUnavailable: true,
+    trafficHistoryNode: 2,
+    legacyHistoryByHours: true,
+    generalCardKeys: ['trafficQuota'],
+  })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
+
+  const targetUuid = '00000000-0000-4000-8000-000000000003'
+  await expect.poll(() => rpcRequests.filter(request => request.method === 'common:getRecords' && request.params?.uuid === targetUuid).length).toBeGreaterThan(0)
+  const targetRangeRequests = rpcRequests.filter(request => request.method === 'common:getRecords' && request.params?.uuid === targetUuid && request.params?.start === '2026-07-25T00:00:00.000Z')
+  expect(targetRangeRequests).toHaveLength(1)
+  const targetRequest = targetRangeRequests[0]
+  expect(targetRequest?.params?.hours).toBe(13)
+  expect(targetRequest?.params?.start).toBe('2026-07-25T00:00:00.000Z')
+  expect(targetRequest?.params?.end).toBe('2026-07-25T12:00:00.000Z')
+  expect(targetRequest?.params?.load_type).toBe('network')
+  expect(targetRequest?.params?.maxCount).toBe(-1)
+  expect(targetRequest?.params?.max_count).toBe(-1)
+  await expect(page.getByRole('button', { name: '查看节点 东京-高负载 详情' }).getByText('10.0%', { exact: true })).toBeVisible()
 })

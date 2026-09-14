@@ -9,7 +9,7 @@ Validated compatibility target: Komari Server 1.5.0. The theme keeps the existin
 ### Fixed
 
 - Monthly traffic quota usage now derives from the active renewal-day window instead of treating persistent `net_total_up/down` counters as the current month. Annual billing still rolls the traffic window monthly; the renewal calendar day is clamped to the last day of short months and restored in the next long month.
-- Monthly usage is loaded through the shared metric/history derivation layer: Komari 1.5.0 uses `traffic.up` / `traffic.down` SUM series and adds every returned bucket; older compatible servers fall back to time-filtered network records and their additive traffic deltas. If neither cycle history path is available, the previous cumulative display is retained and identified internally as the legacy fallback.
+- Monthly usage is loaded through the shared metric/history derivation layer: Komari 1.5.0 uses `traffic.up` / `traffic.down` SUM series and adds every returned bucket; a node with a missing or all-null metric series falls back individually to the bounded network-history compatibility path, whose first request includes both the active `start/end` and a safe covering `hours` window before strict client-side filtering. Only additive `traffic_up/down` deltas are used; if no cycle delta is available, the previous cumulative display is retained and identified internally as the legacy fallback.
 - Added Singapore Dollar support to finance parsing and formatting: `SGD` and `S$` normalize to `SGD`; existing `$` (USD) and `C$` (CAD) mappings remain unchanged.
 
 ### Compatibility

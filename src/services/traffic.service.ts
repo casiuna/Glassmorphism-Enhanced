@@ -34,6 +34,8 @@ const monthlyTrafficUsageCache = new SharedCache<MonthlyTrafficUsage>({
 })
 
 function finiteNonNegative(value: unknown): number | null {
+  if (value === null || value === undefined || value === '')
+    return null
   const numericValue = Number(value)
   if (!Number.isFinite(numericValue) || numericValue < 0)
     return null
@@ -109,6 +111,27 @@ export function sumTrafficMetricSeries(response: MetricQueryResponse, metricKey:
   return Math.min(total, Number.MAX_SAFE_INTEGER)
 }
 
+function hasUsableTrafficMetricSeries(response: MetricQueryResponse, metricKey: string, entityId: string): boolean {
+  return (response.series ?? []).some(series => series.metric_key === metricKey
+    && series.entity_id === entityId
+    && (series.points ?? []).some(point => finiteNonNegative(point.value) !== null))
+}
+
+export function hasUsableTrafficMetricData(
+  response: MetricQueryResponse,
+  entityId: string,
+  trafficLimitType: TrafficLimitType,
+): boolean {
+  const hasUp = hasUsableTrafficMetricSeries(response, 'traffic.up', entityId)
+  const hasDown = hasUsableTrafficMetricSeries(response, 'traffic.down', entityId)
+
+  if (trafficLimitType === 'up')
+    return hasUp
+  if (trafficLimitType === 'down')
+    return hasDown
+  return hasUp && hasDown
+}
+
 function hasMetricMethodUnavailable(error: unknown): boolean {
   return error instanceof RpcError && error.code === -32601
 }
@@ -134,19 +157,46 @@ async function loadMetricUsageForGroup(
     }),
   )
 
-  return new Map(nodes.map(node => [node.uuid, createUsage(
-    node,
-    cycle,
-    sumTrafficMetricSeries(response, 'traffic.up', node.uuid),
-    sumTrafficMetricSeries(response, 'traffic.down', node.uuid),
-    'metric',
-  )]))
+  const metricUsages = new Map<string, MonthlyTrafficUsage>()
+  const nodesMissingMetricData: NodeData[] = []
+
+  for (const node of nodes) {
+    if (!hasUsableTrafficMetricData(response, node.uuid, node.traffic_limit_type)) {
+      nodesMissingMetricData.push(node)
+      continue
+    }
+
+    metricUsages.set(node.uuid, createUsage(
+      node,
+      cycle,
+      sumTrafficMetricSeries(response, 'traffic.up', node.uuid),
+      sumTrafficMetricSeries(response, 'traffic.down', node.uuid),
+      'metric',
+    ))
+  }
+
+  if (nodesMissingMetricData.length === 0)
+    return metricUsages
+
+  try {
+    const historyUsages = await loadHistoryUsageForGroup(nodesMissingMetricData, cycle, now)
+    for (const node of nodesMissingMetricData)
+      metricUsages.set(node.uuid, historyUsages.get(node.uuid) ?? getLegacyUsage(node, cycle))
+  }
+  catch (error) {
+    console.warn('月流量节点 metric 数据缺失，历史兼容链不可用，保留 legacy 显示:', error)
+    for (const node of nodesMissingMetricData)
+      metricUsages.set(node.uuid, getLegacyUsage(node, cycle))
+  }
+
+  return metricUsages
 }
 
 function sumHistoryTraffic(records: StatusRecord[], node: NodeData, cycle: MonthlyTrafficCycle, now: Date): MonthlyTrafficUsage {
   let up = 0
   let down = 0
-  let hasTrafficDelta = false
+  let hasUpDelta = false
+  let hasDownDelta = false
   const startTime = cycle.start.getTime()
   const endTime = now.getTime()
 
@@ -159,15 +209,20 @@ function sumHistoryTraffic(records: StatusRecord[], node: NodeData, cycle: Month
     const recordDown = finiteNonNegative(record.traffic_down)
     if (recordUp !== null) {
       up += recordUp
-      hasTrafficDelta = true
+      hasUpDelta = true
     }
     if (recordDown !== null) {
       down += recordDown
-      hasTrafficDelta = true
+      hasDownDelta = true
     }
   }
 
-  return hasTrafficDelta ? createUsage(node, cycle, up, down, 'history') : getLegacyUsage(node, cycle)
+  const hasRequiredDelta = node.traffic_limit_type === 'up'
+    ? hasUpDelta
+    : node.traffic_limit_type === 'down'
+      ? hasDownDelta
+      : hasUpDelta && hasDownDelta
+  return hasRequiredDelta ? createUsage(node, cycle, up, down, 'history') : getLegacyUsage(node, cycle)
 }
 
 async function loadHistoryUsageForGroup(
@@ -190,7 +245,8 @@ async function loadHistoryUsageForGroup(
 
 /**
  * Load one shared monthly usage map. The metric path is the Komari 1.5.0 path;
- * history is only used when the metric method is unavailable or fails.
+ * history is used for a failed metric query or only for nodes whose successful
+ * batch response has no usable traffic points.
  */
 export async function loadMonthlyTrafficUsage(nodes: readonly NodeData[], now = new Date()): Promise<Map<string, MonthlyTrafficUsage>> {
   const result = new Map<string, MonthlyTrafficUsage>()

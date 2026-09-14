@@ -19,12 +19,12 @@
 - Bug 1 根因：旧 quota 展示直接使用持久累计 `net_total_up/down`，没有续费日月周期派生；1.5.0 latest status 不返回 `traffic_up/down`，不能从 latest status 读取“本月累计”。
 - 月周期：复用 `billing_cycle` 与 `expired_at` 的 calendar day；年付只影响费用周期，流量仍按月滚动；29/30/31 日短月取月末，下一长月恢复原日；周期起点为 UTC 00:00 以对齐 Komari metric rollup bucket。
 - 新链路：`useMonthlyTrafficUsage` 提供单一共享时钟/context；`traffic.service.ts` 按 cycle/entity 批量调用现有 `metrics.service.ts::queryMetrics`，使用 `traffic.up/down`、`start`、`end`、`aggregation=sum`，累加所有 bucket；结果按 node+cycle 共享缓存并由 requestManager 去重。
-- 兼容链：metric method 不可用/失败时经现有 `history.service.ts` / `common:getRecords` 精确窗口读取 network history，仅累加 `traffic_up/down` delta；没有任何周期历史能力时保留 v1.0.1 累计 legacy fallback，不伪造月流量。
-- 已确认 1.5.0 rollup 边界：server 以 UTC epoch bucket 对齐，周期从 UTC 日起点开始，避免首 SUM bucket 跨入前一日；测试覆盖多 bucket SUM，不依赖单点。
+- 兼容链：metric method 不可用/失败，或某个节点的 metric series 缺失/全为 null 时，经现有 `history.service.ts` / `common:getRecords` 的 bounded range/history compatibility path 读取 network history，仅累加 `traffic_up/down` delta；第一条请求同时带完整周期的 safe `hours`、`start/end`、`load_type=network` 和 `maxCount=-1`，旧服务即使静默忽略 `start/end` 也不会退回默认 1 小时。返回记录仍严格按周期过滤；没有可用周期 delta 才保留 v1.0.1 累计 legacy fallback，不伪造月流量。
+- 已确认 1.5.0 rollup 边界：server 以 UTC epoch bucket 对齐，周期从 UTC 日起点开始，且官方 1m/5m/1h/24h rollup 分辨率均与该边界对齐；实现不接受未对齐首 bucket 的过计方案。测试覆盖多 bucket SUM、单 batch 内 per-node metric/history 分流、有效零值和旧版 hours 窗口，不依赖单点，也不把 history 链描述为未经重构的数据或无误差来源。
 - Bug 2：`financeHelper` 增加 `SGD`、`S$`、默认汇率与 formatter symbol；`$` 仍为 USD，`C$` 仍为 CAD。
 - 1.5.0 GPU latest/history 字段已有 optional 类型覆盖；本轮不新增 GPU 功能。Agent v1 protocol removal 与主题 RPC/frontend fallback 是不同层，不删除 legacy fallback。
-- 当前验证：targeted traffic spec `9/9`；完整 `bun run test:visual` `61/61`；`bun run lint`、`bun run type-check`、`bun run build`、`git diff --check` 和不回显值的 secret scan 均通过。`bun run build` 已生成并校验 `komari-theme-Glassmorphism-build-3e942bc.zip`：772 entries、CRC PASS、manifest `1.0.2`、Preview 与 `docs/preview.png` byte-for-byte 一致。
-- 远端交付：PR #3 `fix/renewal-traffic-sgd -> main` 已创建并读回，包含实现 commit `3e942bc7e6db880ec83549a866729ff2c082bb55`，open、非 draft、未 merge、`mergeable_state=clean`。Code Quality / Visual Regression 已成功（workflow runs `34847204675` / `34847204602`）；本 handoff note 是文档状态更新，随后会产生一个 docs-only follow-up commit。当前仍 Ready for review；本轮禁止 merge/tag/Release。
+- 当前 follow-up 验证：targeted traffic spec `13/13`；完整 `bun run test:visual` `65/65`；`bun run lint`、`bun run type-check` 和 `git diff --check` 已通过。独立 `bun run build`、不回显值的 secret scan、commit-matched ZIP 与 follow-up 远端 CI 仍待完成。
+- 远端交付：PR #3 `fix/renewal-traffic-sgd -> main` 当前 head 为 `bc4b7187070bb0d335dc6f8629e6158d8c971fb0`，open、非 draft、未 merge；已有 Code Quality / Visual Regression 成功。本 follow-up 正在修补 per-node metric/history capability fallback 和 bounded history safe-hours 兼容性，完成后继续更新同一 PR；当前禁止 merge/tag/Release。
 
 ### 上一轮 1.0.0 发布记录
 
