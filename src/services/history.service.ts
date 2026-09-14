@@ -7,6 +7,10 @@ function numberOrZero(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 
+function optionalNonNegativeNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
+}
+
 function normalizeHours(hours: number): number {
   return Math.max(1, Math.floor(hours))
 }
@@ -56,6 +60,10 @@ export function getNodeLoadRecordsRequestKey(uuid: string, hours: number, maxCou
   return `history:node-load:${uuid}:${normalizeHours(hours)}:${cachePart(normalizeMaxCount(maxCount))}`
 }
 
+export function getNodeLoadRecordsRangeRequestKey(uuid: string, start: string, end: string, maxCount = -1): string {
+  return `history:node-load-range:${uuid}:${start}:${end}:${maxCount}`
+}
+
 export function getPingRecordsRequestKey(hours: number, maxCount?: number, uuid?: string): string {
   return `history:ping:${cachePart(uuid)}:${normalizeHours(hours)}:${cachePart(normalizeMaxCount(maxCount))}`
 }
@@ -95,8 +103,8 @@ export function normalizeStatusRecord(record: Partial<StatusRecord>): StatusReco
     net_out: numberOrZero(record.net_out),
     net_total_up: numberOrZero(record.net_total_up),
     net_total_down: numberOrZero(record.net_total_down),
-    traffic_up: numberOrZero(record.traffic_up),
-    traffic_down: numberOrZero(record.traffic_down),
+    traffic_up: optionalNonNegativeNumber(record.traffic_up),
+    traffic_down: optionalNonNegativeNumber(record.traffic_down),
     process: numberOrZero(record.process),
     connections: numberOrZero(record.connections),
     connections_udp: numberOrZero(record.connections_udp),
@@ -146,6 +154,58 @@ export async function loadNodeLoadRecords(uuid: string, hours: number, maxCount?
       catch {
         const result = await getSharedApi().getLoadRecords(uuid, safeHours, safeMaxCount, signal)
         return normalizeStatusRecords(result.records)
+      }
+    },
+    { shouldRetry: shouldRetryHistoryRequest },
+  )
+}
+
+/**
+ * Load network records through the bounded range/history compatibility path.
+ * Komari 1.5.0 accepts start/end on common:getRecords; older servers may
+ * ignore those fields, so hours is sent in the first request as well and the
+ * returned records are still filtered by the caller.
+ */
+export async function loadNodeLoadRecordsByRange(
+  uuid: string,
+  start: Date,
+  end: Date,
+  maxCount = -1,
+): Promise<StatusRecord[]> {
+  const startTime = start.getTime()
+  const endTime = end.getTime()
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime)
+    return []
+
+  const startIso = start.toISOString()
+  const endIso = end.toISOString()
+  const safeHours = Math.max(1, Math.ceil((endTime - startTime) / (60 * 60 * 1000)) + 1)
+  const key = getNodeLoadRecordsRangeRequestKey(uuid, startIso, endIso, maxCount)
+  return requestManager.run(
+    key,
+    async (signal) => {
+      try {
+        const result = await getSharedRpc().getRecords({
+          type: 'load',
+          uuid,
+          hours: safeHours,
+          start: startIso,
+          end: endIso,
+          load_type: 'network',
+          maxCount,
+          max_count: maxCount,
+        }, signal)
+        const records = (result as { records?: StatusRecordsPayload } | null)?.records
+        return normalizeStatusRecordsPayload(records)
+      }
+      catch {
+        try {
+          const result = await getSharedRpc().getLoadRecords(uuid, safeHours, 'network', maxCount > 0 ? maxCount : undefined, signal)
+          return normalizeStatusRecordsPayload(result.records)
+        }
+        catch {
+          return loadNodeLoadRecords(uuid, safeHours, maxCount > 0 ? maxCount : undefined)
+        }
       }
     },
     { shouldRetry: shouldRetryHistoryRequest },

@@ -5,9 +5,10 @@ import { useStorageAsync } from '@vueuse/core'
 import { computed, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { useAppStore } from '@/stores/app'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatUptimeWithFormat } from '@/utils/helper'
-import { getDiskPercentage, getMemoryPercentage, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
+import { getDiskPercentage, getMemoryPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { isNodeMatchSearch } from '@/utils/nodeSearch'
 import { formatPriceWithCycle, isFreePrice } from '@/utils/tagHelper'
 
@@ -24,6 +25,7 @@ const props = defineProps<{
 
 const MAX_COMPARE_NODES = 4
 const appStore = useAppStore()
+const monthlyTrafficUsage = useMonthlyTrafficUsage(() => props.nodes)
 const searchText = ref('')
 const selectedIds = useStorageAsync<string[]>('theme:node-compare:v1', [], localStorage)
 const normalizedSelectedIds = computed(() => [...new Set(
@@ -70,8 +72,8 @@ const compareMetrics = computed<CompareMetric[]>(() => {
     {
       key: 'trafficQuota',
       label: '流量配额',
-      value: node => hasTrafficLimit(node) ? `${formatBytes(getTrafficUsed(node))} / ${formatBytes(node.traffic_limit)}` : '无限',
-      percentage: node => hasTrafficLimit(node) ? getTrafficUsedPercentage(node) : null,
+      value: node => hasTrafficLimit(node) ? `${formatBytes(monthlyTrafficUsage.getUsage(node).used)} / ${formatBytes(node.traffic_limit)}` : '无限',
+      percentage: node => hasTrafficLimit(node) ? monthlyTrafficUsage.getUsage(node).percentage : null,
     },
     { key: 'uptime', label: '运行时间', value: node => formatUptimeWithFormat(node.uptime || 0, 'day') },
   ]

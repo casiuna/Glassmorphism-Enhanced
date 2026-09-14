@@ -7,12 +7,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CardX } from '@/components/ui/card-x'
 import { Spinner } from '@/components/ui/spinner'
+import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { LOAD_RECORD_MAX_COUNT, PING_RECORD_MAX_COUNT } from '@/constants/load'
 import { loadLoadRecords, loadPingRecords } from '@/services/history.service'
 import { analyzeDiskPrediction } from '@/services/prediction.service'
 import { useAppStore } from '@/stores/app'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig } from '@/utils/helper'
-import { getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
+import { hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 
 interface HealthRangeOption {
   key: 'day' | 'week' | 'month' | 'all'
@@ -59,6 +60,7 @@ const props = defineProps<{
 }>()
 
 const appStore = useAppStore()
+const monthlyTrafficUsage = useMonthlyTrafficUsage(() => props.nodes)
 const selectedRange = ref<HealthRangeOption['key']>('week')
 const generatedAt = ref<string>('')
 const loading = ref(false)
@@ -128,7 +130,7 @@ function getDiskUsagePeak(records: StatusRecord[], fallbackUsed: number, fallbac
 function getTrafficBurnSpeed(node: NodeData): number {
   if (!hasTrafficLimit(node))
     return 0
-  const used = getTrafficUsed(node)
+  const used = monthlyTrafficUsage.getUsage(node).used
   const uptimeSeconds = Math.max(1, node.uptime || 0)
   return used / uptimeSeconds
 }
@@ -249,8 +251,8 @@ function buildNodeSummary(node: NodeData, recordsByClient: Map<string, StatusRec
     cpuPeak: getCpuPeak(records, node.cpu || 0),
     memoryPeak: getMemoryPeak(records, node.mem_total),
     loadPeak: getLoadPeak(records, node.load || 0),
-    trafficUsedPercentage: getTrafficUsedPercentage(node),
-    trafficUsedBytes: getTrafficUsed(node),
+    trafficUsedPercentage: monthlyTrafficUsage.getUsage(node).percentage,
+    trafficUsedBytes: monthlyTrafficUsage.getUsage(node).used,
     trafficLimitBytes: node.traffic_limit || 0,
     diskUsagePercentage: getDiskUsagePeak(records, node.disk || 0, node.disk_total || 0),
     diskPredictionDays: diskPrediction ? diskPrediction.daysUntilFull : null,

@@ -6,10 +6,11 @@ import { Badge } from '@/components/ui/badge'
 import { CardX } from '@/components/ui/card-x'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import { ProgressThin } from '@/components/ui/progress-thin'
+import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { useNodeCarrierPingSource } from '@/composables/useNodeCarrierPingSource'
 import { useAppStore } from '@/stores/app'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, getStatus, getUptimeDays } from '@/utils/helper'
-import { getDiskPercentage, getMemoryPercentage, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
+import { getDiskPercentage, getMemoryPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
 import { formatCurrencyValue, formatPriceWithCycle, getDaysUntilExpired, getExpireStatus, getRemainingValue, isFreePrice, parseTags } from '@/utils/tagHelper'
@@ -27,6 +28,7 @@ const emit = defineEmits<{
   pingClick: []
 }>()
 const appStore = useAppStore()
+const monthlyTrafficUsage = useMonthlyTrafficUsage(() => [props.node])
 const isFavorite = computed(() => appStore.isFavoriteNode(props.node.uuid))
 
 function toggleFavorite(): void {
@@ -91,8 +93,9 @@ const diskStatus = computed(() => getStatus(diskPercentage.value))
 
 const { carrierDisplays, isTransit } = useNodeCarrierPingSource(() => props.node, () => props.pingEnabled)
 
-const trafficUsedPercentage = computed(() => getTrafficUsedPercentage(props.node))
-const trafficUsed = computed(() => getTrafficUsed(props.node))
+const trafficUsage = computed(() => monthlyTrafficUsage.getUsage(props.node))
+const trafficUsedPercentage = computed(() => trafficUsage.value.percentage)
+const trafficUsed = computed(() => trafficUsage.value.used)
 const nodeMessage = computed(() => props.node.message?.trim() ?? '')
 const nodeMessageTooltip = computed(() => {
   const message = nodeMessage.value

@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Empty } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { provideMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { useVisitorAudit } from '@/composables/useVisitorAudit'
 import { UI_CONFIG } from '@/constants/ui'
 import { useAppStore } from '@/stores/app'
@@ -66,6 +67,7 @@ const nodesStore = useNodesStore()
 const router = useRouter()
 const { record: recordVisitorEvent } = useVisitorAudit()
 const isViewActive = ref(true)
+provideMonthlyTrafficUsage(() => nodesStore.visibleNodes)
 
 onActivated(() => {
   isViewActive.value = true

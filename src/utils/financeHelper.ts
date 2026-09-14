@@ -1,7 +1,7 @@
 import type { NodeData } from '@/stores/nodes'
 import { isFreeNode } from '@/utils/tagHelper'
 
-export type CurrencyCode = 'CNY' | 'USD' | 'HKD' | 'EUR' | 'GBP' | 'JPY' | 'RUB' | 'CHF' | 'INR' | 'VND' | 'THB' | 'CAD'
+export type CurrencyCode = 'CNY' | 'USD' | 'HKD' | 'EUR' | 'GBP' | 'JPY' | 'RUB' | 'CHF' | 'INR' | 'VND' | 'THB' | 'CAD' | 'SGD'
 export type ExchangeRates = Record<CurrencyCode, number>
 export type ExchangeRateSource = 'cache' | 'network' | 'stale-cache' | 'default'
 
@@ -39,7 +39,7 @@ const FINANCE_CURRENCY_KEY = 'fin_currency'
 const EXCLUDE_FREE_KEY = 'fin_exclude_free'
 const METERED_SETTINGS_KEY_PREFIX = 'theme:usage-estimator:v1:'
 export const MAX_ESTIMATE_INPUT = 1e12
-export const SUPPORTED_CURRENCIES: CurrencyCode[] = ['CNY', 'USD', 'HKD', 'EUR', 'GBP', 'JPY', 'RUB', 'CHF', 'INR', 'VND', 'THB', 'CAD']
+export const SUPPORTED_CURRENCIES: CurrencyCode[] = ['CNY', 'USD', 'HKD', 'EUR', 'GBP', 'JPY', 'RUB', 'CHF', 'INR', 'VND', 'THB', 'CAD', 'SGD']
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 const LONG_TERM_YEARS = 100
 let exchangeRatesInflight: Promise<{ rates: ExchangeRates, source: ExchangeRateSource, updatedAt: number | null }> | null = null
@@ -57,6 +57,7 @@ export const DEFAULT_EXCHANGE_RATES: ExchangeRates = {
   VND: 3500,
   THB: 5.0,
   CAD: 0.19,
+  SGD: 0.188746,
 }
 
 export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
@@ -72,6 +73,7 @@ export const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
   VND: '₫',
   THB: '฿',
   CAD: 'CA$',
+  SGD: 'S$',
 }
 
 const EXCHANGE_RATE_APIS = [
@@ -119,6 +121,8 @@ export function normalizeCurrency(currency: string | null | undefined): Currency
     return 'THB'
   if (value === 'CAD' || value === 'CA$' || value === 'C$' || value === 'CAD$')
     return 'CAD'
+  if (value === 'SGD' || value === 'S$')
+    return 'SGD'
 
   return 'CNY'
 }

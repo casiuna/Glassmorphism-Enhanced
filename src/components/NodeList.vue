@@ -9,12 +9,13 @@ import TrafficProgress from '@/components/TrafficProgress.vue'
 import { Badge } from '@/components/ui/badge'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import { ProgressThin } from '@/components/ui/progress-thin'
+import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { useNodeProviderMetadata } from '@/composables/useNodeProviderMetadata'
 import { UI_CONFIG } from '@/constants/ui'
 import { useAppStore } from '@/stores/app'
 import { formatCityNameZh } from '@/utils/cityNameHelper'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, formatUptimeWithFormat, getStatus } from '@/utils/helper'
-import { getRealtimeTotalSpeed, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
+import { getRealtimeTotalSpeed, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
 import { formatPriceWithCycle, getDaysUntilExpired, getExpireStatus, parseTags } from '@/utils/tagHelper'
@@ -53,6 +54,7 @@ const rowStaggerMs = UI_CONFIG.motion.staggerMs
 const rowStaggerLimit = UI_CONFIG.motion.staggerLimit
 
 const appStore = useAppStore()
+const monthlyTrafficUsage = useMonthlyTrafficUsage(() => props.nodes)
 
 function toggleFavorite(node: NodeData): void {
   appStore.toggleFavoriteNode(node.uuid)
@@ -566,10 +568,10 @@ function buildNodeMetadataItems(node: NodeData): NodeMetadataItem[] {
                   <div class="space-y-1 w-full">
                     <div class="text-[11px] font-medium text-foreground/75 truncate">
                       <span class="inline group-hover:hidden">
-                        {{ getTrafficUsedPercentage(node).toFixed(1) }}%
+                        {{ monthlyTrafficUsage.getUsage(node).percentage.toFixed(1) }}%
                       </span>
                       <span class="hidden group-hover:inline">
-                        {{ formatBytes(getTrafficUsed(node)) }} /
+                        {{ formatBytes(monthlyTrafficUsage.getUsage(node).used) }} /
                         <template v-if="hasTrafficLimit(node)">{{ formatBytes(node.traffic_limit) }}</template>
                         <template v-else>∞</template>
                       </span>

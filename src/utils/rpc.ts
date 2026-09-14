@@ -903,12 +903,14 @@ export class KomariRpc {
     type: 'load' | 'ping'
     uuid?: string
     hours?: number
+    start?: string | number
+    end?: string | number
     task_id?: number
     load_type?: string
     maxCount?: number
     max_count?: number
-  }): Promise<unknown> {
-    return this.client.call('common:getRecords', params)
+  }, signal?: AbortSignal): Promise<unknown> {
+    return this.client.call('common:getRecords', params, signal)
   }
 
   /**
