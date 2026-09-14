@@ -10,6 +10,7 @@ import { CardX } from '@/components/ui/card-x'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import { Empty } from '@/components/ui/empty'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { useNodeProviderMetadata } from '@/composables/useNodeProviderMetadata'
 import { LOAD_RECORD_MAX_COUNT } from '@/constants/load'
 import { loadNodeLoadRecords } from '@/services/history.service'
@@ -40,6 +41,7 @@ const peakNetOut = ref(0)
 const peakNetIn = ref(0)
 const activeDetailSection = ref<'overview' | 'load' | 'ping'>('overview')
 const data = computed(() => nodesStore.visibleNodesByUuid.get(String(route.params.id)))
+const monthlyTrafficUsage = useMonthlyTrafficUsage(() => data.value ? [data.value] : [])
 const detailNodes = computed(() => nodesStore.visibleNodes)
 const detailNodeIndex = computed(() => detailNodes.value.findIndex(node => node.uuid === data.value?.uuid))
 const isFavoriteNode = computed(() => data.value ? appStore.isFavoriteNode(data.value.uuid) : false)
@@ -310,23 +312,10 @@ function getDetailMetricCard(key: DetailMetricCardKey): MetricCard {
   const memoryUsage = usagePercentage(node?.ram ?? 0, node?.mem_total ?? 0)
   const swapUsage = usagePercentage(node?.swap ?? 0, node?.swap_total ?? 0)
   const diskUsage = usagePercentage(node?.disk ?? 0, node?.disk_total ?? 0)
-  const nodeTrafficUsed = (() => {
-    const up = node?.net_total_up ?? 0
-    const down = node?.net_total_down ?? 0
-    switch (node?.traffic_limit_type) {
-      case 'up': return up
-      case 'down': return down
-      case 'min': return Math.min(up, down)
-      case 'max': return Math.max(up, down)
-      case 'sum':
-      default: return up + down
-    }
-  })()
+  const nodeTrafficUsed = node ? monthlyTrafficUsage.getUsage(node).used : 0
   const nodeTrafficLimit = node?.traffic_limit ?? 0
   const nodeHasTrafficLimit = nodeTrafficLimit > 0
-  const nodeTrafficPercentage = nodeHasTrafficLimit
-    ? Math.min(nodeTrafficUsed / nodeTrafficLimit * 100, 100)
-    : 0
+  const nodeTrafficPercentage = node ? monthlyTrafficUsage.getUsage(node).percentage : 0
 
   switch (key) {
     case 'nodePrice':
@@ -430,24 +419,16 @@ const trafficUsed = computed(() => {
   const node = data.value
   if (!node)
     return 0
-  const { net_total_up = 0, net_total_down = 0, traffic_limit_type } = node
-  switch (traffic_limit_type) {
-    case 'up': return net_total_up
-    case 'down': return net_total_down
-    case 'min': return Math.min(net_total_up, net_total_down)
-    case 'max': return Math.max(net_total_up, net_total_down)
-    case 'sum':
-    default: return net_total_up + net_total_down
-  }
+  return monthlyTrafficUsage.getUsage(node).used
 })
 
 const hasTrafficLimit = computed(() => (data.value?.traffic_limit ?? 0) > 0)
 
 const trafficUsedPercentage = computed(() => {
-  const trafficLimit = data.value?.traffic_limit ?? 0
-  if (trafficLimit <= 0)
+  const node = data.value
+  if (!node)
     return 0
-  return Math.min((trafficUsed.value / trafficLimit) * 100, 100)
+  return monthlyTrafficUsage.getUsage(node).percentage
 })
 
 const trafficUsageText = computed(() => {

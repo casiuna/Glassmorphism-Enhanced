@@ -9,6 +9,7 @@ import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import NodeEarthGlobe from '@/components/NodeEarthGlobe.vue'
 import { CardX } from '@/components/ui/card-x'
 import { DataTooltip } from '@/components/ui/data-tooltip'
+import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { UI_CONFIG } from '@/constants/ui'
 import { useAppStore } from '@/stores/app'
 import { useNodesStore } from '@/stores/nodes'
@@ -19,11 +20,8 @@ import {
   getExpiryDays,
   getHighLoadMetrics,
   getRealtimeTotalSpeed,
-  getTrafficUsed,
-  getTrafficUsedPercentage,
   isExpiringNode,
   isHighLoadNode,
-  isTrafficWarningNode,
 } from '@/utils/nodeMetricsHelper'
 import { getRegionDisplayName } from '@/utils/regionHelper'
 import { isFreeNode } from '@/utils/tagHelper'
@@ -77,6 +75,7 @@ const excludeFreeNodes = ref(true)
 const financeDetailsOpen = ref(false)
 const currentTime = useNow({ interval: 1000 })
 const summaryNodes = computed(() => props.nodes ?? nodesStore.visibleNodes)
+const monthlyTrafficUsage = useMonthlyTrafficUsage(() => summaryNodes.value)
 const summaryTransitionKey = computed(() => props.transitionKey ?? nodesStore.visibleNodes.length)
 const metricSwitchTransitionProps = computed(() => ({
   ...(appStore.disablePageAnimation
@@ -346,7 +345,7 @@ const trafficQuota = computed(() => {
   for (const node of summaryNodes.value) {
     if ((node.traffic_limit || 0) <= 0)
       continue
-    used += getTrafficUsed(node)
+    used += monthlyTrafficUsage.getUsage(node).used
     limit += node.traffic_limit || 0
   }
 
@@ -365,7 +364,7 @@ const connectionPeakNode = computed(() => onlineStats.value.connectionPeakNode)
 const offlineNodes = computed(() => summaryNodes.value.filter(node => !node.online))
 const highLoadNodes = computed(() => onlineStats.value.highLoadNodes)
 const expiringNodes = computed(() => summaryNodes.value.filter(node => isExpiringNode(node, appStore.homeExpiringDays)))
-const trafficWarningNodes = computed(() => summaryNodes.value.filter(node => isTrafficWarningNode(node, appStore.homeTrafficWarningThreshold)))
+const trafficWarningNodes = computed(() => summaryNodes.value.filter(node => monthlyTrafficUsage.getUsage(node).percentage >= appStore.homeTrafficWarningThreshold))
 const regionDistribution = computed(() => getKnownDistribution(summaryNodes.value, node => getRegionDisplayName(node.region)))
 const systemDistribution = computed(() => getDistribution(summaryNodes.value, node => node.os))
 const virtualizationDistribution = computed(() => getDistribution(summaryNodes.value, node => node.virtualization))
@@ -640,7 +639,7 @@ function getCardDefinition(key: GeneralCardKey): GeneralMetricCard {
         icon: 'tabler:traffic-cone',
         value: formatCount(trafficWarningNodes.value.length),
         unit: '台',
-        tooltip: formatNodeNames(trafficWarningNodes.value, node => `${node.name}: ${formatDecimal(getTrafficUsedPercentage(node))}%`),
+        tooltip: formatNodeNames(trafficWarningNodes.value, node => `${node.name}: ${formatDecimal(monthlyTrafficUsage.getUsage(node).percentage)}%`),
       }
     case 'connectionPeakNode':
       return {

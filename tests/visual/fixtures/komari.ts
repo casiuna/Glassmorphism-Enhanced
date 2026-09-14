@@ -41,6 +41,8 @@ export interface VisualFixtureOptions {
   missingGeoNode?: boolean
   loggedIn?: boolean
   generalCardKeys?: string[]
+  latestStatusWithoutTraffic?: boolean
+  trafficMetricUnavailable?: boolean
 }
 
 function uuidFor(index: number): string {
@@ -221,7 +223,30 @@ function buildMetricResponse(
   pingTasks: Array<{ id: number, name: string }>,
 ) {
   const requested = Array.isArray(payload.metric_keys) ? payload.metric_keys.map(String) : METRIC_KEYS
-  const uuid = typeof payload.entity_id === 'string' ? payload.entity_id : uuidFor(0)
+  const entityIds = Array.isArray(payload.entity_ids)
+    ? payload.entity_ids.map(String).filter(Boolean)
+    : [typeof payload.entity_id === 'string' ? payload.entity_id : uuidFor(0)]
+  const uuid = entityIds[0] ?? uuidFor(0)
+  if (payload.aggregation === 'sum' && requested.length === 2 && requested.every(key => key === 'traffic.up' || key === 'traffic.down')) {
+    const start = typeof payload.start === 'string' ? payload.start : FIXED_NOW
+    const end = typeof payload.end === 'string' ? payload.end : FIXED_NOW
+    const series = entityIds.flatMap((entityId) => {
+      const nodeIndex = Math.max(0, Object.keys(clients).indexOf(entityId))
+      const up = (nodeIndex + 1) * 45 * GIB
+      const down = nodeIndex === 6 ? 1.78 * TIB : (nodeIndex + 1) * 62 * GIB
+      return requested.map((key) => {
+        const value = key === 'traffic.up' ? up : down
+        return {
+          metric_key: key,
+          entity_id: entityId,
+          type: 'sum',
+          downsampled: true,
+          points: [{ time: start, value: value / 2 }, { time: end, value: value / 2 }],
+        }
+      })
+    })
+    return { start, end, series, count: series.length }
+  }
   const points = Array.from({ length: 48 }, (_, index) => ({
     time: new Date(Date.parse(FIXED_NOW) - (47 - index) * 75_000).toISOString(),
     index,
@@ -251,6 +276,15 @@ function buildMetricResponse(
 
 function jsonRpcResult(id: unknown, result: unknown) {
   return { jsonrpc: '2.0', id, result }
+}
+
+function withoutLatestTrafficFields(): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(statuses).map(([uuid, status]) => {
+    const sanitized = { ...status } as Record<string, unknown>
+    delete sanitized.traffic_up
+    delete sanitized.traffic_down
+    return [uuid, sanitized]
+  }))
 }
 
 async function handleRpc(route: Route, clientFixtures = clients, options: VisualFixtureOptions = {}): Promise<void> {
@@ -289,6 +323,14 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
   })))
   let result: unknown
 
+  if (payload.method === 'public:queryMetrics' && options.trafficMetricUnavailable && payload.params?.aggregation === 'sum') {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ jsonrpc: '2.0', id: payload.id, error: { code: -32601, message: 'Method not found' } }),
+    })
+    return
+  }
+
   switch (payload.method) {
     case 'rpc.ping':
       result = 'pong'
@@ -297,7 +339,9 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
       result = clientFixtures
       break
     case 'common:getNodesLatestStatus':
-      result = options.relayOffline ? { ...statuses, [uuidFor(1)]: { ...statuses[uuidFor(1)], online: false } } : statuses
+      result = options.latestStatusWithoutTraffic ? withoutLatestTrafficFields() : statuses
+      if (options.relayOffline)
+        result = { ...(result as Record<string, unknown>), [uuidFor(1)]: { ...(result as Record<string, Record<string, unknown>>)[uuidFor(1)], online: false } }
       break
     case 'common:getNodeRecentStatus':
       result = { count: 48, records: buildRecords(uuid) }

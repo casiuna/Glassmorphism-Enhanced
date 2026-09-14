@@ -5,13 +5,13 @@ import { computed, onMounted, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import { CardX } from '@/components/ui/card-x'
 import { Input } from '@/components/ui/input'
+import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { useNodeProviderMetadata } from '@/composables/useNodeProviderMetadata'
 import { useVisitorAudit } from '@/composables/useVisitorAudit'
 import { buildSnapshotCsvAsync, buildSnapshotJsonAsync, downloadText } from '@/services/snapshot.service'
 import { useAppStore } from '@/stores/app'
 import * as financeHelper from '@/utils/financeHelper'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, formatUptimeWithFormat } from '@/utils/helper'
-import { getTrafficUsed, getTrafficUsedPercentage } from '@/utils/nodeMetricsHelper'
 
 interface SnapshotRow {
   uuid: string
@@ -63,6 +63,7 @@ const { record: recordVisitorEvent } = useVisitorAudit()
 const exchangeRates = ref(financeHelper.DEFAULT_EXCHANGE_RATES)
 const exportPasswordInput = ref('')
 const exporting = ref<null | 'json' | 'csv'>(null)
+const monthlyTrafficUsage = useMonthlyTrafficUsage(() => props.nodes)
 
 const { getNodeProviderMetadata } = useNodeProviderMetadata({
   nodes: () => props.nodes,
@@ -178,9 +179,9 @@ function buildRow(node: NodeData): SnapshotRow {
     memoryTotalBytes: node.mem_total || 0,
     diskUsedBytes: node.disk || 0,
     diskTotalBytes: node.disk_total || 0,
-    trafficUsedBytes: getTrafficUsed(node),
+    trafficUsedBytes: monthlyTrafficUsage.getUsage(node).used,
     trafficLimitBytes: node.traffic_limit || 0,
-    trafficUsedPercent: getTrafficUsedPercentage(node),
+    trafficUsedPercent: monthlyTrafficUsage.getUsage(node).percentage,
     netInBytesPerSecond: node.net_in || 0,
     netOutBytesPerSecond: node.net_out || 0,
     uptimeSeconds: node.uptime || 0,
