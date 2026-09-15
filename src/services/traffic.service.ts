@@ -89,8 +89,10 @@ function getLegacyUsage(node: NodeData, cycle: MonthlyTrafficCycle | null = null
   return createUsage(node, cycle, up, down, 'legacy')
 }
 
-function usageCacheKey(node: NodeData, cycleKey: string): string {
-  return `traffic:monthly:${node.uuid}:${cycleKey}:${node.traffic_limit}:${node.traffic_limit_type}`
+type MonthlyTrafficCacheMode = 'shared' | 'detail-history'
+
+function usageCacheKey(node: NodeData, cycleKey: string, mode: MonthlyTrafficCacheMode): string {
+  return `traffic:monthly:${mode}:${node.uuid}:${cycleKey}:${node.traffic_limit}:${node.traffic_limit_type}`
 }
 
 function metricBatchRequestKey(cycle: MonthlyTrafficCycle, now: Date, uuids: string[]): string {
@@ -262,6 +264,7 @@ export async function loadMonthlyTrafficUsage(
 ): Promise<Map<string, MonthlyTrafficUsage>> {
   const result = new Map<string, MonthlyTrafficUsage>()
   const groups = new Map<string, { cycle: MonthlyTrafficCycle, nodes: NodeData[] }>()
+  const cacheMode: MonthlyTrafficCacheMode = options.allowHistoryFallback ? 'detail-history' : 'shared'
 
   for (const node of nodes) {
     const cycle = getMonthlyTrafficCycle(node, now)
@@ -278,7 +281,7 @@ export async function loadMonthlyTrafficUsage(
   await Promise.all(Array.from(groups.values()).map(async ({ cycle, nodes: groupNodes }) => {
     const missingNodes: NodeData[] = []
     for (const node of groupNodes) {
-      const cached = monthlyTrafficUsageCache.get(usageCacheKey(node, cycle.key))
+      const cached = monthlyTrafficUsageCache.get(usageCacheKey(node, cycle.key, cacheMode))
       if (cached)
         result.set(node.uuid, cached)
       else
@@ -312,7 +315,7 @@ export async function loadMonthlyTrafficUsage(
 
     for (const node of missingNodes) {
       const usage = fetched.get(node.uuid) ?? getLegacyUsage(node, cycle)
-      monthlyTrafficUsageCache.set(usageCacheKey(node, cycle.key), usage)
+      monthlyTrafficUsageCache.set(usageCacheKey(node, cycle.key, cacheMode), usage)
       result.set(node.uuid, usage)
     }
   }))

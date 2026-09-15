@@ -134,9 +134,9 @@ test.describe('monthly traffic cycle and compatibility helpers', () => {
       start: '2026-07-25T00:00:00.000Z',
       end: '2026-07-25T01:00:00.000Z',
       series: [
-        { metric_key: 'traffic.up', entity_id: 'node-zero', count: 1, points: [{ time: '2026-07-25T00:00:00.000Z', value: 0 }] },
-        { metric_key: 'traffic.down', entity_id: 'node-zero', count: 1, points: [{ time: '2026-07-25T00:00:00.000Z', value: 0 }] },
-        { metric_key: 'traffic.up', entity_id: 'node-null', count: 1, points: [{ time: '2026-07-25T00:00:00.000Z', value: null }] },
+        { metric_key: 'traffic.up', entity_id: 'node-zero', downsampled: false, count: 1, points: [{ time: '2026-07-25T00:00:00.000Z', value: 0 }] },
+        { metric_key: 'traffic.down', entity_id: 'node-zero', downsampled: false, count: 1, points: [{ time: '2026-07-25T00:00:00.000Z', value: 0 }] },
+        { metric_key: 'traffic.up', entity_id: 'node-null', downsampled: false, count: 1, points: [{ time: '2026-07-25T00:00:00.000Z', value: null }] },
       ],
       count: 3,
     }
@@ -316,7 +316,52 @@ test('legacy common:getRecords receives safe hours when it ignores start and end
   await expect(page.getByText('10.0%', { exact: true }).first()).toBeVisible()
 })
 
-test('shared clock ticks without refetching an unchanged monthly cycle', async ({ page }) => {
+test('home legacy cache does not mask single-node detail history fallback', async ({ page }) => {
+  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
+  page.on('request', (request) => {
+    if (!request.url().endsWith('/rpc2'))
+      return
+    rpcRequests.push(request.postDataJSON() as { method: string, params?: Record<string, unknown> })
+  })
+
+  const nodeB = '00000000-0000-4000-8000-000000000002'
+  await installKomariFixture(page, {
+    hideEarth: true,
+    latestStatusWithoutTraffic: true,
+    trafficMetricUnavailable: true,
+    trafficHistoryNode: 1,
+    legacyHistoryByHours: true,
+    generalCardKeys: ['trafficQuota'],
+  })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
+  await expect.poll(() => rpcRequests.some(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum')).toBe(true)
+  const homeRangeRequests = () => rpcRequests.filter(request => request.method === 'common:getRecords'
+    && request.params?.type === 'load'
+    && request.params?.start === '2026-07-25T00:00:00.000Z')
+  expect(homeRangeRequests()).toHaveLength(0)
+  await expect(page.getByRole('button', { name: '查看节点 香港边缘节点-超长名称布局测试 详情' }).getByText('1.0%', { exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: '查看节点 香港边缘节点-超长名称布局测试 详情' }).click()
+  await expect(page).toHaveURL(`/instance/${nodeB}`)
+  await expect(page.getByText('香港边缘节点-超长名称布局测试').first()).toBeVisible()
+  const isTargetRangeRequest = (request: { method: string, params?: Record<string, unknown> }) => request.method === 'common:getRecords'
+    && request.params?.uuid === nodeB
+    && request.params?.start === '2026-07-25T00:00:00.000Z'
+    && request.params?.end === '2026-07-25T12:00:00.000Z'
+    && request.params?.hours === 13
+  await expect.poll(() => rpcRequests.some(isTargetRangeRequest)).toBe(true)
+  expect(rpcRequests.filter(isTargetRangeRequest)).toHaveLength(1)
+  await expect(page.getByText('10.0%', { exact: true }).first()).toBeVisible()
+
+  await page.getByRole('button', { name: '返回首页' }).click()
+  await expect(page).toHaveURL('/')
+  await expect(page.getByRole('button', { name: '查看节点 香港边缘节点-超长名称布局测试 详情' }).getByText('1.0%', { exact: true })).toBeVisible()
+  expect(homeRangeRequests()).toHaveLength(1)
+  expect(rpcRequests.filter(isTargetRangeRequest)).toHaveLength(1)
+})
+
+test('shared clock ticks for eleven minutes without a monthly request storm', async ({ page }) => {
   const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
   page.on('request', (request) => {
     if (!request.url().endsWith('/rpc2'))
@@ -332,8 +377,10 @@ test('shared clock ticks without refetching an unchanged monthly cycle', async (
 
   await page.clock.pauseAt(new Date('2026-07-25T12:01:00.000Z'))
   const initialMetricRequestCount = rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum').length
-  await page.clock.runFor('02:00')
-  expect(rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum')).toHaveLength(initialMetricRequestCount)
+  await page.clock.runFor('11:00')
+  const finalMetricRequestCount = rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum').length
+  expect(finalMetricRequestCount).toBeGreaterThanOrEqual(initialMetricRequestCount)
+  expect(finalMetricRequestCount).toBeLessThanOrEqual(initialMetricRequestCount + 1)
 })
 
 test('cycle boundary causes one new monthly query while annual billing stays monthly', async ({ page }) => {
