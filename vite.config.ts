@@ -22,6 +22,8 @@ interface ThemeManifest {
 
 const themeJsonPath = resolve(__dirname, 'komari-theme.json')
 const devApiTarget = process.env.VITE_API_TARGET || 'http://127.0.0.1:25774'
+const V1_0_3_ROLLOUT_ANCHOR = '2026-09-16T00:00:00.000Z'
+const V1_0_3_VISUAL_TEST_ROLLOUT_ANCHOR = '2026-07-01T00:00:00.000Z'
 
 function readThemeManifest(): ThemeManifest {
   if (!existsSync(themeJsonPath))
@@ -109,10 +111,11 @@ function komariThemeZip(): Plugin {
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   define: {
     __BUILD_VERSION__: JSON.stringify(getThemeVersion()),
     __BUILD_GIT_HASH__: JSON.stringify(getCommitHash()),
+    __TRAFFIC_MIGRATION_ROLLOUT_ANCHOR__: JSON.stringify(mode === 'visual-test' ? V1_0_3_VISUAL_TEST_ROLLOUT_ANCHOR : V1_0_3_ROLLOUT_ANCHOR),
   },
   plugins: [
     vue(),
@@ -167,4 +170,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

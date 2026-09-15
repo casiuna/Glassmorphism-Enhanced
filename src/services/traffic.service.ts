@@ -7,8 +7,14 @@ import { queryMetrics } from '@/services/metrics.service'
 import { requestManager } from '@/services/request.service'
 import { RpcError } from '@/utils/rpc'
 import { getMonthlyTrafficCycle } from '@/utils/trafficCycle'
+import { isMonthlyTrafficCycleActive } from '@/utils/trafficMigration'
 
 export type MonthlyTrafficUsageSource = 'metric' | 'history' | 'legacy'
+
+export interface MonthlyTrafficUsageOptions {
+  /** Only an explicitly opened single-node detail context may use history fallback. */
+  allowHistoryFallback?: boolean
+}
 
 export interface MonthlyTrafficUsage {
   uuid: string
@@ -24,12 +30,12 @@ export interface MonthlyTrafficUsage {
 
 const TRAFFIC_METRIC_KEYS = ['traffic.up', 'traffic.down'] as const
 const TRAFFIC_HISTORY_MAX_COUNT = -1
-const TRAFFIC_CACHE_TTL_MS = 30_000
+export const MONTHLY_TRAFFIC_CACHE_TTL_MS = 10 * 60_000
 const TRAFFIC_CACHE_CLEANUP_MS = 5 * 60_000
 
 const monthlyTrafficUsageCache = new SharedCache<MonthlyTrafficUsage>({
   maxSize: 2_000,
-  ttl: TRAFFIC_CACHE_TTL_MS,
+  ttl: MONTHLY_TRAFFIC_CACHE_TTL_MS,
   cleanupInterval: TRAFFIC_CACHE_CLEANUP_MS,
 })
 
@@ -84,16 +90,18 @@ function getLegacyUsage(node: NodeData, cycle: MonthlyTrafficCycle | null = null
   return createUsage(node, cycle, up, down, 'legacy')
 }
 
-function usageCacheKey(uuid: string, cycleKey: string): string {
-  return `traffic:monthly:${uuid}:${cycleKey}`
+type MonthlyTrafficCacheMode = 'shared' | 'detail-history'
+
+function usageCacheKey(node: NodeData, cycleKey: string, mode: MonthlyTrafficCacheMode): string {
+  return `traffic:monthly:${mode}:${node.uuid}:${cycleKey}:${node.traffic_limit}:${node.traffic_limit_type}`
 }
 
 function metricBatchRequestKey(cycle: MonthlyTrafficCycle, now: Date, uuids: string[]): string {
   return `traffic:metric:${cycle.key}:${now.toISOString()}:${[...uuids].sort().join(',')}`
 }
 
-function historyBatchRequestKey(cycle: MonthlyTrafficCycle, now: Date, uuids: string[]): string {
-  return `traffic:history:${cycle.key}:${now.toISOString()}:${[...uuids].sort().join(',')}`
+function historyRequestKey(cycle: MonthlyTrafficCycle, now: Date, uuid: string): string {
+  return `traffic:history:${cycle.key}:${now.toISOString()}:${uuid}`
 }
 
 /** Sum every returned bucket for one metric/entity pair; never use only the latest point. */
@@ -140,6 +148,7 @@ async function loadMetricUsageForGroup(
   nodes: NodeData[],
   cycle: MonthlyTrafficCycle,
   now: Date,
+  options: MonthlyTrafficUsageOptions,
 ): Promise<Map<string, MonthlyTrafficUsage>> {
   const uuids = nodes.map(node => node.uuid).sort()
   if (now.getTime() <= cycle.start.getTime())
@@ -178,15 +187,20 @@ async function loadMetricUsageForGroup(
   if (nodesMissingMetricData.length === 0)
     return metricUsages
 
-  try {
-    const historyUsages = await loadHistoryUsageForGroup(nodesMissingMetricData, cycle, now)
-    for (const node of nodesMissingMetricData)
-      metricUsages.set(node.uuid, historyUsages.get(node.uuid) ?? getLegacyUsage(node, cycle))
-  }
-  catch (error) {
-    console.warn('月流量节点 metric 数据缺失，历史兼容链不可用，保留 legacy 显示:', error)
+  if (!options.allowHistoryFallback || nodesMissingMetricData.length !== 1) {
     for (const node of nodesMissingMetricData)
       metricUsages.set(node.uuid, getLegacyUsage(node, cycle))
+    return metricUsages
+  }
+
+  try {
+    const node = nodesMissingMetricData[0]!
+    metricUsages.set(node.uuid, await loadHistoryUsageForNode(node, cycle, now))
+  }
+  catch (error) {
+    console.warn('月流量节点 metric 数据缺失，单节点历史兼容链不可用，保留 legacy 显示:', error)
+    const node = nodesMissingMetricData[0]!
+    metricUsages.set(node.uuid, getLegacyUsage(node, cycle))
   }
 
   return metricUsages
@@ -225,37 +239,42 @@ function sumHistoryTraffic(records: StatusRecord[], node: NodeData, cycle: Month
   return hasRequiredDelta ? createUsage(node, cycle, up, down, 'history') : getLegacyUsage(node, cycle)
 }
 
-async function loadHistoryUsageForGroup(
-  nodes: NodeData[],
+async function loadHistoryUsageForNode(
+  node: NodeData,
   cycle: MonthlyTrafficCycle,
   now: Date,
-): Promise<Map<string, MonthlyTrafficUsage>> {
-  const uuids = nodes.map(node => node.uuid).sort()
+): Promise<MonthlyTrafficUsage> {
   return requestManager.run(
-    historyBatchRequestKey(cycle, now, uuids),
+    historyRequestKey(cycle, now, node.uuid),
     async () => {
-      const results = await Promise.all(nodes.map(async (node) => {
-        const records = await loadNodeLoadRecordsByRange(node.uuid, cycle.start, now, TRAFFIC_HISTORY_MAX_COUNT)
-        return [node.uuid, sumHistoryTraffic(records, node, cycle, now)] as const
-      }))
-      return new Map(results)
+      const records = await loadNodeLoadRecordsByRange(node.uuid, cycle.start, now, TRAFFIC_HISTORY_MAX_COUNT)
+      return sumHistoryTraffic(records, node, cycle, now)
     },
   )
 }
 
 /**
- * Load one shared monthly usage map. The metric path is the Komari 1.5.0 path;
- * history is used for a failed metric query or only for nodes whose successful
- * batch response has no usable traffic points.
+ * Load one shared monthly usage map. Home/shared contexts use the Komari 1.5.0
+ * metric path and fall straight back to the v1.0.1 cumulative display when the
+ * metric is unavailable. History is opt-in for one explicitly opened detail node.
  */
-export async function loadMonthlyTrafficUsage(nodes: readonly NodeData[], now = new Date()): Promise<Map<string, MonthlyTrafficUsage>> {
+export async function loadMonthlyTrafficUsage(
+  nodes: readonly NodeData[],
+  now = new Date(),
+  options: MonthlyTrafficUsageOptions = {},
+): Promise<Map<string, MonthlyTrafficUsage>> {
   const result = new Map<string, MonthlyTrafficUsage>()
   const groups = new Map<string, { cycle: MonthlyTrafficCycle, nodes: NodeData[] }>()
+  const cacheMode: MonthlyTrafficCacheMode = options.allowHistoryFallback ? 'detail-history' : 'shared'
 
   for (const node of nodes) {
     const cycle = getMonthlyTrafficCycle(node, now)
     if (!cycle) {
       result.set(node.uuid, getLegacyUsage(node))
+      continue
+    }
+    if (!isMonthlyTrafficCycleActive(cycle)) {
+      result.set(node.uuid, getLegacyUsage(node, cycle))
       continue
     }
 
@@ -267,7 +286,7 @@ export async function loadMonthlyTrafficUsage(nodes: readonly NodeData[], now = 
   await Promise.all(Array.from(groups.values()).map(async ({ cycle, nodes: groupNodes }) => {
     const missingNodes: NodeData[] = []
     for (const node of groupNodes) {
-      const cached = monthlyTrafficUsageCache.get(usageCacheKey(node.uuid, cycle.key))
+      const cached = monthlyTrafficUsageCache.get(usageCacheKey(node, cycle.key, cacheMode))
       if (cached)
         result.set(node.uuid, cached)
       else
@@ -279,23 +298,29 @@ export async function loadMonthlyTrafficUsage(nodes: readonly NodeData[], now = 
 
     let fetched: Map<string, MonthlyTrafficUsage>
     try {
-      fetched = await loadMetricUsageForGroup(missingNodes, cycle, now)
+      fetched = await loadMetricUsageForGroup(missingNodes, cycle, now, options)
     }
     catch (error) {
-      if (!hasMetricMethodUnavailable(error))
-        console.warn('月流量 metric 查询失败，尝试历史兼容链:', error)
-      try {
-        fetched = await loadHistoryUsageForGroup(missingNodes, cycle, now)
-      }
-      catch (historyError) {
-        console.warn('月流量历史兼容查询失败，保留 v1.0.1 累计显示:', historyError)
+      if (!options.allowHistoryFallback || missingNodes.length !== 1) {
+        if (!hasMetricMethodUnavailable(error))
+          console.warn('月流量 metric 查询失败，shared context 使用 legacy 显示:', error)
         fetched = new Map(missingNodes.map(node => [node.uuid, getLegacyUsage(node, cycle)]))
+      }
+      else {
+        try {
+          const node = missingNodes[0]!
+          fetched = new Map([[node.uuid, await loadHistoryUsageForNode(node, cycle, now)]])
+        }
+        catch (historyError) {
+          console.warn('月流量历史兼容查询失败，保留 v1.0.1 累计显示:', historyError)
+          fetched = new Map(missingNodes.map(node => [node.uuid, getLegacyUsage(node, cycle)]))
+        }
       }
     }
 
     for (const node of missingNodes) {
       const usage = fetched.get(node.uuid) ?? getLegacyUsage(node, cycle)
-      monthlyTrafficUsageCache.set(usageCacheKey(node.uuid, cycle.key), usage)
+      monthlyTrafficUsageCache.set(usageCacheKey(node, cycle.key, cacheMode), usage)
       result.set(node.uuid, usage)
     }
   }))

@@ -19,8 +19,8 @@
     "type-check": "vue-tsc --build",
     "publish": "bun scripts/publish.ts",
     "sync:admin": "bun scripts/sync-komari-admin.ts",
-    "test:visual": "bun run build-only && playwright test",
-    "test:visual:update": "bun run build-only && playwright test --update-snapshots",
+    "test:visual": "bun run build-only --mode visual-test && playwright test",
+    "test:visual:update": "bun run build-only --mode visual-test && playwright test --update-snapshots",
     "lint": "eslint . --fix --cache",
     "lint:eslint": "eslint . --fix --cache"
   },
