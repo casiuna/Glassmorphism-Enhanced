@@ -6,6 +6,7 @@ import { normalizeStatusRecord } from '../../src/services/history.service'
 import { hasUsableTrafficMetricData, MONTHLY_TRAFFIC_CACHE_TTL_MS, sumTrafficMetricSeries } from '../../src/services/traffic.service'
 import * as financeHelper from '../../src/utils/financeHelper'
 import { getMonthlyTrafficCycle } from '../../src/utils/trafficCycle'
+import { isMonthlyTrafficCycleActive, V1_0_3_DEFAULT_ROLLOUT_ANCHOR } from '../../src/utils/trafficMigration'
 import { installKomariFixture } from './fixtures/komari'
 
 function cycleNode(overrides: Partial<NodeData> = {}): NodeData {
@@ -44,6 +45,21 @@ test.describe('monthly traffic cycle and compatibility helpers', () => {
     expect(hasMonthlyTrafficCycleChanged(undefined, '2026-07-25')).toBe(false)
     expect(hasMonthlyTrafficCycleChanged('2026-07-25', '2026-07-25')).toBe(false)
     expect(hasMonthlyTrafficCycleChanged('2026-07-25', '2026-07-26')).toBe(true)
+  })
+
+  test('uses a fixed forward-only rollout anchor for all visitors and reloads', () => {
+    expect(V1_0_3_DEFAULT_ROLLOUT_ANCHOR).toBe('2026-09-15T00:00:00.000Z')
+    const grandfatheredCycle = getMonthlyTrafficCycle(cycleNode({ expired_at: '2027-09-14T00:00:00.000Z' }), new Date('2026-09-15T12:00:00.000Z'))
+    const nextRenewalCycle = getMonthlyTrafficCycle(cycleNode({ expired_at: '2027-09-14T00:00:00.000Z' }), new Date('2026-10-14T00:00:00.000Z'))
+    const exactAnchorCycle = getMonthlyTrafficCycle(cycleNode({ expired_at: '2027-09-15T00:00:00.000Z' }), new Date('2026-09-15T00:00:00.000Z'))
+
+    expect(grandfatheredCycle?.start.toISOString()).toBe('2026-09-14T00:00:00.000Z')
+    expect(nextRenewalCycle?.start.toISOString()).toBe('2026-10-14T00:00:00.000Z')
+    expect(exactAnchorCycle?.start.toISOString()).toBe('2026-09-15T00:00:00.000Z')
+    expect(isMonthlyTrafficCycleActive(grandfatheredCycle)).toBe(false)
+    expect(isMonthlyTrafficCycleActive(nextRenewalCycle)).toBe(true)
+    expect(isMonthlyTrafficCycleActive(exactAnchorCycle)).toBe(true)
+    expect(isMonthlyTrafficCycleActive(grandfatheredCycle, '2026-09-14T00:00:00.000Z')).toBe(true)
   })
 
   test('clamps day 31 in short months and restores it in the next long month', () => {
@@ -450,4 +466,52 @@ test('legacy traffic remains visible while the monthly metric request is pending
   await expect(page.getByRole('button', { name: '查看节点 主控-洛杉矶 详情' }).getByText('0.5%', { exact: true })).toBeVisible()
   await expect.poll(() => rpcRequests.some(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum')).toBe(true)
   await expect(page.getByRole('button', { name: '查看节点 主控-洛杉矶 详情' }).getByText('0.0%', { exact: true })).toBeVisible()
+})
+
+test('grandfathered traffic waits for the next renewal and stays active after reload', async ({ page }) => {
+  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
+  page.on('request', (request) => {
+    if (!request.url().endsWith('/rpc2'))
+      return
+    rpcRequests.push(request.postDataJSON() as { method: string, params?: Record<string, unknown> })
+  })
+
+  const grandfatheredUuid = '00000000-0000-4000-8000-000000000002'
+  const hasGrandfatheredMetric = (request: { method: string, params?: Record<string, unknown> }) => request.method === 'public:queryMetrics'
+    && request.params?.aggregation === 'sum'
+    && Array.isArray(request.params?.entity_ids)
+    && request.params.entity_ids.includes(grandfatheredUuid)
+  const monthlyHistoryRequests = () => rpcRequests.filter(request => request.method === 'common:getRecords'
+    && request.params?.type === 'load'
+    && typeof request.params?.start === 'string')
+
+  await page.clock.install({ time: new Date('2026-07-30T23:48:00.000Z') })
+  await installKomariFixture(page, {
+    hideEarth: true,
+    useNativeClock: true,
+    trafficGrandfatherNode: 1,
+    generalCardKeys: ['trafficQuota'],
+  })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
+  await expect.poll(() => rpcRequests.some(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum')).toBe(true)
+  expect(rpcRequests.some(hasGrandfatheredMetric)).toBe(false)
+  expect(monthlyHistoryRequests()).toHaveLength(0)
+  await expect(page.getByRole('button', { name: '查看节点 香港边缘节点-超长名称布局测试 详情' }).getByText('1.0%', { exact: true })).toBeVisible()
+
+  await page.clock.runFor('11:00')
+  expect(rpcRequests.some(hasGrandfatheredMetric)).toBe(false)
+  expect(monthlyHistoryRequests()).toHaveLength(0)
+
+  await page.clock.runFor('02:00')
+  const isFirstPostUpgradeMetric = (request: { method: string, params?: Record<string, unknown> }) => hasGrandfatheredMetric(request)
+    && request.params?.start === '2026-07-31T00:00:00.000Z'
+  await expect.poll(() => rpcRequests.filter(isFirstPostUpgradeMetric).length).toBe(1)
+  expect(rpcRequests.filter(isFirstPostUpgradeMetric)).toHaveLength(1)
+
+  const beforeReload = rpcRequests.filter(isFirstPostUpgradeMetric).length
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
+  await expect.poll(() => rpcRequests.filter(isFirstPostUpgradeMetric).length).toBe(beforeReload + 1)
+  expect(rpcRequests.filter(isFirstPostUpgradeMetric)).toHaveLength(beforeReload + 1)
 })

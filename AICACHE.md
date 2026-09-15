@@ -19,9 +19,9 @@
 - 生产 incident：owner 已 rollback 到 v1.0.1；v1.0.2 出现月流量消失/归零、Ping/三网与其他数据延迟或停止加载、上传 100% 卡住。证据指向 frontend shared request-pool/backend pressure：shared clock 每分钟刷新而 traffic cache 仅 30 秒，metric 缺失时 shared home 对多节点 fan-out full-cycle history；没有数据库写入、counter reset 或数据损坏证据。
 - Hotfix 设计：`useMonthlyTrafficUsage` 保留单一 shared clock，仅用 cycle key 变化触发边界 reload；正常刷新限制为 5 分钟，monthly cache TTL 提高到 10 分钟，并合并并发 refresh。加载/失败期间保留 v1.0.1 cumulative display，不闪为 0。
 - Shared/home 只走一次 batched `public:queryMetrics`；method unavailable 或 node metric series 缺失/空/null 时直接 metric->legacy，不启动 N-node `common:getRecords` fan-out。显式单节点 detail 仍可使用 bounded history compatibility path，并由 requestManager/cache 去重；shared 与 detail-history cache mode 分离，Home legacy 不会遮蔽 Detail history。
-- UTC 00:00 renewal-day cycle、annual billing monthly quota、29/30/31 short-month clamp、SGD/S$/C$/USD 与 1.5.0 optional GPU 类型兼容保持不变；Agent v1 protocol removal 与主题 RPC fallback 分层。
+- UTC 00:00 renewal-day cycle、annual billing monthly quota、29/30/31 short-month clamp、SGD/S$/C$/USD 与 1.5.0 optional GPU 类型兼容保持不变；Agent v1 protocol removal 与主题 RPC fallback 分层。固定 production rollout anchor 为 `2026-09-15T00:00:00.000Z`；visual-test mode 使用固定 `2026-07-01T00:00:00.000Z` 仅服务历史 July fixture，不进入 production build。Finance audit 确认现有 monthly/yearly/remaining-value/rate 计算是无状态当前 metadata/rate 展示，本迁移门只作用于 monthly traffic。
 - Regression：fake clock 多分钟不重复 monthly query；cycle boundary 只 reload 一次；shared home 无 history fan-out；monthly unavailable 不阻塞 ping/三网 RPC；loading 保留 legacy；detail history predicate 等待完整 `uuid+start+end+hours`，修复 v1.0.2 CI flake。
-- 当前验证（代码提交 `58b3428314643dfc9362c93083a4d386a4889d2a`）：targeted traffic tests `19/19`；完整 `bun run test:visual` `71/71`；`bun run lint`、`bun run type-check`、`bun run build`、`git diff --check` 已通过。secret scan 共扫描 923 个项目文件，0 个新增命中；唯一命中是未被本轮修改且与 baseline 完全一致的 `public/admin-app` 生成资产静态字符串。
+- 当前验证（代码提交 `58b3428314643dfc9362c93083a4d386a4889d2a`，anchor follow-up 尚未提交）：targeted traffic tests `21/21`；完整 `bun run test:visual` `73/73`；`bun run lint`、`bun run type-check` 已通过。production-mode `bun run build`、`git diff --check`、secret scan、commit-matched ZIP 与 push/PR/CI 待完成。
 - PR #4 的最新 hotfix handoff 已通过 Code Quality / Visual Regression；最终 branch SHA、commit-matched ZIP 与远端 CI 结果在 PR body 中同步。当前仍保持 review-only，不 merge、不 push main、不创建 tag/Release。
 
 ### 上一轮 1.0.0 发布记录

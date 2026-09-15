@@ -7,6 +7,7 @@ import { queryMetrics } from '@/services/metrics.service'
 import { requestManager } from '@/services/request.service'
 import { RpcError } from '@/utils/rpc'
 import { getMonthlyTrafficCycle } from '@/utils/trafficCycle'
+import { isMonthlyTrafficCycleActive } from '@/utils/trafficMigration'
 
 export type MonthlyTrafficUsageSource = 'metric' | 'history' | 'legacy'
 
@@ -270,6 +271,10 @@ export async function loadMonthlyTrafficUsage(
     const cycle = getMonthlyTrafficCycle(node, now)
     if (!cycle) {
       result.set(node.uuid, getLegacyUsage(node))
+      continue
+    }
+    if (!isMonthlyTrafficCycleActive(cycle)) {
+      result.set(node.uuid, getLegacyUsage(node, cycle))
       continue
     }
 
