@@ -1,7 +1,7 @@
 import type { MonthlyTrafficCycle } from '@/utils/trafficCycle'
 
 /** Stable production cutover for the v1.0.3 forward-only migration. */
-export const V1_0_3_DEFAULT_ROLLOUT_ANCHOR = '2026-09-15T00:00:00.000Z'
+export const V1_0_3_DEFAULT_ROLLOUT_ANCHOR = '2026-09-16T00:00:00.000Z'
 
 /**
  * Vite may replace this with the deterministic visual-test anchor. Production

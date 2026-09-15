@@ -47,19 +47,41 @@ test.describe('monthly traffic cycle and compatibility helpers', () => {
     expect(hasMonthlyTrafficCycleChanged('2026-07-25', '2026-07-26')).toBe(true)
   })
 
-  test('uses a fixed forward-only rollout anchor for all visitors and reloads', () => {
-    expect(V1_0_3_DEFAULT_ROLLOUT_ANCHOR).toBe('2026-09-15T00:00:00.000Z')
-    const grandfatheredCycle = getMonthlyTrafficCycle(cycleNode({ expired_at: '2027-09-14T00:00:00.000Z' }), new Date('2026-09-15T12:00:00.000Z'))
-    const nextRenewalCycle = getMonthlyTrafficCycle(cycleNode({ expired_at: '2027-09-14T00:00:00.000Z' }), new Date('2026-10-14T00:00:00.000Z'))
-    const exactAnchorCycle = getMonthlyTrafficCycle(cycleNode({ expired_at: '2027-09-15T00:00:00.000Z' }), new Date('2026-09-15T00:00:00.000Z'))
+  test('renewal day 15 remains inactive on the September 15 upgrade and activates once on October 15', () => {
+    expect(V1_0_3_DEFAULT_ROLLOUT_ANCHOR).toBe('2026-09-16T00:00:00.000Z')
+    const node = cycleNode({ expired_at: '2027-09-15T00:00:00.000Z' })
+    const states = [
+      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-09-15T12:00:00.000Z'))),
+      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-10-14T23:59:59.000Z'))),
+      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-10-15T00:00:00.000Z'))),
+    ]
 
-    expect(grandfatheredCycle?.start.toISOString()).toBe('2026-09-14T00:00:00.000Z')
-    expect(nextRenewalCycle?.start.toISOString()).toBe('2026-10-14T00:00:00.000Z')
-    expect(exactAnchorCycle?.start.toISOString()).toBe('2026-09-15T00:00:00.000Z')
-    expect(isMonthlyTrafficCycleActive(grandfatheredCycle)).toBe(false)
-    expect(isMonthlyTrafficCycleActive(nextRenewalCycle)).toBe(true)
-    expect(isMonthlyTrafficCycleActive(exactAnchorCycle)).toBe(true)
-    expect(isMonthlyTrafficCycleActive(grandfatheredCycle, '2026-09-14T00:00:00.000Z')).toBe(true)
+    expect(states).toEqual([false, false, true])
+    expect(states.slice(1).filter((active, index) => active && !states[index]).length).toBe(1)
+  })
+
+  test('renewal day 16 remains inactive on September 15 and activates once on September 16', () => {
+    const node = cycleNode({ expired_at: '2027-09-16T00:00:00.000Z' })
+    const states = [
+      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-09-15T12:00:00.000Z'))),
+      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-09-16T00:00:00.000Z'))),
+      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-09-16T12:00:00.000Z'))),
+    ]
+
+    expect(states).toEqual([false, true, true])
+    expect(states.slice(1).filter((active, index) => active && !states[index]).length).toBe(1)
+  })
+
+  test('renewal day 14 remains inactive on September 15 and activates once on October 14', () => {
+    const node = cycleNode({ expired_at: '2027-09-14T00:00:00.000Z' })
+    const states = [
+      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-09-15T12:00:00.000Z'))),
+      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-10-13T23:59:59.000Z'))),
+      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-10-14T00:00:00.000Z'))),
+    ]
+
+    expect(states).toEqual([false, false, true])
+    expect(states.slice(1).filter((active, index) => active && !states[index]).length).toBe(1)
   })
 
   test('clamps day 31 in short months and restores it in the next long month', () => {

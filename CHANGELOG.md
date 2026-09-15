@@ -22,7 +22,7 @@ Hotfix for the v1.0.2 production regression. Validated compatibility target: Kom
 - Annual billing still uses a monthly traffic renewal window derived from the UTC `expired_at` calendar day; 29/30/31-day short-month clamping and later restoration remain unchanged.
 - SGD/S$ support remains compatible with C$ (CAD) and `$` (USD).
 - Komari Server 1.5.0 latest status payloads without `traffic_up/down` remain supported. Agent v1 protocol changes are separate from the theme's RPC and frontend fallback layers.
-- The v1.0.3 migration is forward-only: the fixed package rollout anchor is `2026-09-15T00:00:00.000Z`; a cycle that started before it remains on legacy cumulative display until its next renewal boundary. The anchor is package/build data, not browser storage or a server-side write.
+- The v1.0.3 migration is forward-only: the fixed package rollout anchor is `2026-09-16T00:00:00.000Z`; a cycle that started before it remains on legacy cumulative display until its next renewal boundary. The anchor is package/build data, not browser storage or a server-side write.
 
 ### Finance audit
 
