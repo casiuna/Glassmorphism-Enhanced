@@ -21,7 +21,8 @@
 - Shared/home 只走一次 batched `public:queryMetrics`；method unavailable 或 node metric series 缺失/空/null 时直接 metric->legacy，不启动 N-node `common:getRecords` fan-out。显式单节点 detail 仍可使用 bounded history compatibility path，并由 requestManager/cache 去重；shared 与 detail-history cache mode 分离，Home legacy 不会遮蔽 Detail history。
 - UTC 00:00 renewal-day cycle、annual billing monthly quota、29/30/31 short-month clamp、SGD/S$/C$/USD 与 1.5.0 optional GPU 类型兼容保持不变；Agent v1 protocol removal 与主题 RPC fallback 分层。
 - Regression：fake clock 多分钟不重复 monthly query；cycle boundary 只 reload 一次；shared home 无 history fan-out；monthly unavailable 不阻塞 ping/三网 RPC；loading 保留 legacy；detail history predicate 等待完整 `uuid+start+end+hours`，修复 v1.0.2 CI flake。
-- 当前验证：targeted traffic tests `19/19`；`bun run type-check`、`bun run lint` 已通过。完整 `bun run build`、`bun run test:visual`、secret scan、commit-matched ZIP、push/PR/CI 待完成。
+- 当前验证（代码提交 `58b3428314643dfc9362c93083a4d386a4889d2a`）：targeted traffic tests `19/19`；完整 `bun run test:visual` `71/71`；`bun run lint`、`bun run type-check`、`bun run build`、`git diff --check` 已通过。secret scan 共扫描 923 个项目文件，0 个新增命中；唯一命中是未被本轮修改且与 baseline 完全一致的 `public/admin-app` 生成资产静态字符串。
+- commit-matched ZIP 已在代码提交 `58b3428` 校验通过；PR #4 当前 head `58b3428314643dfc9362c93083a4d386a4889d2a` 的 Code Quality / Visual Regression 均 success。本次仅追加 handoff metadata commit，完成后需按新 HEAD 重新生成 ZIP 并读回 CI。
 
 ### 上一轮 1.0.0 发布记录
 
