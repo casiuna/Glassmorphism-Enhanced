@@ -103,6 +103,12 @@ export async function verifyLogin(options: VerifyLoginOptions = {}): Promise<Aut
   return verifyPromise
 }
 
+/** Native frontend has no /login or return-url contract; its public login returns to /admin. */
+export async function getAdminEntryUrl(): Promise<string> {
+  const session = await verifyLogin({ force: true })
+  return session.authenticated ? '/admin' : '/admin-app/index.html?__komari_route=%2F'
+}
+
 export async function requirePermission(permission: PermissionKey, options: VerifyLoginOptions = { force: true }): Promise<PermissionResult> {
   const session = await verifyLogin(options)
   if (session.authenticated) {
