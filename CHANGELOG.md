@@ -2,7 +2,13 @@
 
 All notable Glassmorphism Enhanced changes are documented here. Upstream history remains in the upstream repository and preserved Git history.
 
-## 1.0.3 — Unreleased
+## 1.0.4 — Unreleased
+
+- Protect the sticky header from viewport safe-area overlap, including translucent iOS standalone status bars, without device/version detection or duplicate page padding.
+- Verify the native session before admin navigation. Guests use the bundled official homepage's native login (an additional login click); native login returns to `/admin`. No invented login route, return-url parameter, credential storage or Server/Agent changes.
+- Synchronize the README release badge and independent manifest version. Preserve v1.0.3 traffic migration, finance, Transit and owner preview.
+
+## 1.0.3 — Released
 
 Hotfix for the v1.0.2 production regression. Validated compatibility target: Komari Server 1.5.0. No Komari Server or Agent changes are included.
 

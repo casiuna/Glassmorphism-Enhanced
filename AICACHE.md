@@ -12,6 +12,17 @@
 
 ## 当前任务
 
+### v1.0.4 — safe-area / native admin login / release metadata
+
+- 基线：已发布 v1.0.3，main `474334735e72e2deeb276e2c81c017d865ef0725`；分支 `fix/v1.0.4-safe-area-admin-login`。
+- 范围：M4 顶部 safe-area 与原生登录导航；M6 版本/文档/回归。保留 traffic migration、finance、Transit、preview。
+- 原生依据：Komari Server tag 1.5.0、komari-web tag 1.5.0 的 routes.ts / Login.tsx；无独立 login/return-url，原生 LoginDialog 成功进入后台。内嵌官方版本 ebfbd3e 同样提供首页登录与 /admin 成功目的地。
+- 本地验证：lint、type-check、production build、diff-check PASS；完整 Playwright/visual `80/80 PASS`（新增 header 5 项，无 snapshot 更新）。927 个 tracked/unignored 文件 secret-pattern scan 0 命中；新增数据仅 fixture/public upstream references。ZIP 772 entries、CRC PASS、manifest 1.0.4、preview byte-identical；最终 commit-matched SHA 在交付记录中。
+- 原生登录 fallback：进入内嵌官方 public homepage 后再点击可见 Login；没有自建表单或隐藏按钮。iOS 为 Chromium viewport + standalone 属性 + 注入 inset 几何模拟，未做真机 iOS Safari。
+- 环境：新 ARM64 checkout，工具链/浏览器依赖仅装用户目录；GitHub SSH 可用，当前缺少 GitHub API token/gh 登录，PR 创建待授权环境恢复。技术依据见 `docs/v1.0.4-review.md`。不 merge/tag/Release，不修改 Server/Agent 或生产。
+
+## 历史任务（非当前发布状态）
+
 ### v1.0.2 incident / v1.0.3 traffic-load hotfix
 
 - 状态：implementation and validation in progress；当前分支 `hotfix/v1.0.3-traffic-load`，基于 merged `main` `f9b566f9b67a610dea0e5386c6847c1aef0c1b86`，不 push main、不 merge、不创建 tag/Release。

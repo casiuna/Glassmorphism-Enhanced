@@ -6,11 +6,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import VisitorInfo from '@/components/VisitorInfo.vue'
+import { useAdminNavigation } from '@/composables/useAdminNavigation'
 import { useVisitorAudit } from '@/composables/useVisitorAudit'
 import { useAppStore } from '@/stores/app'
 
 const router = useRouter()
 const appStore = useAppStore()
+const { openAdmin, navigating } = useAdminNavigation()
 const { record: recordVisitorEvent } = useVisitorAudit()
 
 const isScrolled = inject<ReturnType<typeof ref<boolean>>>('isScrolled', ref(false))
@@ -79,7 +81,7 @@ function handleButtonClick(action: string) {
         path: router.currentRoute.value.path,
         route: String(router.currentRoute.value.name ?? ''),
       })
-      location.href = '/admin'
+      void openAdmin()
       break
   }
 }
@@ -92,7 +94,7 @@ const sitename = computed(() => appStore.publicSettings?.sitename || 'Komari Mon
   <VisitorInfo v-if="!appStore.loading && appStore.visitorInfoEnabled" />
 
   <div
-    class="transition-all duration-200 top-0 sticky z-10 border-b border-transparent"
+    class="site-header transition-all duration-200 top-0 sticky z-10 border-b border-transparent"
     :class="isScrolled ? '!border-slate-500/10 backdrop-blur-lg' : 'bg-transparent'"
   >
     <div class="px-4 flex-between h-14 max-w-[1280px] mx-auto">
@@ -113,6 +115,7 @@ const sitename = computed(() => appStore.publicSettings?.sitename || 'Komari Mon
                 variant="ghost"
                 size="icon-sm"
                 :aria-label="button.title"
+                :disabled="button.action === 'jumpToSetting' && navigating"
                 :aria-pressed="button.pressed"
                 :class="button.pressed && 'bg-background/70 text-selection'"
                 @click="handleButtonClick(button.action)"
@@ -127,3 +130,11 @@ const sitename = computed(() => appStore.publicSettings?.sitename || 'Komari Mon
     </div>
   </div>
 </template>
+
+<style scoped>
+/* viewport-fit=cover and translucent A2HS status bars need one inset owner.
+   Zero on non-overlapping viewports; sticky padding survives scrolling. */
+.site-header {
+  padding-top: var(--header-safe-area-top, env(safe-area-inset-top, 0px));
+}
+</style>

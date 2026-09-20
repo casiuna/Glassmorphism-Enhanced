@@ -2,7 +2,7 @@
 
 Glassmorphism Enhanced 是一个面向 [Komari Monitor](https://github.com/komari-monitor/komari) 的独立维护主题：用毛玻璃界面、三网质量指标、响应式 NodeCard 和可选的 Transit Carrier Ping，帮助你快速判断节点状态与入口路径。
 
-[![Version](https://img.shields.io/badge/version-1.0.1-10b981)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/Release-v1.0.4-10b981)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [下载 Releases](https://github.com/casiuna/Glassmorphism-Enhanced/releases) · [安装](#installation) · [Transit Carrier Ping](#transit-carrier-ping) · [开发](#development)
@@ -157,13 +157,13 @@ Playwright 使用确定性 fixture，不连接生产 Komari。修改 Transit 时
 
 ## Versioning and Release
 
-本项目从 `v1.0.0` 开始使用独立 SemVer。本分支目标版本为 **1.0.3**：
+本项目从 `v1.0.0` 开始使用独立 SemVer。本分支目标版本为 **1.0.4**（待 review / 发布）：
 
 - Bugfix：`1.0.1`、`1.0.2`、`1.0.3`……
 - 向后兼容的新功能：`1.1.0`、`1.2.0`……
 - Breaking changes：`2.0.0`。
 
-`release-on-version-bump.yml` 只响应 `main` push，不使用 `workflow_dispatch`。本 PR 获准 merge 后，manifest 从 `1.0.0` 变为 `1.0.1`，预期触发 `v1.0.1` tag 和 GitHub Release。发布前请核对构建 ZIP、版本和 Release 资产；如果目标 tag 已存在于其他 commit，当前 workflow 会按设计跳过发布，必须由 owner 先处理 tag 冲突，本项目不会自动删除或改写 tag。
+`release-on-version-bump.yml` 只响应 `main` push，不使用 `workflow_dispatch`。本 PR 获准 merge 后，manifest 从 `1.0.3` 变为 `1.0.4`，预期触发 `v1.0.4` tag 和 GitHub Release。发布前请核对构建 ZIP、版本和 Release 资产；目标 tag 指向其他 commit 时 workflow 会失败，不会自动删除或改写 tag。本轮仅停在 Ready for review。
 
 Upstream 版本只作为来源基线记录，不进入本项目版本号。历史 `v3.3.7-enhanced.1`、`upstream-v1.0.0` 和 `v1.0.0` 均保留。
 
