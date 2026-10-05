@@ -14,14 +14,22 @@ function task(id: number, name: string, latency: number, loss: number): NodePing
 }
 
 test('transit parser trims, ignores malformed/comments and uses last valid target', () => {
-  expect(parseTransitCarrierPingRules(' TargetNode | RelayNode | Link ')).toEqual([{ target: 'TargetNode', relay: 'RelayNode', task: 'Link' }])
+  expect(parseTransitCarrierPingRules(' RelayNode | TargetNode | Relay-Target ')).toEqual([{ target: 'TargetNode', relay: 'RelayNode', task: 'Relay-Target' }])
   expect(parseTransitCarrierPingRules('\n # comment\ninvalid\nA||Link\nA|B|C|D\nA|A|Link\n')).toEqual([])
-  expect(parseTransitCarrierPingRules('A|B|One\n C | B | Two\nA|D|Three\nA||bad')).toEqual([
+  expect(parseTransitCarrierPingRules('B|A|One\n B | C | Two\nD|A|Three\n|A|bad')).toEqual([
     { target: 'A', relay: 'D', task: 'Three' },
     { target: 'C', relay: 'B', task: 'Two' },
   ])
   for (const input of [null, undefined, {}, 42])
     expect(parseTransitCarrierPingRules(input)).toEqual([])
+})
+
+test('relay-first parser keys duplicates by target, not relay, with CRLF and case-sensitive names', () => {
+  expect(parseTransitCarrierPingRules('RelayNode|TargetNode|Relay-Target\r\nRelayNode|TargetB|B\r\n RelayOther | TargetNode | Replacement \r\n# ignored\r\n|TargetNode|invalid\r\nRelayNode|targetnode|lower')).toEqual([
+    { relay: 'RelayOther', target: 'TargetNode', task: 'Replacement' },
+    { relay: 'RelayNode', target: 'TargetB', task: 'B' },
+    { relay: 'RelayNode', target: 'targetnode', task: 'lower' },
+  ])
 })
 
 test('transit RTT and loss keep null and probability semantics', () => {
@@ -131,7 +139,7 @@ test('transit targets independently select multiple relays', async ({ page }) =>
   await installKomariFixture(page, {
     transit: true,
     hideEarth: true,
-    transitRules: 'TargetNode|RelayNode|Relay-Target-v6\nTargetB|RelayOther|Relay-Target-v6',
+    transitRules: 'RelayNode|TargetNode|Relay-Target-v6\nRelayOther|TargetB|Relay-Target-v6',
   })
   await page.goto('/')
   await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toContainText('≈95 ms')
@@ -148,9 +156,9 @@ test('transit localizes new labels and tooltip fields in English', async ({ page
   await expect(card(page).getByText('Transit estimate', { exact: true })).toHaveCount(2)
   await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /Unicom · Transit estimate[\s\S]*Via RelayNode[\s\S]*32 ms \+ 63 ms = ≈95 ms/)
   await expect(card(page).locator('[data-carrier-ping="unicom-loss"]')).toHaveAttribute('title', /Estimated loss: ≈3\.0%/)
-  await updateLiveState(page, { rules: 'TargetNode|AbsentRelay|Missing-link' })
+  await updateLiveState(page, { rules: 'AbsentRelay|TargetNode|Missing-link' })
   await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /Configured relay node not found/)
-  await updateLiveState(page, { rules: 'TargetNode|RelayNode|Missing-link' })
+  await updateLiveState(page, { rules: 'RelayNode|TargetNode|Missing-link' })
   await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /Relay link Ping task not found/)
   await updateLiveState(page, { online: false })
   await expect(card(page).locator('[data-carrier-ping="unicom-latency"]')).toHaveAttribute('title', /Relay node is offline/)
@@ -199,9 +207,9 @@ for (const width of [1280, 390]) {
 
 for (const scenario of [
   { name: 'disabled direct', options: { transitEnabled: false }, display: '32 ms', reason: '' },
-  { name: 'unmatched direct', options: { transitRules: 'Other|RelayNode|Relay-Target-v6' }, display: '32 ms', reason: '' },
-  { name: 'missing relay', options: { transitRules: 'TargetNode|AbsentRelay|Link' }, display: '--', reason: '未找到配置的中转节点' },
-  { name: 'missing task', options: { transitRules: 'TargetNode|RelayNode|AbsentLink' }, display: '--', reason: '未找到中转链路 Ping 任务' },
+  { name: 'unmatched direct', options: { transitRules: 'RelayNode|Other|Relay-Target-v6' }, display: '32 ms', reason: '' },
+  { name: 'missing relay', options: { transitRules: 'AbsentRelay|TargetNode|Link' }, display: '--', reason: '未找到配置的中转节点' },
+  { name: 'missing task', options: { transitRules: 'RelayNode|TargetNode|AbsentLink' }, display: '--', reason: '未找到中转链路 Ping 任务' },
   { name: 'offline relay', options: { relayOffline: true }, display: '--', reason: '中转节点离线' },
   { name: 'empty link', options: { transitEmptyLink: true }, display: '--', reason: '中转链路没有数据' },
   { name: 'legacy fallback', options: { transitLegacy: true }, display: '≈95 ms', reason: '联通 · 中转估算' },

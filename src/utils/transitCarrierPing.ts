@@ -3,12 +3,12 @@ import type { NodeCarrierPingStatsState } from '@/utils/carrierPing'
 import { aggregateChinaCarrierPingStats } from '@/utils/carrierPing'
 
 export interface TransitCarrierPingRule {
-  target: string
   relay: string
+  target: string
   task: string
 }
 
-/** Exact, case-sensitive names; last valid rule wins. Invalid input is inert. */
+/** Wire format: relay|target|task. Exact names; last valid rule per target wins. */
 const RULE_NEWLINE = /\r?\n/
 const TRANSIT_HISTORY_SLOT_COUNT = 20
 
@@ -23,7 +23,7 @@ export function parseTransitCarrierPingRules(value: unknown): TransitCarrierPing
     const parts = line.split('|').map(part => part.trim())
     if (parts.length !== 3 || parts.some(part => !part))
       continue
-    const [target, relay, task] = parts as [string, string, string]
+    const [relay, target, task] = parts as [string, string, string]
     if (target === relay)
       continue
     rules.set(target, { target, relay, task })

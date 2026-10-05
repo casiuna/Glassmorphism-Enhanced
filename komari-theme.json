@@ -69,7 +69,7 @@
 
       { "name": "08 · 三网与中转延迟", "type": "title" },
       { "key": "transitCarrierPingEnabled", "name": "启用中转三网延迟估算", "type": "switch", "default": false, "help": "开启后，仅对中转规则中匹配的节点使用中转三网估算；其他节点继续使用自身 Ping 数据。" },
-      { "key": "transitCarrierPingRules", "name": "中转规则", "type": "richtext", "default": "", "help": "每行：目标节点|中转节点|链路任务名，例如 TargetNode|RelayNode|Relay-Target-v6。名称精确匹配且应唯一；忽略空行、# 注释和无效行，同一目标最后一条有效规则生效。不支持自中转。" },
+      { "key": "transitCarrierPingRules", "name": "中转规则", "type": "richtext", "default": "", "help": "每行：中转节点|目标节点|链路任务名，例如 RelayNode|TargetNode|Relay-Target。旧规则请手动交换前两列；不自动识别旧顺序。名称精确匹配且应唯一；忽略空行、# 注释和无效行，同一目标最后一条有效规则生效。不支持自中转。" },
 
       { "name": "09 · 自定义背景", "type": "title" },
       { "key": "backgroundEnabled", "name": "启用自定义背景", "type": "switch", "default": false, "help": "启用后可设置自定义图片或视频作为页面背景" },

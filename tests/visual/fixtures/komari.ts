@@ -453,7 +453,7 @@ export async function installKomariFixture(page: Page, options: VisualFixtureOpt
   const clientFixtures = Object.keys(options).length ? buildClients(options) : clients
   const settings = {
     transitCarrierPingEnabled: options.transitEnabled ?? options.transit ?? false,
-    transitCarrierPingRules: options.transitRules ?? (options.transit ? 'TargetNode|RelayNode|Relay-Target-v6\nTargetB|RelayNode|Relay-Target-v6' : ''),
+    transitCarrierPingRules: options.transitRules ?? (options.transit ? 'RelayNode|TargetNode|Relay-Target-v6\nRelayNode|TargetB|Relay-Target-v6' : ''),
     themeMode: options.dark ? 'dark' : 'light',
     dataUpdateInterval: 60,
     rpcTransportMode: 'http',

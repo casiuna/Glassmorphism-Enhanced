@@ -50,13 +50,15 @@ User
 规则示例使用泛化名称，不代表任何生产配置：
 
 ```text
-# TargetNode|RelayNode|LinkTask
-TargetNode|RelayNode|Relay-Target-v6
-TargetB|RelayNode|Relay-TargetB-v6
-TargetC|RelayTwo|RelayTwo-TargetC
+# 中转节点|目标节点|链路任务名
+RelayNode|TargetNode|Relay-Target
+RelayNode|TargetB|Relay-TargetB
+RelayTwo|TargetC|RelayTwo-TargetC
 ```
 
 规则行为：
+
+- 字段顺序固定为 **relay → target → task**。旧配置需手动交换前两列；不自动识别旧顺序，也不自动改写后端配置。
 
 - 三个字段必须都存在，字段之间使用 `|`；前后空格会被 trim。
 - 节点名和任务名精确匹配并区分大小写；同一目标最后一条有效规则覆盖之前的规则。

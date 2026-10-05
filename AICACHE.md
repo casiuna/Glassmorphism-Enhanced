@@ -12,6 +12,17 @@
 
 ## 当前任务
 
+### Transit relay-first rule correction
+
+- 基线 origin/main `232e20b2703ec37f43dedb2f143441c292697588`；工作树干净后创建 `fix/transit-relay-first`。
+- M6 + parser contract correction：格式统一为 `RelayNode|TargetNode|Relay-Target`，保留 target-keyed last-valid-wins；同步 fixture、README、manifest help 和 `docs/transit-rules.md`。
+- 不动 monthly traffic、finance、safe-area、admin-login、Server/Agent 或历史 release 记录。
+- manifest 暂留 1.0.4；不发布。同名节点无法自动推断旧顺序，已有配置必须手动交换前两列；正式发布前另行确认版本与迁移安排。
+- 验证：lint / type-check / production build / diff-check PASS；Transit targeted `20/20`，完整 Playwright/visual `81/81`，未更新 snapshots。parser 覆盖单条、trim、空行、注释、malformed、CRLF、case-sensitive、duplicate target；UI 覆盖 direct/unmatched/transit、多 relay、共享请求与失效场景。
+- 交付：只 push `fix/transit-relay-first`，不 merge/tag/Release；当前环境 GitHub SSH 可用，API credential 未配置时使用 PR 创建链接交接。
+
+## 上轮任务
+
 ### v1.0.4 — safe-area / native admin login / release metadata
 
 - 基线：已发布 v1.0.3，main `474334735e72e2deeb276e2c81c017d865ef0725`；分支 `fix/v1.0.4-safe-area-admin-login`。
