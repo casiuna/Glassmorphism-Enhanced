@@ -2,7 +2,16 @@
 
 All notable Glassmorphism Enhanced changes are documented here. Upstream history remains in the upstream repository and preserved Git history.
 
-## 1.0.4 — Unreleased
+## 1.0.5 — Unreleased
+
+### Transit rule format change — manual migration required
+
+- Change the Transit Carrier Ping rule format from **target | relay | task** to **relay | target | task**: old `TargetNode|RelayNode|Task`, new `RelayNode|TargetNode|Task` (recommended example: `RelayNode|TargetNode|Relay-Target`).
+- Existing configurations **must manually swap the first two columns** before using v1.0.5. There is no automatic migration, legacy-order autodetection, or backend configuration rewrite.
+- Keep deterministic duplicate handling: the last valid rule for each target wins; multiple targets can share one relay. Invalid rows do not erase earlier valid rules.
+- Synchronize current manifest, README, configuration help and release documentation to v1.0.5. Preserve latency/loss calculations, shared Ping caches, direct/unmatched behavior, traffic migration, finance, safe-area, admin-login and owner preview. No Server/Agent changes.
+
+## 1.0.4 — Released
 
 - Protect the sticky header from viewport safe-area overlap, including translucent iOS standalone status bars, without device/version detection or duplicate page padding.
 - Verify the native session before admin navigation. Guests use the bundled official homepage's native login (an additional login click); native login returns to `/admin`. No invented login route, return-url parameter, credential storage or Server/Agent changes.

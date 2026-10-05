@@ -2,7 +2,7 @@
 
 Glassmorphism Enhanced 是一个面向 [Komari Monitor](https://github.com/komari-monitor/komari) 的独立维护主题：用毛玻璃界面、三网质量指标、响应式 NodeCard 和可选的 Transit Carrier Ping，帮助你快速判断节点状态与入口路径。
 
-[![Release](https://img.shields.io/badge/Release-v1.0.4-10b981)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/Release-v1.0.5-10b981)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [下载 Releases](https://github.com/casiuna/Glassmorphism-Enhanced/releases) · [安装](#installation) · [Transit Carrier Ping](#transit-carrier-ping) · [开发](#development)
@@ -45,7 +45,7 @@ User
 | Key                         | Type       | Default | Description                    |
 | --------------------------- | ---------- | ------- | ------------------------------ |
 | `transitCarrierPingEnabled` | `switch`   | `false` | 启用匹配节点的中转估算         |
-| `transitCarrierPingRules`   | `richtext` | empty   | 每行一个目标、Relay 和链路任务 |
+| `transitCarrierPingRules`   | `richtext` | empty   | 每行一个 Relay、目标和链路任务 |
 
 规则示例使用泛化名称，不代表任何生产配置：
 
@@ -58,7 +58,7 @@ RelayTwo|TargetC|RelayTwo-TargetC
 
 规则行为：
 
-- 字段顺序固定为 **relay → target → task**。旧配置需手动交换前两列；不自动识别旧顺序，也不自动改写后端配置。
+- v1.0.5 字段顺序固定为 **relay → target → task**：旧格式 `TargetNode|RelayNode|Task`，新格式 `RelayNode|TargetNode|Task`。已有配置需手动交换前两列；不自动迁移、不自动识别旧顺序，也不自动改写后端配置。
 
 - 三个字段必须都存在，字段之间使用 `|`；前后空格会被 trim。
 - 节点名和任务名精确匹配并区分大小写；同一目标最后一条有效规则覆盖之前的规则。
@@ -159,13 +159,13 @@ Playwright 使用确定性 fixture，不连接生产 Komari。修改 Transit 时
 
 ## Versioning and Release
 
-本项目从 `v1.0.0` 开始使用独立 SemVer。本分支目标版本为 **1.0.4**（待 review / 发布）：
+本项目从 `v1.0.0` 开始使用独立 SemVer。本分支目标版本为 **1.0.5**（待 review / 发布），版本已由 owner 确认：
 
 - Bugfix：`1.0.1`、`1.0.2`、`1.0.3`……
 - 向后兼容的新功能：`1.1.0`、`1.2.0`……
 - Breaking changes：`2.0.0`。
 
-`release-on-version-bump.yml` 只响应 `main` push，不使用 `workflow_dispatch`。本 PR 获准 merge 后，manifest 从 `1.0.3` 变为 `1.0.4`，预期触发 `v1.0.4` tag 和 GitHub Release。发布前请核对构建 ZIP、版本和 Release 资产；目标 tag 指向其他 commit 时 workflow 会失败，不会自动删除或改写 tag。本轮仅停在 Ready for review。
+`release-on-version-bump.yml` 只响应 `main` push，不使用 `workflow_dispatch`。本 PR 获准 merge 后，manifest 从 `1.0.4` 变为 `1.0.5`，预期触发 `v1.0.5` tag 和 GitHub Release。发布前请核对构建 ZIP、版本和 Release 资产；目标 tag 指向其他 commit 时 workflow 会失败，不会自动删除或改写 tag。本轮仅准备提交与 candidate，由 owner 自行 merge；不手动创建 tag 或发布 Release。
 
 Upstream 版本只作为来源基线记录，不进入本项目版本号。历史 `v3.3.7-enhanced.1`、`upstream-v1.0.0` 和 `v1.0.0` 均保留。
 

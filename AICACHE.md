@@ -12,12 +12,15 @@
 
 ## 当前任务
 
-### Transit relay-first rule correction
+### v1.0.5 — Transit relay-first release finalization
 
 - 基线 origin/main `232e20b2703ec37f43dedb2f143441c292697588`；工作树干净后创建 `fix/transit-relay-first`。
 - M6 + parser contract correction：格式统一为 `RelayNode|TargetNode|Relay-Target`，保留 target-keyed last-valid-wins；同步 fixture、README、manifest help 和 `docs/transit-rules.md`。
 - 不动 monthly traffic、finance、safe-area、admin-login、Server/Agent 或历史 release 记录。
-- manifest 暂留 1.0.4；不发布。同名节点无法自动推断旧顺序，已有配置必须手动交换前两列；正式发布前另行确认版本与迁移安排。
+- owner 已明确正式版本为 1.0.5：manifest 从 1.0.4 bump 至 1.0.5，同步 README / CHANGELOG / current release docs。旧 `TargetNode|RelayNode|Task` 改为新 `RelayNode|TargetNode|Task`，已有配置必须手动交换前两列；无自动迁移、旧顺序猜测或 backend rewrite。
+- 本轮仅 M6 版本与发布说明收尾；parser、src、测试、fixture、snapshots 均保持提交 `4c721e0b200eb095c54c3fc03f9a409f217dc3d9` 原样，manifest 除 version 外无差异。旧 CHANGELOG 发布内容未改，仅将已核实发布的 1.0.4 状态改为 Released。
+- 本轮 1.0.5 重跑验证：lint / type-check / production build / diff-check PASS；Transit targeted `20/20 PASS`、完整 Playwright/visual `81/81 PASS`，未更新 snapshots。929 个项目文件 secret-pattern scan 0 命中。candidate ZIP 顶层 contract、manifest 1.0.5、772 entries、CRC、preview/dist byte-identical 均通过；提交后重建 canonical final-HEAD ZIP，最终 SHA256 记录在交付附录而不制造 self-referential commit。
+- 已新增 `docs/release-notes-v1.0.5.md`，明确旧/新规则及手动交换前两列、无自动迁移。owner 将自行 merge；本轮只 commit/push 同一 feature branch，不 merge/tag/Release。GitHub API 只读确认分支尚无 PR，credential 仍不可用，允许以创建入口交付，不阻塞代码收尾。
 - 验证：lint / type-check / production build / diff-check PASS；Transit targeted `20/20`，完整 Playwright/visual `81/81`，未更新 snapshots。parser 覆盖单条、trim、空行、注释、malformed、CRLF、case-sensitive、duplicate target；UI 覆盖 direct/unmatched/transit、多 relay、共享请求与失效场景。
 - 交付：只 push `fix/transit-relay-first`，不 merge/tag/Release；当前环境 GitHub SSH 可用，API credential 未配置时使用 PR 创建链接交接。
 

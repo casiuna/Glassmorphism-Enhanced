@@ -4,7 +4,7 @@ Repository: https://github.com/casiuna/Glassmorphism-Enhanced
 
 ## Independent version policy
 
-The independent version line began at **1.0.0**, which is released as Git tag / GitHub Release **v1.0.0**. This review round targets **1.0.4**, based on released **1.0.3**. `komari-theme.json.version` is the sole source of truth; do not add `package.json.version`.
+The independent version line began at **1.0.0**, which is released as Git tag / GitHub Release **v1.0.0**. The owner-approved version for this review is **1.0.5**, based on released **1.0.4**. `komari-theme.json.version` is the sole source of truth; do not add `package.json.version`.
 
 - Bugfix: `1.0.1`, `1.0.2`, `1.0.3`, …
 - Compatible feature: `1.1.0`, `1.2.0`, …
@@ -15,7 +15,11 @@ The independent version line began at **1.0.0**, which is released as Git tag / 
 
 ## Tag namespace sanitation
 
-The fork's inherited upstream SemVer tags were audited before the independent release line was reopened. The 43 inherited original tags are preserved as `upstream-<original-tag>` refs and removed from the fork's original namespace. `v1.0.0`, `v1.0.1`, `v1.0.2`, `v3.3.7-enhanced.1`, `upstream-v1.0.0`, and `komari` remain protected; `v1.0.4` is the next available Enhanced release namespace.
+The fork's inherited upstream SemVer tags were audited before the independent release line was reopened. The 43 inherited original tags are preserved as `upstream-<original-tag>` refs and removed from the fork's original namespace. Existing release tags, including `v1.0.0` through `v1.0.4`, `v3.3.7-enhanced.1`, `upstream-v1.0.0`, and `komari`, remain protected; `v1.0.5` is the next intended Enhanced release namespace and must be checked for collisions before publication.
+
+## v1.0.5 Transit configuration migration
+
+Old format: `TargetNode|RelayNode|Task`. New format: `RelayNode|TargetNode|Task`, for example `RelayNode|TargetNode|Relay-Target`. Existing configurations must **manually swap the first two columns** before using v1.0.5; do not claim automatic migration. No old-order autodetection or backend writes are performed. The last valid row per target still wins, and multiple targets may share one relay. See [Transit rules](transit-rules.md) and the [v1.0.5 release notes](release-notes-v1.0.5.md).
 
 ## Komari 1.5.0 compatibility and monthly traffic
 
@@ -35,7 +39,7 @@ The v1.0.3 migration is forward-only. Its production package uses the fixed UTC 
 
 The feature work is reviewed through the feature branch and PR. Direct pushes to `main`, force-pushes, manual tag creation, and manual Release publication remain outside the normal review path; after an approved merge, the main-push-only workflow owns the release transition.
 
-The existing `Release On Version Bump` workflow runs on pushes to `main` only; it does not use `workflow_dispatch`. The approved future merge would change the manifest from `1.0.3` to `1.0.4`, triggering `v1.0.4`. A missing tag is created; an existing tag is accepted only if its peeled commit matches the target, otherwise the job fails. This review does not authorize merge, tag or Release operations.
+The existing `Release On Version Bump` workflow runs on pushes to `main` only; it does not use `workflow_dispatch`. The owner's future merge would change the manifest from `1.0.4` to `1.0.5`, triggering `v1.0.5`. A missing tag is created; an existing tag is accepted only if its peeled commit matches the target, otherwise the job fails. The owner will handle merge separately; this agent pass does not merge, create/move tags, or publish a Release. Rebuild from the resulting main commit for the release asset; the pre-merge candidate identifies only the reviewed feature HEAD.
 
 ## Verification
 
