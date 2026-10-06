@@ -12,6 +12,18 @@
 
 ## 当前任务
 
+### v1.0.5 — fork-only release branch normalization
+
+- 唯一写入仓库：`casiuna/Glassmorphism-Enhanced`；upstream 仅可只读参考，禁止向 upstream 创建 PR/issue/comment/review 或 push。本轮不访问或改动 upstream PR #57，也不创建任何 PR（包括 fork 内 PR）。
+- 正式交付分支：`release/v1.0.5`。先创建该远端 ref 指向已验证 candidate `8b00ca2f816d37d33ce9d32209ea72ee268cc173`，读回确认后才以 expected-SHA lease 删除远端临时保留分支 `release/v1.0.5-local`；v1.0.5 代码/历史完整保留，当前本地已切换至标准分支。
+- fork main 保持 `232e20b2703ec37f43dedb2f143441c292697588`；初始远端标准分支与 `v1.0.5` tag 均不存在。manifest 保持 `1.0.5`；正式 tag/Release 命名只能是 `v1.0.5`，不得使用临时名称。
+- 最小验证已通过：branch/ref 读回、manifest `1.0.5` 原样、workflow 与 fork main byte-identical、`git diff --check` PASS。GitHub 只读查询确认本 fork 的 `Release On Version Bump` 为 `active`；本地临时分支及其 remote-tracking ref 也已安全删除。
+- 本轮只提交当前发布/交接文档；src、tests、manifest、preview 和 release workflow 均不改。docs-only 不重跑 lint/type-check/build/visual，先前 candidate 验证结果保留为历史证据。
+- 只读确认 `Release On Version Bump` 响应本仓库 `main` push，读取 manifest 生成 `v${version}`，build 成功后在最终 main SHA 创建 annotated tag，再创建/更新本 fork Release；tag 指向其他 SHA 时 hard-fail。用户未来自行合并 `release/v1.0.5` 至本 fork main；本轮不 merge、不 push main、不 tag、不 Release。
+- 文档提交将以正常 fast-forward push 写入 `release/v1.0.5`，最终分支 SHA 由交付读回记录；原 candidate 仍是其祖先。历史中的 feature branch/PR 记录仅保留事实，不再作为当前操作指引。
+
+## 已完成：v1.0.5 candidate 整理（历史记录）
+
 ### v1.0.5 — Transit relay-first release finalization
 
 - 基线 origin/main `232e20b2703ec37f43dedb2f143441c292697588`；工作树干净后创建 `fix/transit-relay-first`。

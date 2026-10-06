@@ -1,6 +1,6 @@
 # Glassmorphism Enhanced v1.0.5 — release notes
 
-Status: candidate for review; not yet published. The owner has selected version **1.0.5** and will handle merge separately.
+Status: candidate on **`casiuna/Glassmorphism-Enhanced:release/v1.0.5`**; not yet published. The owner has selected version **1.0.5** and will handle merge into this fork's `main` separately. No PR is created in this pass; upstream is read-only.
 
 ## Transit rule format change — manual migration required
 
@@ -29,4 +29,4 @@ Names remain case-sensitive and trimmed. Empty/comment/malformed/self-relay rows
 - Owner-approved preview and the theme ZIP layout.
 - Komari Server and Agent: no changes.
 
-Manifest version is **1.0.5**. Published v1.0.4 tags/assets are not replaced. The existing main-push workflow handles publication only after the owner's merge; this agent pass does not merge, create/move tags, or publish a Release. The feature-HEAD ZIP is a candidate; the eventual release asset must be rebuilt from the merged main commit.
+Manifest version is **1.0.5** and the standard Git tag / Release name is **v1.0.5**. Published v1.0.4 tags/assets are not replaced. After the owner merges `release/v1.0.5` into this fork's `main`, this fork's existing main-push workflow builds and publishes at the resulting main SHA. This agent pass does not create PRs, merge, create/move tags, or publish a Release. A release-branch ZIP is only a candidate; the eventual release asset must be rebuilt from the merged main commit.

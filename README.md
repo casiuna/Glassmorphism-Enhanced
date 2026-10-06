@@ -159,13 +159,13 @@ Playwright 使用确定性 fixture，不连接生产 Komari。修改 Transit 时
 
 ## Versioning and Release
 
-本项目从 `v1.0.0` 开始使用独立 SemVer。本分支目标版本为 **1.0.5**（待 review / 发布），版本已由 owner 确认：
+本项目从 `v1.0.0` 开始使用独立 SemVer。当前正式 release branch 是本 fork 的 **`release/v1.0.5`**，目标版本为 **1.0.5**（待用户合并 / 发布）：
 
 - Bugfix：`1.0.1`、`1.0.2`、`1.0.3`……
 - 向后兼容的新功能：`1.1.0`、`1.2.0`……
 - Breaking changes：`2.0.0`。
 
-`release-on-version-bump.yml` 只响应 `main` push，不使用 `workflow_dispatch`。本 PR 获准 merge 后，manifest 从 `1.0.4` 变为 `1.0.5`，预期触发 `v1.0.5` tag 和 GitHub Release。发布前请核对构建 ZIP、版本和 Release 资产；目标 tag 指向其他 commit 时 workflow 会失败，不会自动删除或改写 tag。本轮仅准备提交与 candidate，由 owner 自行 merge；不手动创建 tag 或发布 Release。
+`release-on-version-bump.yml` 只响应本 fork 的 `main` push，不使用 `workflow_dispatch`。用户未来将 `release/v1.0.5` 合入 `casiuna/Glassmorphism-Enhanced:main` 后，manifest 从 `1.0.4` 变为 `1.0.5`，由本 fork workflow 构建并创建标准 `v1.0.5` tag / GitHub Release。发布前请核对构建 ZIP、版本和 Release 资产；目标 tag 指向其他 commit 时 workflow 会失败，不会自动删除或改写 tag。本轮不创建 PR、不 merge、不手动 tag / Release；所有写操作仅限本 fork，upstream 只读。
 
 Upstream 版本只作为来源基线记录，不进入本项目版本号。历史 `v3.3.7-enhanced.1`、`upstream-v1.0.0` 和 `v1.0.0` 均保留。
 

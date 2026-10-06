@@ -2,6 +2,10 @@
 
 Repository: https://github.com/casiuna/Glassmorphism-Enhanced
 
+Current delivery branch: **`release/v1.0.5`** in this fork. The temporary safety branch was retired only after the standard branch was read back at the verified v1.0.5 candidate SHA. Keep manifest **`1.0.5`** and the future Git tag / Release **`v1.0.5`**; temporary names are not release identifiers.
+
+All writes must target **`casiuna/Glassmorphism-Enhanced`** only. Upstream is read-only: no upstream PRs, pushes, issues, comments or reviews. This branch-normalization pass creates no PR in any repository and does not revisit the unrelated upstream PR cleanup.
+
 ## Independent version policy
 
 The independent version line began at **1.0.0**, which is released as Git tag / GitHub Release **v1.0.0**. The owner-approved version for this review is **1.0.5**, based on released **1.0.4**. `komari-theme.json.version` is the sole source of truth; do not add `package.json.version`.
@@ -37,9 +41,9 @@ The v1.0.3 migration is forward-only. Its production package uses the fixed UTC 
 
 ## Review gate
 
-The feature work is reviewed through the feature branch and PR. Direct pushes to `main`, force-pushes, manual tag creation, and manual Release publication remain outside the normal review path; after an approved merge, the main-push-only workflow owns the release transition.
+The v1.0.5 candidate is maintained on this fork's `release/v1.0.5`. The owner decides when and how to merge it into this fork's `main`; no PR is created by this agent pass. Direct pushes to `main`, unprotected force-pushes, manual tag creation and manual Release publication are outside this pass. After the owner's merge, this fork's main-push-only workflow owns publication.
 
-The existing `Release On Version Bump` workflow runs on pushes to `main` only; it does not use `workflow_dispatch`. The owner's future merge would change the manifest from `1.0.4` to `1.0.5`, triggering `v1.0.5`. A missing tag is created; an existing tag is accepted only if its peeled commit matches the target, otherwise the job fails. The owner will handle merge separately; this agent pass does not merge, create/move tags, or publish a Release. Rebuild from the resulting main commit for the release asset; the pre-merge candidate identifies only the reviewed feature HEAD.
+The existing `Release On Version Bump` workflow runs on pushes to `main` only; it does not use `workflow_dispatch`. The owner's future merge of `release/v1.0.5` into **`casiuna/Glassmorphism-Enhanced:main`** would change the manifest from `1.0.4` to `1.0.5`. The workflow derives `release_tag=v${currentVersion}`, builds the theme, creates the missing annotated **`v1.0.5`** tag at the resulting main SHA, then creates/updates the Release in this fork and uploads the commit-matched ZIP. An existing tag is accepted only if its peeled commit matches that main SHA; otherwise the job fails. The agent does not execute the merge, create/move tags, or publish a Release. Release assets must come from the resulting main commit, not an earlier branch candidate.
 
 ## Verification
 
@@ -54,7 +58,7 @@ git diff --check
 
 Inspect the ZIP, not just `dist/`: top level must be exactly `komari-theme.json`, `preview.png`, `dist/`. Keep `short: Glassmorphism` and `komari-theme-Glassmorphism-build-<short-sha>.zip`. Rebuild after the final commit so the filename identifies the reviewed commit, then compute SHA-256. Preserve the MIT license and THIRD_PARTY attributions.
 
-Read the PR and Actions back through GitHub API after pushing. When the owner separately authorizes publication, verify the tag target, Release metadata and downloaded asset digest. A local ZIP alone is not proof of a published Release.
+Read the exact branch ref back from this fork after pushing. After the owner's eventual main merge, verify this fork's Actions, tag target, Release metadata and downloaded asset digest. A local ZIP alone is not proof of a published Release. Do not create a PR or invoke a publication workflow during this normalization pass.
 
 ## Identity separation
 
