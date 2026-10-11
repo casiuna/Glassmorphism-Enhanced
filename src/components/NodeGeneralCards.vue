@@ -341,17 +341,24 @@ const totalCpuCores = computed(() => summaryNodes.value.reduce((sum, node) => su
 const trafficQuota = computed(() => {
   let used = 0
   let limit = 0
+  let unknownCount = 0
 
   for (const node of summaryNodes.value) {
     if ((node.traffic_limit || 0) <= 0)
       continue
-    used += monthlyTrafficUsage.getUsage(node).used
+    const value = monthlyTrafficUsage.getUsage(node).used
+    if (value === null)
+      unknownCount += 1
+    else
+      used += value
     limit += node.traffic_limit || 0
   }
 
-  return { used, limit }
+  return { used, limit, unknownCount }
 })
 const trafficQuotaPercentage = computed(() => {
+  if (trafficQuota.value.unknownCount > 0)
+    return null
   if (trafficQuota.value.limit <= 0)
     return 0
   return trafficQuota.value.used / trafficQuota.value.limit * 100
@@ -364,7 +371,10 @@ const connectionPeakNode = computed(() => onlineStats.value.connectionPeakNode)
 const offlineNodes = computed(() => summaryNodes.value.filter(node => !node.online))
 const highLoadNodes = computed(() => onlineStats.value.highLoadNodes)
 const expiringNodes = computed(() => summaryNodes.value.filter(node => isExpiringNode(node, appStore.homeExpiringDays)))
-const trafficWarningNodes = computed(() => summaryNodes.value.filter(node => monthlyTrafficUsage.getUsage(node).percentage >= appStore.homeTrafficWarningThreshold))
+const trafficWarningNodes = computed(() => summaryNodes.value.filter((node) => {
+  const percentage = monthlyTrafficUsage.getUsage(node).percentage
+  return percentage !== null && percentage >= appStore.homeTrafficWarningThreshold
+}))
 const regionDistribution = computed(() => getKnownDistribution(summaryNodes.value, node => getRegionDisplayName(node.region)))
 const systemDistribution = computed(() => getDistribution(summaryNodes.value, node => node.os))
 const virtualizationDistribution = computed(() => getDistribution(summaryNodes.value, node => node.virtualization))
@@ -569,10 +579,10 @@ function getCardDefinition(key: GeneralCardKey): GeneralMetricCard {
         key: 'trafficQuota',
         label: '流量配额',
         icon: 'tabler:gauge',
-        value: trafficQuota.value.limit > 0 ? formatDecimal(trafficQuotaPercentage.value) : '-',
-        unit: trafficQuota.value.limit > 0 ? '%' : undefined,
+        value: trafficQuotaPercentage.value === null ? '待核对' : trafficQuota.value.limit > 0 ? formatDecimal(trafficQuotaPercentage.value) : '-',
+        unit: trafficQuotaPercentage.value !== null && trafficQuota.value.limit > 0 ? '%' : undefined,
         tooltip: trafficQuota.value.limit > 0
-          ? `${formatBytesText(trafficQuota.value.used)} / ${formatBytesText(trafficQuota.value.limit)}`
+          ? trafficQuota.value.unknownCount > 0 ? `${trafficQuota.value.unknownCount} 台暂无可靠月度数据/待核对；不以机器累计补齐` : `${formatBytesText(trafficQuota.value.used)} / ${formatBytesText(trafficQuota.value.limit)}（采集月度，非账单）`
           : '无限流量',
       }
     case 'trafficPeak':
@@ -639,7 +649,7 @@ function getCardDefinition(key: GeneralCardKey): GeneralMetricCard {
         icon: 'tabler:traffic-cone',
         value: formatCount(trafficWarningNodes.value.length),
         unit: '台',
-        tooltip: formatNodeNames(trafficWarningNodes.value, node => `${node.name}: ${formatDecimal(monthlyTrafficUsage.getUsage(node).percentage)}%`),
+        tooltip: `${formatNodeNames(trafficWarningNodes.value, node => `${node.name}: ${formatDecimal(monthlyTrafficUsage.getUsage(node).percentage!)}%`)}；${trafficQuota.value.unknownCount} 台月度数据待核对（不纳入阈值预警）`,
       }
     case 'connectionPeakNode':
       return {

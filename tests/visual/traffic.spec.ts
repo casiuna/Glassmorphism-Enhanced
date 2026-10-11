@@ -1,539 +1,371 @@
-import type { NodeData } from '../../src/stores/nodes'
-import type { MetricQueryResponse } from '../../src/utils/rpc'
+import type { Page } from '@playwright/test'
+import type { NodeData, TrafficLimitType } from '../../src/stores/nodes'
+import type { MetricQueryResponse, StatusRecord } from '../../src/utils/rpc'
 import { expect, test } from '@playwright/test'
 import { hasMonthlyTrafficCycleChanged, MONTHLY_TRAFFIC_REFRESH_INTERVAL_MS } from '../../src/composables/useMonthlyTrafficUsage'
 import { normalizeStatusRecord } from '../../src/services/history.service'
-import { hasUsableTrafficMetricData, MONTHLY_TRAFFIC_CACHE_TTL_MS, sumTrafficMetricSeries } from '../../src/services/traffic.service'
+import { historyMonthlyTraffic, metricMonthlyTraffic, MONTHLY_TRAFFIC_CACHE_TTL_MS, unavailableMonthlyTraffic } from '../../src/services/traffic.service'
 import * as financeHelper from '../../src/utils/financeHelper'
+import { analyzeTrafficSeries, combineMonthlyTraffic } from '../../src/utils/monthlyTraffic'
+import { isTrafficWarningNode } from '../../src/utils/nodeMetricsHelper'
 import { getMonthlyTrafficCycle } from '../../src/utils/trafficCycle'
-import { isMonthlyTrafficCycleActive, V1_0_3_DEFAULT_ROLLOUT_ANCHOR } from '../../src/utils/trafficMigration'
 import { installKomariFixture } from './fixtures/komari'
 
-function cycleNode(overrides: Partial<NodeData> = {}): NodeData {
-  return {
-    billing_cycle: 365,
-    expired_at: '2027-07-25T18:30:00.000Z',
-    traffic_limit: 20 * 1024 ** 4,
-    ...overrides,
-  } as NodeData
+const GIB = 1024 ** 3
+const TIB = 1024 ** 4
+const UUID = '00000000-0000-4000-8000-000000000001'
+function node(overrides: Partial<NodeData> = {}): NodeData {
+  return { uuid: UUID, billing_cycle: 365, expired_at: '2027-07-25T18:30:00Z', traffic_limit: 20 * TIB, traffic_limit_type: 'sum', net_total_up: 100 * TIB, net_total_down: 200 * TIB, ...overrides } as NodeData
+}
+const start = new Date('2026-07-25T00:00:00Z')
+const end = new Date('2026-07-25T02:00:00Z')
+function response(up = 10, down = 30): MetricQueryResponse {
+  return { start: start.toISOString(), end: end.toISOString(), count: 2, series: ['traffic.up', 'traffic.down'].map((key, i) => ({
+    metric_key: key,
+    entity_id: UUID,
+    downsampled: true,
+    downsample_algorithm: 'sum',
+    interval_seconds: 3600,
+    count: 2,
+    points: [0, 1].map(hour => ({ time: new Date(start.getTime() + hour * 3600_000).toISOString(), value: (i ? down : up) / 2, count: 1 })),
+  })) }
+}
+function usage(r: MetricQueryResponse, mode: TrafficLimitType = 'sum') {
+  const n = node({ traffic_limit_type: mode })
+  return metricMonthlyTraffic(n, getMonthlyTrafficCycle(n, end)!, end, r)
 }
 
-test.describe('monthly traffic cycle and compatibility helpers', () => {
-  test('normalizes SGD and S$ without regressing CAD or USD prefix matching', () => {
-    expect(financeHelper.normalizeCurrency('SGD')).toBe('SGD')
-    expect(financeHelper.normalizeCurrency('S$')).toBe('SGD')
-    expect(financeHelper.normalizeCurrency('C$')).toBe('CAD')
-    expect(financeHelper.normalizeCurrency('$')).toBe('USD')
-    expect(financeHelper.normalizeCurrency('S$ per month')).toBe('CNY')
-    expect(financeHelper.SUPPORTED_CURRENCIES).toContain('SGD')
-    expect(financeHelper.CURRENCY_SYMBOLS.SGD).toBe('S$')
-    expect(financeHelper.formatFinanceAmount(12.5, 'SGD')).toMatchObject({ currency: 'SGD', symbol: 'S$' })
+test('currency normalization and user-selected metered estimate remain separate', () => {
+  for (const [value, expected] of [['SGD', 'SGD'], ['S$', 'SGD'], ['C$', 'CAD'], ['$', 'USD']])
+    expect(financeHelper.normalizeCurrency(value!)).toBe(expected)
+  expect(financeHelper.normalizeCurrency('S$ per month')).toBe('CNY')
+  const estimate = financeHelper.calculateMeteredEstimate(node(), { currency: 'USD', trafficMode: 'down', trafficRate: 1, timeRate: 0, manualHours: 0, oneTimeFee: 0 })
+  expect(estimate.trafficBytes).toBe(200 * TIB)
+})
+
+for (const duration of [30, 90, 365]) {
+  test(`billing duration ${duration} still uses a monthly UTC window`, () => {
+    expect(getMonthlyTrafficCycle(node({ billing_cycle: duration }), new Date('2026-08-01T12:00:00Z'))).toMatchObject({ start: new Date('2026-07-25T00:00:00Z'), end: new Date('2026-08-25T00:00:00Z') })
   })
-
-  test('uses the same renewal day for monthly traffic even on annual billing', () => {
-    const cycle = getMonthlyTrafficCycle(cycleNode(), new Date('2026-08-01T12:00:00.000Z'))
-
-    expect(cycle).not.toBeNull()
-    expect(cycle?.start.toISOString()).toBe('2026-07-25T00:00:00.000Z')
-    expect(cycle?.end.toISOString()).toBe('2026-08-25T00:00:00.000Z')
-    expect(cycle?.renewalDay).toBe(25)
+}
+for (const day of [29, 30, 31]) {
+  test(`renewal day ${day} clamps February and restores March`, () => {
+    const n = node({ expired_at: `2027-01-${day}T18:30:00Z` })
+    expect(getMonthlyTrafficCycle(n, new Date('2027-02-28T00:00:00Z'))).toMatchObject({ start: new Date('2027-02-28T00:00:00Z'), end: new Date(`2027-03-${day}T00:00:00Z`) })
+    expect(getMonthlyTrafficCycle(n, new Date(`2027-03-${day}T00:00:00Z`))?.key).toBe(`2027-03-${day}`)
   })
+}
+test('leap February and year boundary remain deterministic', () => {
+  expect(getMonthlyTrafficCycle(node({ expired_at: '2024-01-31' }), new Date('2024-02-29T12:00:00Z'))?.key).toBe('2024-02-29')
+  expect(getMonthlyTrafficCycle(node({ expired_at: '2026-12-31' }), new Date('2027-01-01T00:00:00Z'))?.key).toBe('2026-12-31')
+})
+test('one-off/custom/missing renewal metadata never invents a month or legacy quota', () => {
+  for (const partial of [{ billing_cycle: -1 }, { billing_cycle: 45 }, { billing_cycle: 0 }, { expired_at: '' }, { expired_at: 'invalid' }, { traffic_limit: 0 }]) {
+    const n = node(partial)
+    const cycle = getMonthlyTrafficCycle(n, end)
+    expect(cycle).toBeNull()
+    expect(unavailableMonthlyTraffic(n, cycle)).toMatchObject({ status: 'not-applicable', used: null, percentage: null })
+  }
+})
+test('clock detects boundaries but refresh/cache remain 5/10 minutes', () => {
+  expect(MONTHLY_TRAFFIC_REFRESH_INTERVAL_MS).toBe(5 * 60_000)
+  expect(MONTHLY_TRAFFIC_CACHE_TTL_MS).toBe(10 * 60_000)
+  expect(hasMonthlyTrafficCycleChanged(undefined, 'same')).toBe(false)
+  expect(hasMonthlyTrafficCycleChanged('same', 'same')).toBe(false)
+  expect(hasMonthlyTrafficCycleChanged('old', 'new')).toBe(true)
+})
 
-  test('uses a bounded refresh policy and only invalidates when the monthly cycle changes', () => {
-    expect(MONTHLY_TRAFFIC_REFRESH_INTERVAL_MS).toBe(5 * 60_000)
-    expect(MONTHLY_TRAFFIC_CACHE_TTL_MS).toBe(10 * 60_000)
-    expect(hasMonthlyTrafficCycleChanged(undefined, '2026-07-25')).toBe(false)
-    expect(hasMonthlyTrafficCycleChanged('2026-07-25', '2026-07-25')).toBe(false)
-    expect(hasMonthlyTrafficCycleChanged('2026-07-25', '2026-07-26')).toBe(true)
+for (const [mode, expected] of [['up', 10], ['down', 30], ['min', 10], ['max', 30], ['sum', 40]] as const) {
+  test(`configured ${mode} combines period totals, not per-bucket min/max`, () => {
+    expect(combineMonthlyTraffic(10, 30, mode)).toBe(expected)
+    expect(usage(response(), mode)).toMatchObject({ status: 'ready', used: expected, up: 10, down: 30 })
+    const crossed = response(20, 20)
+    crossed.series[0]!.points[0]!.value = 20
+    crossed.series[0]!.points[1]!.value = 0
+    crossed.series[1]!.points[0]!.value = 0
+    crossed.series[1]!.points[1]!.value = 20
+    if (mode === 'min' || mode === 'max')
+      expect(usage(crossed, mode).used).toBe(20)
   })
-
-  test('renewal day 15 remains inactive on the September 15 upgrade and activates once on October 15', () => {
-    expect(V1_0_3_DEFAULT_ROLLOUT_ANCHOR).toBe('2026-09-16T00:00:00.000Z')
-    const node = cycleNode({ expired_at: '2027-09-15T00:00:00.000Z' })
-    const states = [
-      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-09-15T12:00:00.000Z'))),
-      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-10-14T23:59:59.000Z'))),
-      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-10-15T00:00:00.000Z'))),
-    ]
-
-    expect(states).toEqual([false, false, true])
-    expect(states.slice(1).filter((active, index) => active && !states[index]).length).toBe(1)
+}
+for (const side of ['traffic.up', 'traffic.down']) {
+  test(`missing ${side} cannot become zero; direction-only mode requires only its side`, () => {
+    const r = response()
+    r.series = r.series.filter(s => s.metric_key !== side)
+    for (const mode of ['sum', 'max', 'min'] as const)
+      expect(usage(r, mode)).toMatchObject({ status: 'partial', used: null, percentage: null })
+    expect(usage(r, side === 'traffic.up' ? 'down' : 'up').status).toBe('ready')
   })
-
-  test('renewal day 16 remains inactive on September 15 and activates once on September 16', () => {
-    const node = cycleNode({ expired_at: '2027-09-16T00:00:00.000Z' })
-    const states = [
-      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-09-15T12:00:00.000Z'))),
-      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-09-16T00:00:00.000Z'))),
-      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-09-16T12:00:00.000Z'))),
-    ]
-
-    expect(states).toEqual([false, true, true])
-    expect(states.slice(1).filter((active, index) => active && !states[index]).length).toBe(1)
-  })
-
-  test('renewal day 14 remains inactive on September 15 and activates once on October 14', () => {
-    const node = cycleNode({ expired_at: '2027-09-14T00:00:00.000Z' })
-    const states = [
-      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-09-15T12:00:00.000Z'))),
-      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-10-13T23:59:59.000Z'))),
-      isMonthlyTrafficCycleActive(getMonthlyTrafficCycle(node, new Date('2026-10-14T00:00:00.000Z'))),
-    ]
-
-    expect(states).toEqual([false, false, true])
-    expect(states.slice(1).filter((active, index) => active && !states[index]).length).toBe(1)
-  })
-
-  test('clamps day 31 in short months and restores it in the next long month', () => {
-    const beforeFebruaryBoundary = getMonthlyTrafficCycle(
-      cycleNode({ expired_at: '2027-01-31T00:00:00.000Z' }),
-      new Date('2027-02-27T23:59:59.000Z'),
-    )
-    const FebruaryBoundary = getMonthlyTrafficCycle(
-      cycleNode({ expired_at: '2027-01-31T00:00:00.000Z' }),
-      new Date('2027-02-28T00:00:00.000Z'),
-    )
-    const MarchBoundary = getMonthlyTrafficCycle(
-      cycleNode({ expired_at: '2027-01-31T00:00:00.000Z' }),
-      new Date('2027-03-31T00:00:00.000Z'),
-    )
-
-    expect(beforeFebruaryBoundary?.start.toISOString()).toBe('2027-01-31T00:00:00.000Z')
-    expect(beforeFebruaryBoundary?.end.toISOString()).toBe('2027-02-28T00:00:00.000Z')
-    expect(FebruaryBoundary?.start.toISOString()).toBe('2027-02-28T00:00:00.000Z')
-    expect(FebruaryBoundary?.end.toISOString()).toBe('2027-03-31T00:00:00.000Z')
-    expect(MarchBoundary?.start.toISOString()).toBe('2027-03-31T00:00:00.000Z')
-    expect(MarchBoundary?.end.toISOString()).toBe('2027-04-30T00:00:00.000Z')
-  })
-
-  test('handles leap February and a year boundary deterministically', () => {
-    const leapFebruary = getMonthlyTrafficCycle(
-      cycleNode({ expired_at: '2024-01-31T00:00:00.000Z' }),
-      new Date('2024-02-29T12:00:00.000Z'),
-    )
-    const newYear = getMonthlyTrafficCycle(
-      cycleNode({ expired_at: '2026-12-31T00:00:00.000Z' }),
-      new Date('2027-01-01T00:00:00.000Z'),
-    )
-
-    expect(leapFebruary?.start.toISOString()).toBe('2024-02-29T00:00:00.000Z')
-    expect(leapFebruary?.end.toISOString()).toBe('2024-03-31T00:00:00.000Z')
-    expect(newYear?.start.toISOString()).toBe('2026-12-31T00:00:00.000Z')
-    expect(newYear?.end.toISOString()).toBe('2027-01-31T00:00:00.000Z')
-  })
-
-  test('falls back for unlimited, one-off, and incomplete renewal metadata', () => {
-    expect(getMonthlyTrafficCycle(cycleNode({ traffic_limit: 0 }), new Date('2026-08-01T00:00:00.000Z'))).toBeNull()
-    expect(getMonthlyTrafficCycle(cycleNode({ billing_cycle: -1 }), new Date('2026-08-01T00:00:00.000Z'))).toBeNull()
-    expect(getMonthlyTrafficCycle(cycleNode({ expired_at: '' }), new Date('2026-08-01T00:00:00.000Z'))).toBeNull()
-  })
-
-  test('sums every traffic delta bucket for one entity and metric', () => {
-    const response: MetricQueryResponse = {
-      start: '2026-07-25T00:00:00.000Z',
-      end: '2026-08-01T00:00:00.000Z',
-      series: [
-        {
-          metric_key: 'traffic.up',
-          entity_id: 'node-a',
-          downsampled: true,
-          count: 3,
-          points: [
-            { time: '2026-07-25T00:00:00.000Z', value: 10 },
-            { time: '2026-07-26T00:00:00.000Z', value: null },
-            { time: '2026-07-27T00:00:00.000Z', value: 7 },
-          ],
-        },
-        {
-          metric_key: 'traffic.up',
-          entity_id: 'node-a',
-          downsampled: true,
-          count: 1,
-          points: [{ time: '2026-07-28T00:00:00.000Z', value: 3 }],
-        },
-        {
-          metric_key: 'traffic.up',
-          entity_id: 'node-b',
-          downsampled: true,
-          count: 1,
-          points: [{ time: '2026-07-25T00:00:00.000Z', value: 99 }],
-        },
-      ],
-      count: 3,
+}
+test('valid zero buckets with positive observation counts are genuine data', () => {
+  expect(usage(response(0, 0))).toMatchObject({ status: 'ready', used: 0, percentage: 0 })
+})
+test('an invalid configured limit mode is not silently guessed as sum', () => {
+  expect(usage(response(), 'unknown' as TrafficLimitType)).toMatchObject({ status: 'partial', used: null, percentage: null })
+})
+test('an empty window at the exact UTC boundary is unknown, not a fabricated zero', () => {
+  const n = node()
+  const cycle = getMonthlyTrafficCycle(n, start)!
+  const r = { start: start.toISOString(), end: start.toISOString(), series: [], count: 0 }
+  expect(metricMonthlyTraffic(n, cycle, start, r)).toMatchObject({ used: null, percentage: null, status: 'unknown' })
+})
+for (const fault of ['gap', 'null', 'filled-zero', 'wrong-entity', 'duplicate-series', 'duplicate-time', 'wrong-range', 'no-interval', 'not-sum', 'raw', 'negative', 'nonfinite', 'missing-count', 'tagged']) {
+  test(`coverage ${fault} is never promoted to reliable monthly usage`, () => {
+    const r = response()
+    const s = r.series[0]!
+    if (fault === 'gap')
+      s.points.splice(0, 1)
+    if (fault === 'null')
+      s.points[0]!.value = null
+    if (fault === 'filled-zero') {
+      s.points[0]!.value = 0
+      s.points[0]!.count = 0
     }
-
-    expect(sumTrafficMetricSeries(response, 'traffic.up', 'node-a')).toBe(20)
-    expect(sumTrafficMetricSeries(response, 'traffic.down', 'node-a')).toBe(0)
-    expect(sumTrafficMetricSeries(response, 'traffic.up', 'node-b')).toBe(99)
+    if (fault === 'wrong-entity')
+      s.entity_id = 'other'
+    if (fault === 'duplicate-series')
+      r.series.push({ ...s })
+    if (fault === 'duplicate-time')
+      s.points[1]!.time = s.points[0]!.time
+    if (fault === 'wrong-range')
+      r.start = '2026-07-24T00:00:00Z'
+    if (fault === 'no-interval')
+      delete s.interval_seconds
+    if (fault === 'not-sum')
+      s.downsample_algorithm = 'avg'
+    if (fault === 'raw')
+      s.downsampled = false
+    if (fault === 'negative')
+      s.points[0]!.value = -1
+    if (fault === 'nonfinite')
+      s.points[0]!.value = Number.NaN
+    if (fault === 'missing-count')
+      delete s.points[0]!.count
+    if (fault === 'tagged')
+      s.tags = { interface: 'unknown' }
+    expect(usage(r).used).toBeNull()
+    expect(usage(r).percentage).toBeNull()
   })
-
-  test('requires the metric sides needed by the quota mode while accepting zero points', () => {
-    const response: MetricQueryResponse = {
-      start: '2026-07-25T00:00:00.000Z',
-      end: '2026-07-25T01:00:00.000Z',
-      series: [
-        { metric_key: 'traffic.up', entity_id: 'node-zero', downsampled: false, count: 1, points: [{ time: '2026-07-25T00:00:00.000Z', value: 0 }] },
-        { metric_key: 'traffic.down', entity_id: 'node-zero', downsampled: false, count: 1, points: [{ time: '2026-07-25T00:00:00.000Z', value: 0 }] },
-        { metric_key: 'traffic.up', entity_id: 'node-null', downsampled: false, count: 1, points: [{ time: '2026-07-25T00:00:00.000Z', value: null }] },
-      ],
-      count: 3,
+}
+for (const fault of ['middle-gap', 'masked-middle-gap', 'adaptive-inflated-gap', 'invalid-time']) {
+  test(`visible first/last buckets cannot certify ${fault}`, () => {
+    const r = response()
+    const finish = new Date('2026-07-25T06:00:00Z')
+    r.end = finish.toISOString()
+    for (const s of r.series) {
+      s.points = Array.from({ length: 6 }, (_, hour) => ({ time: new Date(start.getTime() + hour * 3600_000).toISOString(), value: 5, count: 1 }))
+      s.count = 6
     }
-
-    expect(hasUsableTrafficMetricData(response, 'node-zero', 'sum')).toBe(true)
-    expect(hasUsableTrafficMetricData(response, 'node-zero', 'min')).toBe(true)
-    expect(hasUsableTrafficMetricData(response, 'node-zero', 'max')).toBe(true)
-    expect(hasUsableTrafficMetricData(response, 'node-zero', 'up')).toBe(true)
-    expect(hasUsableTrafficMetricData(response, 'node-zero', 'down')).toBe(true)
-    expect(hasUsableTrafficMetricData(response, 'node-null', 'up')).toBe(false)
-    expect(hasUsableTrafficMetricData(response, 'node-null', 'sum')).toBe(false)
-  })
-
-  test('preserves missing history delta fields instead of converting them to zero', () => {
-    const base = {
-      client: 'node-a',
-      time: '2026-07-25T01:00:00.000Z',
-      net_total_up: 100,
-      net_total_down: 200,
+    const s = r.series[0]!
+    if (fault === 'middle-gap')
+      s.points.splice(2, 1)
+    if (fault === 'masked-middle-gap')
+      s.points[2]!.time = s.points[1]!.time
+    if (fault === 'adaptive-inflated-gap') {
+      s.points = s.points.filter((_, i) => i % 2 === 0)
+      s.interval_seconds = 7200
+      s.fill_empty = true
     }
-    const missing = normalizeStatusRecord(base)
-    const zero = normalizeStatusRecord({ ...base, traffic_up: 0, traffic_down: 0 })
-
-    expect(missing?.traffic_up).toBeUndefined()
-    expect(missing?.traffic_down).toBeUndefined()
-    expect(zero?.traffic_up).toBe(0)
-    expect(zero?.traffic_down).toBe(0)
+    if (fault === 'invalid-time')
+      s.points.push({ time: 'not-a-date', value: 999, count: 1 })
+    s.count = s.points.length
+    const n = node()
+    const result = metricMonthlyTraffic(n, getMonthlyTrafficCycle(n, finish)!, finish, r)
+    expect(result).toMatchObject({ status: 'partial', used: null, percentage: null })
+    expect(result.up).not.toBeNull()
   })
+}
+test('unfilled continuous UTC buckets remain usable, including zero and an open last bucket', () => {
+  const r = response(0, 0)
+  r.end = '2026-07-25T01:30:00Z'
+  for (const s of r.series)
+    s.fill_empty = false
+  const finish = new Date(r.end)
+  const n = node()
+  expect(metricMonthlyTraffic(n, getMonthlyTrafficCycle(n, finish)!, finish, r)).toMatchObject({ status: 'ready', used: 0, percentage: 0 })
+})
+test('UTC half-open window excludes previous/next boundary buckets without mixing entities', () => {
+  const r = response()
+  r.series[0]!.points.unshift({ time: '2026-07-24T23:00:00Z', value: 999, count: 1 })
+  r.series[0]!.points.push({ time: end.toISOString(), value: 999, count: 1 })
+  expect(analyzeTrafficSeries(r, 'traffic.up', UUID, start, end)).toEqual({ total: 10, complete: true })
+})
+test('history gaps, reconstructed zero and lifetime counters cannot certify a month', () => {
+  const n = node()
+  const records = [{ client: UUID, time: start.toISOString(), traffic_up: 10, traffic_down: 20 }, { client: UUID, time: '2026-07-25T01:50:00Z', traffic_up: 0, traffic_down: 0 }] as StatusRecord[]
+  expect(historyMonthlyTraffic(records, n, getMonthlyTrafficCycle(n, end)!, end)).toMatchObject({ source: 'history', status: 'partial', observedUsed: 30, used: null, percentage: null })
+  expect(historyMonthlyTraffic([{ client: UUID, time: start.toISOString(), net_total_up: 999, net_total_down: 999 } as StatusRecord], n, getMonthlyTrafficCycle(n, end)!, end).used).toBeNull()
+  expect(isTrafficWarningNode(n, 80)).toBe(false)
+  expect(isTrafficWarningNode(n, 80, null)).toBe(false)
+})
+test('record normalization preserves absent traffic fields instead of creating zero', () => {
+  const base = { client: UUID, time: start.toISOString(), net_total_up: 100, net_total_down: 200 }
+  expect(normalizeStatusRecord(base)?.traffic_up).toBeUndefined()
+  expect(normalizeStatusRecord({ ...base, traffic_up: 0, traffic_down: 0 })?.traffic_up).toBe(0)
 })
 
-test('Komari 1.5 latest status without traffic fields uses batched metric SUM', async ({ page }) => {
-  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
-  page.on('request', (request) => {
-    if (!request.url().endsWith('/rpc2'))
-      return
-    const payload = request.postDataJSON() as { method: string, params?: Record<string, unknown> }
-    rpcRequests.push(payload)
+interface RpcRequest { method: string, params?: Record<string, unknown> }
+function requests(page: Page) {
+  const list: RpcRequest[] = []
+  page.on('request', (r) => {
+    if (r.url().endsWith('/rpc2'))
+      list.push(r.postDataJSON() as RpcRequest)
   })
+  return list
+}
+function card(page: Page) {
+  return page.getByRole('button', { name: '查看节点 主控-洛杉矶 详情' })
+}
+const monthly = (r: RpcRequest) => r.method === 'public:queryMetrics' && r.params?.aggregation === 'sum'
+const rangedHistory = (r: RpcRequest) => r.method === 'common:getRecords' && typeof r.params?.start === 'string'
 
-  await installKomariFixture(page, {
-    hideEarth: true,
-    latestStatusWithoutTraffic: true,
-    generalCardKeys: ['trafficQuota'],
+for (const day of [10, 14, 15, 16, 29, 30, 31]) {
+  test(`renewal ${day} immediately queries actual cycle on October 10, deterministic across reload`, async ({ page }) => {
+    const list = requests(page)
+    await installKomariFixture(page, { hideEarth: true, latestStatusWithoutTraffic: true, trafficNow: '2026-10-10T12:00:00Z', trafficRenewalDay: day })
+    await page.goto('/')
+    await expect(card(page).locator('[data-monthly-traffic]')).toHaveAttribute('data-status', 'ready')
+    const cycle = getMonthlyTrafficCycle(node({ expired_at: `2027-10-${String(day).padStart(2, '0')}T00:00:00Z` }), new Date('2026-10-10T12:00:00Z'))!
+    expect(list.filter(monthly)).toHaveLength(1)
+    expect(list.filter(monthly)[0]!.params?.start).toBe(cycle.start.toISOString())
+    expect(list.filter(monthly)[0]!.params?.fill_empty).toBe(false)
+    expect(list.some(rangedHistory)).toBe(false)
+    await page.reload()
+    await expect(card(page).locator('[data-monthly-traffic]')).toHaveAttribute('data-status', 'ready')
+    expect(list.filter(monthly)).toHaveLength(2)
   })
+}
+for (const mode of ['up', 'down', 'min', 'max', 'sum'] as const) {
+  test(`card, detail and list use the same ${mode} monthly scope`, async ({ page }) => {
+    await installKomariFixture(page, { hideEarth: true, trafficLimitType: mode })
+    await page.goto('/')
+    const used = combineMonthlyTraffic(45 * GIB, 62 * GIB, mode)!
+    const percentage = `${(used / (20 * TIB) * 100).toFixed(1)}%`
+    await expect(card(page).locator('[data-monthly-traffic]')).toHaveAttribute('data-status', 'ready')
+    await expect(card(page).getByText(percentage, { exact: true })).toBeVisible()
+    await card(page).click()
+    await expect(page.locator('.instance-detail [data-monthly-traffic]')).toHaveAttribute('data-status', 'ready')
+    await expect(page.locator('.instance-detail [data-monthly-traffic]')).not.toContainText('待核对')
+    await page.getByRole('button', { name: '返回首页', exact: true }).click()
+    await page.getByRole('button', { name: '列表视图', exact: true }).click()
+    const row = page.locator('[data-monthly-traffic]').first()
+    await expect(row).toHaveAttribute('data-status', 'ready')
+    await expect(row).toContainText(percentage)
+    expect(await row.locator('.traffic-progress__fill').count()).toBe(mode === 'sum' ? 2 : 1)
+  })
+}
+for (const fault of ['unavailable', 'missing-side', 'empty-entity', 'gap', 'periodic-gap', 'null'] as const) {
+  test(`shared ${fault} shows unknown/partial, never legacy or fanout, ping stays available`, async ({ page }) => {
+    const list = requests(page)
+    await installKomariFixture(page, { hideEarth: true, generalCardKeys: ['trafficQuota', 'trafficWarnings'], trafficMetricUnavailable: fault === 'unavailable', trafficMetricMissingSide: fault === 'missing-side' ? 'traffic.down' : undefined, trafficMetricEmptyNode: fault === 'empty-entity' ? 0 : undefined, trafficMetricGapNode: fault === 'gap' ? 0 : undefined, trafficMetricPeriodicGapNode: fault === 'periodic-gap' ? 0 : undefined, trafficMetricNullNode: fault === 'null' ? 0 : undefined })
+    await page.goto('/')
+    const display = card(page).locator('[data-monthly-traffic]')
+    await expect(display).toHaveAttribute('data-status', /unknown|partial/)
+    await expect(display).toContainText('待核对')
+    await expect(card(page).getByText('0.0%', { exact: true })).toHaveCount(0)
+    expect(list.some(rangedHistory)).toBe(false)
+    await expect.poll(() => list.some(r => r.method === 'public:getPingMetricStats' || (r.method === 'public:queryMetrics' && r.params?.aggregation !== 'sum'))).toBe(true)
+  })
+}
+test('valid zero-valued monthly metrics display zero without history fallback', async ({ page }) => {
+  const list = requests(page)
+  await installKomariFixture(page, { hideEarth: true, trafficMetricZeroNode: 0 })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
-
-  await expect.poll(() => rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum').length).toBeGreaterThan(0)
-  const metricRequests = rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum')
-  const metricRequest = metricRequests.find(request => request.params?.start === '2026-07-25T00:00:00.000Z')
-  expect(metricRequests.filter(request => request.params?.start === '2026-07-25T00:00:00.000Z')).toHaveLength(1)
-  expect(metricRequest?.params?.metric_keys).toEqual(['traffic.up', 'traffic.down'])
-  const entityIds = metricRequest?.params?.entity_ids
-  expect(entityIds).toEqual(expect.arrayContaining([
-    '00000000-0000-4000-8000-000000000001',
-    '00000000-0000-4000-8000-000000000002',
-  ]))
-  expect(Array.isArray(entityIds) ? entityIds.length : 0).toBeGreaterThan(1)
-  expect(metricRequest?.params?.start).toBe('2026-07-25T00:00:00.000Z')
-  expect(metricRequest?.params?.end).toBe('2026-07-25T12:00:00.000Z')
-  await expect(page.getByRole('button', { name: '查看节点 主控-洛杉矶 详情' }).getByText('0.5%', { exact: true })).toBeVisible()
+  await expect(card(page).locator('[data-monthly-traffic]')).toHaveAttribute('data-status', 'ready')
+  await expect(card(page).getByText('0.0%', { exact: true })).toBeVisible()
+  expect(list.some(rangedHistory)).toBe(false)
 })
-
-test('a missing entity series uses legacy only on the shared home context', async ({ page }) => {
-  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
-  page.on('request', (request) => {
-    if (!request.url().endsWith('/rpc2'))
-      return
-    const payload = request.postDataJSON() as { method: string, params?: Record<string, unknown> }
-    rpcRequests.push(payload)
-  })
-
-  await installKomariFixture(page, {
-    hideEarth: true,
-    latestStatusWithoutTraffic: true,
-    trafficMetricEmptyNode: 1,
-    generalCardKeys: ['trafficQuota'],
-  })
+test('twelve different cycle groups do not deadlock nested request-pool slots or starve ping', async ({ page }) => {
+  const list = requests(page)
+  await installKomariFixture(page, { hideEarth: true, trafficDistinctRenewalDays: true })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
-
-  const nodeA = '00000000-0000-4000-8000-000000000001'
-  const nodeB = '00000000-0000-4000-8000-000000000002'
-  await expect.poll(() => rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum').length).toBeGreaterThan(0)
-  const metricRequest = rpcRequests.find(request => request.method === 'public:queryMetrics' && request.params?.start === '2026-07-25T00:00:00.000Z')
-  const trafficHistoryRequests = rpcRequests.filter(request => request.method === 'common:getRecords' && request.params?.type === 'load' && request.params?.start === '2026-07-25T00:00:00.000Z')
-  expect(metricRequest?.params?.entity_ids).toEqual(expect.arrayContaining([nodeA, nodeB]))
-  expect(trafficHistoryRequests).toHaveLength(0)
-  await expect(page.getByRole('button', { name: '查看节点 香港边缘节点-超长名称布局测试 详情' }).getByText('1.0%', { exact: true })).toBeVisible()
+  await expect.poll(() => page.locator('[data-monthly-traffic][data-status="ready"]').count()).toBe(12)
+  expect(list.filter(monthly)).toHaveLength(12)
+  expect(list.some(rangedHistory)).toBe(false)
+  await expect.poll(() => list.some(r => r.method === 'public:getPingMetricStats' || (r.method === 'public:queryMetrics' && r.params?.aggregation !== 'sum'))).toBe(true)
 })
-
-test('a zero-valued metric point remains metric data and does not trigger history', async ({ page }) => {
-  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
-  page.on('request', (request) => {
-    if (!request.url().endsWith('/rpc2'))
-      return
-    const payload = request.postDataJSON() as { method: string, params?: Record<string, unknown> }
-    rpcRequests.push(payload)
-  })
-
-  await installKomariFixture(page, {
-    hideEarth: true,
-    latestStatusWithoutTraffic: true,
-    trafficMetricZeroNode: 2,
-    generalCardKeys: ['trafficQuota'],
-  })
+test('loading never flashes lifetime traffic or a fake zero', async ({ page }) => {
+  await installKomariFixture(page, { hideEarth: true, trafficMetricDelayMs: 1200 })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
-
-  await expect.poll(() => rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum').length).toBeGreaterThan(0)
-  await expect(page.getByRole('button', { name: '查看节点 东京-高负载 详情' }).getByText('0.0%', { exact: true })).toBeVisible()
-  expect(rpcRequests.some(request => request.method === 'common:getRecords' && request.params?.type === 'load' && request.params?.uuid === '00000000-0000-4000-8000-000000000003')).toBe(false)
+  await expect(card(page).locator('[data-monthly-traffic]')).toHaveAttribute('data-status', 'loading')
+  await expect(card(page).locator('[data-monthly-traffic]')).toContainText('加载中')
+  await expect(card(page).locator('[data-monthly-traffic]')).toHaveAttribute('data-status', 'ready')
 })
+for (const status of ['partial', 'unknown'] as const) {
+  test(`compare/export/health preserve ${status} without fake zero or full-quota warnings`, async ({ page }) => {
+    const list = requests(page)
+    await installKomariFixture(page, { hideEarth: true, loggedIn: true, trafficMetricUnavailable: status === 'unknown', trafficMetricPeriodicGapNode: status === 'partial' ? 0 : undefined })
+    await page.goto('/')
+    await expect(card(page).locator('[data-monthly-traffic]')).toHaveAttribute('data-status', status)
+    const monthlyBeforeTools = list.filter(monthly)
+    expect(monthlyBeforeTools.map(r => r.params?.start).sort()).toEqual(['2026-07-02T00:00:00.000Z', '2026-07-25T00:00:00.000Z'])
+    await page.getByRole('button', { name: '显示首页工具' }).click()
+    await page.getByRole('button', { name: '对比：最多四台节点实时横向对比' }).click()
+    await page.getByRole('button', { name: '主控-洛杉矶', exact: true }).click()
+    const quotaCell = page.getByText('流量配额', { exact: true }).locator('xpath=following-sibling::*[1]')
+    await expect(quotaCell).toContainText('待核对')
+    await expect(quotaCell.locator('[class*="bg-selection/70"]')).toHaveCount(0)
 
-test('metric method unavailable uses legacy without a shared home history fan-out', async ({ page }) => {
-  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
-  page.on('request', (request) => {
-    if (!request.url().endsWith('/rpc2'))
-      return
-    const payload = request.postDataJSON() as { method: string, params?: Record<string, unknown> }
-    rpcRequests.push(payload)
-  })
+    await page.getByRole('button', { name: '导出：CSV / JSON 数据快照' }).click()
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: '导出 JSON', exact: true }).click()
+    const stream = await (await downloadPromise).createReadStream()
+    expect(stream).not.toBeNull()
+    stream!.setEncoding('utf8')
+    let content = ''
+    for await (const chunk of stream!)
+      content += chunk
+    const exported = JSON.parse(content)
+    const first = exported.nodes.find((n: { id: string }) => n.id === UUID)
+    expect(first.resources.traffic).toMatchObject({ status, basis: 'sum', scope: 'collected-monthly-not-provider-bill', usedBytes: null, usage: '待核对' })
+    expect(list.some(rangedHistory)).toBe(false)
 
-  await installKomariFixture(page, {
-    hideEarth: true,
-    latestStatusWithoutTraffic: true,
-    trafficMetricUnavailable: true,
-    generalCardKeys: ['trafficQuota'],
+    // Health's history is explicitly user-triggered, not monthly fallback.
+    await page.getByRole('button', { name: '健康：日周月历史健康概览' }).click()
+    await page.getByRole('button', { name: '生成摘要', exact: true }).click()
+    await expect(page.getByText(/台暂无可靠月度数据\/待核对，不作满额预警/)).toBeVisible()
+    expect(list.filter(monthly)).toEqual(monthlyBeforeTools)
   })
+}
+test('home unknown cache cannot mask exactly one bounded detail history; history stays partial', async ({ page }) => {
+  const list = requests(page)
+  await installKomariFixture(page, { hideEarth: true, trafficMetricUnavailable: true, trafficHistoryNode: 0, legacyHistoryByHours: true })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
-
-  await expect.poll(() => rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum').length).toBeGreaterThan(0)
-  const metricRequest = rpcRequests.find(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum')
-  const trafficHistoryRequests = rpcRequests.filter(request => request.method === 'common:getRecords' && request.params?.type === 'load' && request.params?.start === '2026-07-25T00:00:00.000Z')
-  expect(metricRequest).toBeTruthy()
-  expect(trafficHistoryRequests).toHaveLength(0)
-  await expect(page.getByRole('button', { name: '查看节点 主控-洛杉矶 详情' }).getByText('0.5%', { exact: true })).toBeVisible()
+  await expect(card(page).locator('[data-monthly-traffic]')).toHaveAttribute('data-status', 'unknown')
+  expect(list.some(rangedHistory)).toBe(false)
+  await card(page).click()
+  const predicate = (r: RpcRequest) => rangedHistory(r) && r.params?.uuid === UUID && r.params?.load_type === 'network' && r.params?.maxCount === -1 && r.params?.start === '2026-07-25T00:00:00.000Z' && r.params?.end === '2026-07-25T12:00:00.000Z' && r.params?.hours === 13
+  await expect.poll(() => list.filter(predicate).length).toBe(1)
+  await expect(page.locator('.instance-detail [data-monthly-traffic]')).toHaveAttribute('data-status', 'partial')
+  await page.getByRole('button', { name: '返回首页', exact: true }).click()
+  await expect(card(page).locator('[data-monthly-traffic]')).toHaveAttribute('data-status', 'unknown')
+  expect(list.filter(rangedHistory)).toHaveLength(1)
 })
-
-test('legacy common:getRecords receives safe hours when it ignores start and end', async ({ page }) => {
-  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
-  page.on('request', (request) => {
-    if (!request.url().endsWith('/rpc2'))
-      return
-    const payload = request.postDataJSON() as { method: string, params?: Record<string, unknown> }
-    rpcRequests.push(payload)
-  })
-
-  const targetUuid = '00000000-0000-4000-8000-000000000003'
-  await installKomariFixture(page, {
-    hideEarth: true,
-    latestStatusWithoutTraffic: true,
-    trafficMetricUnavailable: true,
-    trafficHistoryNode: 2,
-    legacyHistoryByHours: true,
-    generalCardKeys: ['trafficQuota'],
-  })
-  await page.goto(`/instance/${targetUuid}`)
-  await expect(page.getByText('东京-高负载').first()).toBeVisible()
-
-  const isTargetRangeRequest = (request: { method: string, params?: Record<string, unknown> }) => request.method === 'common:getRecords'
-    && request.params?.uuid === targetUuid
-    && request.params?.start === '2026-07-25T00:00:00.000Z'
-    && request.params?.end === '2026-07-25T12:00:00.000Z'
-    && request.params?.hours === 13
-  await expect.poll(() => rpcRequests.some(isTargetRangeRequest)).toBe(true)
-  const targetRangeRequests = rpcRequests.filter(isTargetRangeRequest)
-  expect(targetRangeRequests).toHaveLength(1)
-  const targetRequest = targetRangeRequests[0]
-  expect(targetRequest?.params?.hours).toBe(13)
-  expect(targetRequest?.params?.start).toBe('2026-07-25T00:00:00.000Z')
-  expect(targetRequest?.params?.end).toBe('2026-07-25T12:00:00.000Z')
-  expect(targetRequest?.params?.load_type).toBe('network')
-  expect(targetRequest?.params?.maxCount).toBe(-1)
-  expect(targetRequest?.params?.max_count).toBe(-1)
-  await expect(page.getByText('10.0%', { exact: true }).first()).toBeVisible()
-})
-
-test('home legacy cache does not mask single-node detail history fallback', async ({ page }) => {
-  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
-  page.on('request', (request) => {
-    if (!request.url().endsWith('/rpc2'))
-      return
-    rpcRequests.push(request.postDataJSON() as { method: string, params?: Record<string, unknown> })
-  })
-
-  const nodeB = '00000000-0000-4000-8000-000000000002'
-  await installKomariFixture(page, {
-    hideEarth: true,
-    latestStatusWithoutTraffic: true,
-    trafficMetricUnavailable: true,
-    trafficHistoryNode: 1,
-    legacyHistoryByHours: true,
-    generalCardKeys: ['trafficQuota'],
-  })
+test('eleven minutes of shared clocks coalesce refreshes under ten-minute cache TTL', async ({ page }) => {
+  const list = requests(page)
+  await page.clock.install({ time: new Date('2026-07-25T12:00:00Z') })
+  await installKomariFixture(page, { hideEarth: true, useNativeClock: true, trafficRenewalDay: 25, generalCardKeys: ['trafficQuota'] })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
-  await expect.poll(() => rpcRequests.some(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum')).toBe(true)
-  const homeRangeRequests = () => rpcRequests.filter(request => request.method === 'common:getRecords'
-    && request.params?.type === 'load'
-    && request.params?.start === '2026-07-25T00:00:00.000Z')
-  expect(homeRangeRequests()).toHaveLength(0)
-  await expect(page.getByRole('button', { name: '查看节点 香港边缘节点-超长名称布局测试 详情' }).getByText('1.0%', { exact: true })).toBeVisible()
-
-  await page.getByRole('button', { name: '查看节点 香港边缘节点-超长名称布局测试 详情' }).click()
-  await expect(page).toHaveURL(`/instance/${nodeB}`)
-  await expect(page.getByText('香港边缘节点-超长名称布局测试').first()).toBeVisible()
-  const isTargetRangeRequest = (request: { method: string, params?: Record<string, unknown> }) => request.method === 'common:getRecords'
-    && request.params?.uuid === nodeB
-    && request.params?.start === '2026-07-25T00:00:00.000Z'
-    && request.params?.end === '2026-07-25T12:00:00.000Z'
-    && request.params?.hours === 13
-  await expect.poll(() => rpcRequests.some(isTargetRangeRequest)).toBe(true)
-  expect(rpcRequests.filter(isTargetRangeRequest)).toHaveLength(1)
-  await expect(page.getByText('10.0%', { exact: true }).first()).toBeVisible()
-
-  await page.getByRole('button', { name: '返回首页' }).click()
-  await expect(page).toHaveURL('/')
-  await expect(page.getByRole('button', { name: '查看节点 香港边缘节点-超长名称布局测试 详情' }).getByText('1.0%', { exact: true })).toBeVisible()
-  expect(homeRangeRequests()).toHaveLength(1)
-  expect(rpcRequests.filter(isTargetRangeRequest)).toHaveLength(1)
+  await expect(card(page).locator('[data-monthly-traffic]')).toHaveAttribute('data-status', 'ready')
+  expect(list.filter(monthly)).toHaveLength(1)
+  await page.clock.runFor(11 * 60_000)
+  expect(list.filter(monthly).length).toBeLessThanOrEqual(2)
+  // TTL starts when the response is cached, slightly after the clock starts;
+  // the next eligible five-minute tick may therefore be minute 15, not 10.
+  await page.clock.runFor(5 * 60_000)
+  await expect.poll(() => list.filter(monthly).length).toBe(2)
+  expect(list.some(rangedHistory)).toBe(false)
 })
-
-test('shared clock ticks for eleven minutes without a monthly request storm', async ({ page }) => {
-  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
-  page.on('request', (request) => {
-    if (!request.url().endsWith('/rpc2'))
-      return
-    rpcRequests.push(request.postDataJSON() as { method: string, params?: Record<string, unknown> })
-  })
-
-  await page.clock.install({ time: new Date('2026-07-25T12:00:00.000Z') })
-  await installKomariFixture(page, { hideEarth: true, useNativeClock: true, generalCardKeys: ['trafficQuota'] })
+test('UTC renewal boundary switches cycle once and does not manufacture a zero at empty window', async ({ page }) => {
+  const list = requests(page)
+  // The minute clock detects the boundary on the same tick as the bounded
+  // five-minute refresh; both triggers must coalesce into one new-cycle query.
+  await page.clock.install({ time: new Date('2026-10-14T23:55:30Z') })
+  await installKomariFixture(page, { hideEarth: true, useNativeClock: true, trafficRenewalDay: 15 })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
-  await expect.poll(() => rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum').length).toBeGreaterThan(0)
-
-  await page.clock.pauseAt(new Date('2026-07-25T12:01:00.000Z'))
-  const initialMetricRequestCount = rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum').length
-  await page.clock.runFor('11:00')
-  const finalMetricRequestCount = rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum').length
-  expect(finalMetricRequestCount).toBeGreaterThanOrEqual(initialMetricRequestCount)
-  expect(finalMetricRequestCount).toBeLessThanOrEqual(initialMetricRequestCount + 1)
-})
-
-test('cycle boundary causes one new monthly query while annual billing stays monthly', async ({ page }) => {
-  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
-  page.on('request', (request) => {
-    if (!request.url().endsWith('/rpc2'))
-      return
-    rpcRequests.push(request.postDataJSON() as { method: string, params?: Record<string, unknown> })
-  })
-
-  await page.clock.install({ time: new Date('2026-08-24T23:59:00.000Z') })
-  await installKomariFixture(page, { hideEarth: true, useNativeClock: true, generalCardKeys: ['trafficQuota'] })
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
-  await expect.poll(() => rpcRequests.some(request => request.method === 'public:queryMetrics' && request.params?.start === '2026-07-25T00:00:00.000Z')).toBe(true)
-
-  await page.clock.runFor('02:00')
-  await expect.poll(() => rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.start === '2026-08-25T00:00:00.000Z').length).toBe(1)
-  expect(rpcRequests.filter(request => request.method === 'public:queryMetrics' && request.params?.start === '2026-08-25T00:00:00.000Z')).toHaveLength(1)
-})
-
-test('monthly metric unavailability does not block ping RPC completion or fan out history', async ({ page }) => {
-  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
-  const completedMethods: string[] = []
-  page.on('request', (request) => {
-    if (!request.url().endsWith('/rpc2'))
-      return
-    rpcRequests.push(request.postDataJSON() as { method: string, params?: Record<string, unknown> })
-  })
-  page.on('requestfinished', (request) => {
-    if (!request.url().endsWith('/rpc2'))
-      return
-    const payload = request.postDataJSON() as { method: string }
-    completedMethods.push(payload.method)
-  })
-
-  await installKomariFixture(page, {
-    hideEarth: true,
-    latestStatusWithoutTraffic: true,
-    trafficMetricUnavailable: true,
-    transit: true,
-    trafficMetricDelayMs: 250,
-    generalCardKeys: ['trafficQuota'],
-  })
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
-  await expect.poll(() => completedMethods.includes('public:getPublicPingTasks')).toBe(true)
-  await expect.poll(() => completedMethods.includes('public:getPingMetricStats')).toBe(true)
-  expect(rpcRequests.filter(request => request.method === 'common:getRecords' && request.params?.type === 'load' && request.params?.start).length).toBe(0)
-})
-
-test('legacy traffic remains visible while the monthly metric request is pending', async ({ page }) => {
-  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
-  page.on('request', (request) => {
-    if (request.url().endsWith('/rpc2'))
-      rpcRequests.push(request.postDataJSON() as { method: string, params?: Record<string, unknown> })
-  })
-
-  await installKomariFixture(page, {
-    hideEarth: true,
-    trafficMetricZeroNode: 0,
-    trafficMetricDelayMs: 1_000,
-    generalCardKeys: ['trafficQuota'],
-  })
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '查看节点 主控-洛杉矶 详情' }).getByText('0.5%', { exact: true })).toBeVisible()
-  await expect.poll(() => rpcRequests.some(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum')).toBe(true)
-  await expect(page.getByRole('button', { name: '查看节点 主控-洛杉矶 详情' }).getByText('0.0%', { exact: true })).toBeVisible()
-})
-
-test('grandfathered traffic waits for the next renewal and stays active after reload', async ({ page }) => {
-  const rpcRequests: Array<{ method: string, params?: Record<string, unknown> }> = []
-  page.on('request', (request) => {
-    if (!request.url().endsWith('/rpc2'))
-      return
-    rpcRequests.push(request.postDataJSON() as { method: string, params?: Record<string, unknown> })
-  })
-
-  const grandfatheredUuid = '00000000-0000-4000-8000-000000000002'
-  const hasGrandfatheredMetric = (request: { method: string, params?: Record<string, unknown> }) => request.method === 'public:queryMetrics'
-    && request.params?.aggregation === 'sum'
-    && Array.isArray(request.params?.entity_ids)
-    && request.params.entity_ids.includes(grandfatheredUuid)
-  const monthlyHistoryRequests = () => rpcRequests.filter(request => request.method === 'common:getRecords'
-    && request.params?.type === 'load'
-    && typeof request.params?.start === 'string')
-
-  await page.clock.install({ time: new Date('2026-07-30T23:48:00.000Z') })
-  await installKomariFixture(page, {
-    hideEarth: true,
-    useNativeClock: true,
-    trafficGrandfatherNode: 1,
-    generalCardKeys: ['trafficQuota'],
-  })
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
-  await expect.poll(() => rpcRequests.some(request => request.method === 'public:queryMetrics' && request.params?.aggregation === 'sum')).toBe(true)
-  expect(rpcRequests.some(hasGrandfatheredMetric)).toBe(false)
-  expect(monthlyHistoryRequests()).toHaveLength(0)
-  await expect(page.getByRole('button', { name: '查看节点 香港边缘节点-超长名称布局测试 详情' }).getByText('1.0%', { exact: true })).toBeVisible()
-
-  await page.clock.runFor('11:00')
-  expect(rpcRequests.some(hasGrandfatheredMetric)).toBe(false)
-  expect(monthlyHistoryRequests()).toHaveLength(0)
-
-  await page.clock.runFor('02:00')
-  const isFirstPostUpgradeMetric = (request: { method: string, params?: Record<string, unknown> }) => hasGrandfatheredMetric(request)
-    && request.params?.start === '2026-07-31T00:00:00.000Z'
-  await expect.poll(() => rpcRequests.filter(isFirstPostUpgradeMetric).length).toBe(1)
-  expect(rpcRequests.filter(isFirstPostUpgradeMetric)).toHaveLength(1)
-
-  const beforeReload = rpcRequests.filter(isFirstPostUpgradeMetric).length
-  await page.reload()
-  await expect(page.getByRole('heading', { name: 'Komari Visual Lab' })).toBeVisible()
-  await expect.poll(() => rpcRequests.filter(isFirstPostUpgradeMetric).length).toBe(beforeReload + 1)
-  expect(rpcRequests.filter(isFirstPostUpgradeMetric)).toHaveLength(beforeReload + 1)
+  await expect(card(page).locator('[data-monthly-traffic]')).toHaveAttribute('data-status', 'ready')
+  await page.clock.runFor(5 * 60_000)
+  await expect.poll(() => list.filter(r => monthly(r) && r.params?.start === '2026-10-15T00:00:00.000Z').length).toBe(1)
+  await page.clock.runFor(2 * 60_000)
+  expect(list.filter(r => monthly(r) && r.params?.start === '2026-10-15T00:00:00.000Z')).toHaveLength(1)
 })

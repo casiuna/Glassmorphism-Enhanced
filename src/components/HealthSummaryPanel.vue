@@ -28,8 +28,8 @@ interface NodeHealthSummary {
   cpuPeak: number
   memoryPeak: number
   loadPeak: number
-  trafficUsedPercentage: number
-  trafficUsedBytes: number
+  trafficUsedPercentage: number | null
+  trafficUsedBytes: number | null
   trafficLimitBytes: number
   diskUsagePercentage: number
   diskPredictionDays: number | null
@@ -67,7 +67,17 @@ const loading = ref(false)
 const historyLoading = ref(false)
 const error = ref<string | null>(null)
 const historyNote = ref('')
-const summaries = ref<NodeHealthSummary[]>([])
+const summaryRecords = ref<NodeHealthSummary[]>([])
+// History summaries are snapshots; monthly traffic must stay reactive to the
+// shared source (including a new UTC cycle) instead of freezing that snapshot.
+const summaries = computed(() => {
+  const nodes = new Map(props.nodes.map(node => [node.uuid, node]))
+  return summaryRecords.value.map((record) => {
+    const node = nodes.get(record.uuid)
+    const usage = node ? monthlyTrafficUsage.getUsage(node) : null
+    return { ...record, trafficUsedBytes: usage?.used ?? null, trafficUsedPercentage: usage?.percentage ?? null }
+  })
+})
 let summaryRequestId = 0
 
 const rangeOptions = computed<HealthRangeOption[]>(() => {
@@ -131,8 +141,11 @@ function getTrafficBurnSpeed(node: NodeData): number {
   if (!hasTrafficLimit(node))
     return 0
   const used = monthlyTrafficUsage.getUsage(node).used
-  const uptimeSeconds = Math.max(1, node.uptime || 0)
-  return used / uptimeSeconds
+  if (used === null)
+    return 0
+  const start = monthlyTrafficUsage.getUsage(node).cycleStart
+  const elapsedSeconds = start ? (monthlyTrafficUsage.now.value.getTime() - Date.parse(start)) / 1000 : 0
+  return elapsedSeconds > 0 ? used / elapsedSeconds : 0
 }
 
 function average(values: number[]): number {
@@ -280,7 +293,7 @@ async function generateSummary(): Promise<void> {
   generatedAt.value = new Date().toLocaleString('zh-CN')
 
   const realtimeRecordsByClient = buildCurrentLoadRecordsByClient()
-  summaries.value = props.nodes.map(node => buildNodeSummary(node, realtimeRecordsByClient, new Map<string, PingRecordLike[]>()))
+  summaryRecords.value = props.nodes.map(node => buildNodeSummary(node, realtimeRecordsByClient, new Map<string, PingRecordLike[]>()))
   loading.value = false
   historyLoading.value = true
   historyNote.value = '已先用实时数据生成摘要，历史趋势后台补全中。'
@@ -295,7 +308,7 @@ async function generateSummary(): Promise<void> {
     if (requestId !== summaryRequestId)
       return
 
-    summaries.value = props.nodes.map(node => buildNodeSummary(node, recordsByClient, pingRecordsByClient))
+    summaryRecords.value = props.nodes.map(node => buildNodeSummary(node, recordsByClient, pingRecordsByClient))
     historyNote.value = recordsByClient === realtimeRecordsByClient
       ? '历史负载拉取失败，当前结果使用实时数据兜底。'
       : `历史样本最多读取 ${HEALTH_LOAD_MAX_COUNT.toLocaleString('zh-CN')} 条，保证生成速度。`
@@ -321,9 +334,9 @@ const diskUsageRankNodes = computed(() => summaries.value.filter(item => item.di
 const diskRankMode = computed<'growth' | 'usage'>(() => diskGrowthRankNodes.value.length ? 'growth' : 'usage')
 const diskRankNodes = computed(() => diskRankMode.value === 'growth' ? diskGrowthRankNodes.value : diskUsageRankNodes.value)
 const diskFullSoon = computed(() => summaries.value.filter(item => item.diskPredictionDays !== null && item.diskPredictionDays <= appStore.diskPredictionThresholdDays).sort((a, b) => (a.diskPredictionDays ?? Infinity) - (b.diskPredictionDays ?? Infinity)))
-const trafficWarnings = computed(() => summaries.value.filter(item => item.trafficLimitBytes > 0 && item.trafficUsedPercentage >= appStore.homeTrafficWarningThreshold).sort((a, b) => b.trafficUsedPercentage - a.trafficUsedPercentage))
+const trafficWarnings = computed(() => summaries.value.filter(item => item.trafficLimitBytes > 0 && item.trafficUsedPercentage !== null && item.trafficUsedPercentage >= appStore.homeTrafficWarningThreshold).sort((a, b) => b.trafficUsedPercentage! - a.trafficUsedPercentage!))
 const pingWarnings = computed(() => summaries.value.filter(item => item.pingHasData && (item.avgLoss >= 5 || item.avgLatency >= 200 || item.avgVolatility >= 3)).sort((a, b) => b.avgLoss - a.avgLoss))
-const fastestTrafficBurn = computed(() => props.nodes.filter(hasTrafficLimit).map(node => ({ node, speed: getTrafficBurnSpeed(node) })).sort((a, b) => b.speed - a.speed).slice(0, HEALTH_LIST_LIMIT))
+const fastestTrafficBurn = computed(() => props.nodes.filter(node => hasTrafficLimit(node) && monthlyTrafficUsage.getUsage(node).used !== null).map(node => ({ node, speed: getTrafficBurnSpeed(node) })).sort((a, b) => b.speed - a.speed).slice(0, HEALTH_LIST_LIMIT))
 
 function thresholdRisk(value: number, threshold: number, weight: number): number {
   if (value < threshold)
@@ -356,10 +369,12 @@ const riskRankNodes = computed<NodeRiskSummary[]>(() => summaries.value.map((nod
     score += diskRisk
     reasons.push(`磁盘 ${node.diskUsagePercentage.toFixed(0)}%`)
   }
-  const trafficRisk = thresholdRisk(node.trafficUsedPercentage, trafficThreshold, 15)
+  const trafficRisk = node.trafficUsedPercentage === null ? 0 : thresholdRisk(node.trafficUsedPercentage, trafficThreshold, 15)
+  if (node.trafficLimitBytes > 0 && node.trafficUsedPercentage === null)
+    reasons.push('月度流量待核对（未评分）')
   if (node.trafficLimitBytes > 0 && trafficRisk > 0) {
     score += trafficRisk
-    reasons.push(`流量 ${node.trafficUsedPercentage.toFixed(0)}%`)
+    reasons.push(`流量 ${node.trafficUsedPercentage!.toFixed(0)}%`)
   }
   if (node.avgLoss >= 5) {
     score += Math.min(15, node.avgLoss * 0.75)
@@ -396,7 +411,10 @@ const summaryLines = computed(() => {
   if (diskFullSoon.value.length)
     lines.push(`${diskFullSoon.value[0]?.name} 磁盘风险最高，预计 ${Math.ceil(diskFullSoon.value[0]?.diskPredictionDays ?? 0)} 天后满。`)
   if (trafficWarnings.value.length)
-    lines.push(`${trafficWarnings.value[0]?.name} 流量使用率最高：${trafficWarnings.value[0]?.trafficUsedPercentage.toFixed(1)}%。`)
+    lines.push(`${trafficWarnings.value[0]?.name} 流量使用率最高：${trafficWarnings.value[0]?.trafficUsedPercentage?.toFixed(1)}%。`)
+  const unknownTraffic = summaries.value.filter(item => item.trafficLimitBytes > 0 && item.trafficUsedPercentage === null).length
+  if (unknownTraffic)
+    lines.push(`${unknownTraffic} 台暂无可靠月度数据/待核对，不作满额预警。`)
   if (pingWarnings.value.length)
     lines.push(`${pingWarnings.value[0]?.name} 网络质量异常：平均丢包 ${pingWarnings.value[0]?.avgLoss.toFixed(1)}%，平均延迟 ${Math.round(pingWarnings.value[0]?.avgLatency ?? 0)}ms。`)
   if (lines.length === 1)
@@ -526,7 +544,7 @@ const summaryLines = computed(() => {
             <div v-if="trafficWarnings.length" class="space-y-1 text-sm">
               <div v-for="item in trafficWarnings.slice(0, HEALTH_LIST_LIMIT)" :key="item.uuid" class="flex justify-between gap-2">
                 <span class="truncate">{{ item.name }}</span>
-                <span class="tabular-nums text-destructive">{{ item.trafficUsedPercentage.toFixed(1) }}%</span>
+                <span class="tabular-nums text-destructive">{{ item.trafficUsedPercentage?.toFixed(1) }}%</span>
               </div>
             </div>
             <div v-else class="text-sm text-muted-foreground">

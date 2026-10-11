@@ -1,330 +1,188 @@
 import type { NodeData, TrafficLimitType } from '@/stores/nodes'
+import type { TrafficDataStatus } from '@/utils/monthlyTraffic'
 import type { MetricQueryResponse, StatusRecord } from '@/utils/rpc'
 import type { MonthlyTrafficCycle } from '@/utils/trafficCycle'
 import { SharedCache } from '@/services/cache.service'
 import { loadNodeLoadRecordsByRange } from '@/services/history.service'
 import { queryMetrics } from '@/services/metrics.service'
-import { requestManager } from '@/services/request.service'
-import { RpcError } from '@/utils/rpc'
+
+import { analyzeTrafficSeries, combineMonthlyTraffic, trafficValue } from '@/utils/monthlyTraffic'
 import { getMonthlyTrafficCycle } from '@/utils/trafficCycle'
-import { isMonthlyTrafficCycleActive } from '@/utils/trafficMigration'
 
-export type MonthlyTrafficUsageSource = 'metric' | 'history' | 'legacy'
-
+export type MonthlyTrafficUsageSource = 'metric' | 'history' | 'unavailable'
 export interface MonthlyTrafficUsageOptions {
-  /** Only an explicitly opened single-node detail context may use history fallback. */
+  /** Enforced for one node only; never enabled by shared/home. */
   allowHistoryFallback?: boolean
 }
-
 export interface MonthlyTrafficUsage {
   uuid: string
   cycleKey: string | null
   cycleStart: string | null
   cycleEnd: string | null
-  up: number
-  down: number
-  used: number
-  percentage: number
+  configKey: string
+  sampledAt: string | null
+  /** Observed deltas, nullable; partial values must not be presented as a quota. */
+  up: number | null
+  down: number | null
+  observedUsed: number | null
+  used: number | null
+  percentage: number | null
   source: MonthlyTrafficUsageSource
+  status: TrafficDataStatus
+  basis: TrafficLimitType
 }
 
-const TRAFFIC_METRIC_KEYS = ['traffic.up', 'traffic.down'] as const
-const TRAFFIC_HISTORY_MAX_COUNT = -1
 export const MONTHLY_TRAFFIC_CACHE_TTL_MS = 10 * 60_000
-const TRAFFIC_CACHE_CLEANUP_MS = 5 * 60_000
-
 const monthlyTrafficUsageCache = new SharedCache<MonthlyTrafficUsage>({
-  maxSize: 2_000,
+  maxSize: 2000,
   ttl: MONTHLY_TRAFFIC_CACHE_TTL_MS,
-  cleanupInterval: TRAFFIC_CACHE_CLEANUP_MS,
+  cleanupInterval: 5 * 60_000,
 })
 
-function finiteNonNegative(value: unknown): number | null {
-  if (value === null || value === undefined || value === '')
-    return null
-  const numericValue = Number(value)
-  if (!Number.isFinite(numericValue) || numericValue < 0)
-    return null
-  return Math.min(numericValue, Number.MAX_SAFE_INTEGER)
+export function monthlyTrafficConfigKey(node: NodeData, cycle: MonthlyTrafficCycle | null): string {
+  return [node.uuid, cycle?.key, node.billing_cycle, node.expired_at, node.traffic_limit, node.traffic_limit_type].join(':')
 }
 
-function combineTraffic(up: number, down: number, trafficLimitType: TrafficLimitType): number {
-  switch (trafficLimitType) {
-    case 'up': return up
-    case 'down': return down
-    case 'min': return Math.min(up, down)
-    case 'max': return Math.max(up, down)
-    case 'sum':
-    default: return up + down
-  }
-}
-
-function createUsage(
-  node: NodeData,
-  cycle: MonthlyTrafficCycle | null,
-  up: number,
-  down: number,
-  source: MonthlyTrafficUsageSource,
-): MonthlyTrafficUsage {
-  const safeUp = finiteNonNegative(up) ?? 0
-  const safeDown = finiteNonNegative(down) ?? 0
-  const used = combineTraffic(safeUp, safeDown, node.traffic_limit_type)
-  const limit = finiteNonNegative(node.traffic_limit) ?? 0
-
+function createUsage(node: NodeData, cycle: MonthlyTrafficCycle | null, up: number | null, down: number | null, source: MonthlyTrafficUsageSource, status: TrafficDataStatus, now: Date | null = null): MonthlyTrafficUsage {
+  const observedUsed = combineMonthlyTraffic(up, down, node.traffic_limit_type)
+  const used = status === 'ready' ? observedUsed : null
+  const limit = trafficValue(node.traffic_limit)
   return {
     uuid: node.uuid,
     cycleKey: cycle?.key ?? null,
     cycleStart: cycle?.start.toISOString() ?? null,
     cycleEnd: cycle?.end.toISOString() ?? null,
-    up: safeUp,
-    down: safeDown,
+    configKey: monthlyTrafficConfigKey(node, cycle),
+    sampledAt: now?.toISOString() ?? null,
+    up,
+    down,
+    observedUsed,
     used,
-    percentage: limit > 0 ? Math.min(Math.max(used / limit * 100, 0), 100) : 0,
+    percentage: used !== null && limit !== null && limit > 0 ? Math.min(used / limit * 100, 100) : null,
     source,
+    status,
+    basis: node.traffic_limit_type,
   }
 }
 
-function getLegacyUsage(node: NodeData, cycle: MonthlyTrafficCycle | null = null): MonthlyTrafficUsage {
-  const up = finiteNonNegative(node.net_total_up) ?? 0
-  const down = finiteNonNegative(node.net_total_down) ?? 0
-  return createUsage(node, cycle, up, down, 'legacy')
+export function unavailableMonthlyTraffic(node: NodeData, cycle: MonthlyTrafficCycle | null, status: TrafficDataStatus = cycle ? 'unknown' : 'not-applicable'): MonthlyTrafficUsage {
+  return createUsage(node, cycle, null, null, 'unavailable', status)
 }
 
-type MonthlyTrafficCacheMode = 'shared' | 'detail-history'
-
-function usageCacheKey(node: NodeData, cycleKey: string, mode: MonthlyTrafficCacheMode): string {
-  return `traffic:monthly:${mode}:${node.uuid}:${cycleKey}:${node.traffic_limit}:${node.traffic_limit_type}`
+/** Diagnostic helper only. Production quota values also require coverage evidence. */
+export function sumTrafficMetricSeries(response: MetricQueryResponse, key: string, uuid: string): number | null {
+  const points = (response.series ?? []).filter(s => s.metric_key === key && s.entity_id === uuid).flatMap(s => s.points ?? [])
+  const values = points.map(p => trafficValue(p.value)).filter((v): v is number => v !== null)
+  return values.length ? trafficValue(values.reduce((a, b) => a + b, 0)) : null
 }
 
-function metricBatchRequestKey(cycle: MonthlyTrafficCycle, now: Date, uuids: string[]): string {
-  return `traffic:metric:${cycle.key}:${now.toISOString()}:${[...uuids].sort().join(',')}`
+export function hasUsableTrafficMetricData(response: MetricQueryResponse, uuid: string, mode: TrafficLimitType): boolean {
+  return combineMonthlyTraffic(sumTrafficMetricSeries(response, 'traffic.up', uuid), sumTrafficMetricSeries(response, 'traffic.down', uuid), mode) !== null
 }
 
-function historyRequestKey(cycle: MonthlyTrafficCycle, now: Date, uuid: string): string {
-  return `traffic:history:${cycle.key}:${now.toISOString()}:${uuid}`
+export function metricMonthlyTraffic(node: NodeData, cycle: MonthlyTrafficCycle, now: Date, response: MetricQueryResponse): MonthlyTrafficUsage {
+  const up = analyzeTrafficSeries(response, 'traffic.up', node.uuid, cycle.start, now)
+  const down = analyzeTrafficSeries(response, 'traffic.down', node.uuid, cycle.start, now)
+  const validMode = ['up', 'down', 'min', 'max', 'sum'].includes(node.traffic_limit_type)
+  const complete = validMode && (node.traffic_limit_type === 'up' ? up.complete : node.traffic_limit_type === 'down' ? down.complete : up.complete && down.complete)
+  const hasObserved = up.total !== null || down.total !== null
+  return createUsage(node, cycle, up.total, down.total, 'metric', complete ? 'ready' : hasObserved ? 'partial' : 'unknown', now)
 }
 
-/** Sum every returned bucket for one metric/entity pair; never use only the latest point. */
-export function sumTrafficMetricSeries(response: MetricQueryResponse, metricKey: string, entityId: string): number {
-  let total = 0
-  for (const series of response.series ?? []) {
-    if (series.metric_key !== metricKey || series.entity_id !== entityId)
-      continue
-    for (const point of series.points ?? []) {
-      const value = finiteNonNegative(point.value)
-      if (value !== null)
-        total += value
-    }
+/**
+ * 1.5.x reconstructs missing traffic fields as default zeros and drops metric
+ * counts/interval metadata. Even contiguous records cannot certify completeness.
+ * Keep the bounded observed subtotal, but never promote it to a reliable quota.
+ */
+export function historyMonthlyTraffic(records: StatusRecord[], node: NodeData, cycle: MonthlyTrafficCycle, now: Date): MonthlyTrafficUsage {
+  const selected = records.filter(r => r.client === node.uuid && Date.parse(String(r.time)) >= cycle.start.getTime() && Date.parse(String(r.time)) < now.getTime())
+  const sum = (key: 'traffic_up' | 'traffic_down') => {
+    const values = selected.map(r => trafficValue(r[key])).filter((v): v is number => v !== null)
+    return values.length ? trafficValue(values.reduce((a, b) => a + b, 0)) : null
   }
-  return Math.min(total, Number.MAX_SAFE_INTEGER)
+  const up = sum('traffic_up')
+  const down = sum('traffic_down')
+  return createUsage(node, cycle, up, down, 'history', up !== null || down !== null ? 'partial' : 'unknown', now)
 }
 
-function hasUsableTrafficMetricSeries(response: MetricQueryResponse, metricKey: string, entityId: string): boolean {
-  return (response.series ?? []).some(series => series.metric_key === metricKey
-    && series.entity_id === entityId
-    && (series.points ?? []).some(point => finiteNonNegative(point.value) !== null))
+async function historyUsage(node: NodeData, cycle: MonthlyTrafficCycle, now: Date): Promise<MonthlyTrafficUsage> {
+  // The history service owns range-keyed dedupe/concurrency, just like metrics.
+  const records = await loadNodeLoadRecordsByRange(node.uuid, cycle.start, now, -1)
+  return historyMonthlyTraffic(records, node, cycle, now)
 }
 
-export function hasUsableTrafficMetricData(
-  response: MetricQueryResponse,
-  entityId: string,
-  trafficLimitType: TrafficLimitType,
-): boolean {
-  const hasUp = hasUsableTrafficMetricSeries(response, 'traffic.up', entityId)
-  const hasDown = hasUsableTrafficMetricSeries(response, 'traffic.down', entityId)
-
-  if (trafficLimitType === 'up')
-    return hasUp
-  if (trafficLimitType === 'down')
-    return hasDown
-  return hasUp && hasDown
-}
-
-function hasMetricMethodUnavailable(error: unknown): boolean {
-  return error instanceof RpcError && error.code === -32601
-}
-
-async function loadMetricUsageForGroup(
-  nodes: NodeData[],
-  cycle: MonthlyTrafficCycle,
-  now: Date,
-  options: MonthlyTrafficUsageOptions,
-): Promise<Map<string, MonthlyTrafficUsage>> {
-  const uuids = nodes.map(node => node.uuid).sort()
+async function metricGroup(nodes: NodeData[], cycle: MonthlyTrafficCycle, now: Date, historyAllowed: boolean): Promise<Map<string, MonthlyTrafficUsage>> {
   if (now.getTime() <= cycle.start.getTime())
-    return new Map(nodes.map(node => [node.uuid, createUsage(node, cycle, 0, 0, 'metric')]))
-
-  const response = await requestManager.run(
-    metricBatchRequestKey(cycle, now, uuids),
-    async () => queryMetrics({
-      metric_keys: [...TRAFFIC_METRIC_KEYS],
+    return new Map(nodes.map(n => [n.uuid, unavailableMonthlyTraffic(n, cycle)]))
+  const uuids = nodes.map(n => n.uuid).sort()
+  let response: MetricQueryResponse
+  try {
+    // queryMetrics already owns requestManager dedupe/concurrency. Do not hold
+    // an outer pool slot while waiting for another slot in the same manager.
+    response = await queryMetrics({
+      metric_keys: ['traffic.up', 'traffic.down'],
       entity_ids: uuids,
       start: cycle.start.toISOString(),
       end: now.toISOString(),
       aggregation: 'sum',
-      max_points: 2_000,
-    }),
-  )
-
-  const metricUsages = new Map<string, MonthlyTrafficUsage>()
-  const nodesMissingMetricData: NodeData[] = []
-
-  for (const node of nodes) {
-    if (!hasUsableTrafficMetricData(response, node.uuid, node.traffic_limit_type)) {
-      nodesMissingMetricData.push(node)
-      continue
-    }
-
-    metricUsages.set(node.uuid, createUsage(
-      node,
-      cycle,
-      sumTrafficMetricSeries(response, 'traffic.up', node.uuid),
-      sumTrafficMetricSeries(response, 'traffic.down', node.uuid),
-      'metric',
-    ))
+      max_points: 2000,
+      // Komari adaptive filling may inflate interval_seconds to the observed
+      // sparse cadence. Keep the genuine aggregation interval to detect gaps.
+      fill_empty: false,
+    })
   }
-
-  if (nodesMissingMetricData.length === 0)
-    return metricUsages
-
-  if (!options.allowHistoryFallback || nodesMissingMetricData.length !== 1) {
-    for (const node of nodesMissingMetricData)
-      metricUsages.set(node.uuid, getLegacyUsage(node, cycle))
-    return metricUsages
+  catch {
+    if (historyAllowed)
+      return new Map([[nodes[0]!.uuid, await historyUsage(nodes[0]!, cycle, now)]])
+    return new Map(nodes.map(n => [n.uuid, unavailableMonthlyTraffic(n, cycle)]))
   }
-
-  try {
-    const node = nodesMissingMetricData[0]!
-    metricUsages.set(node.uuid, await loadHistoryUsageForNode(node, cycle, now))
-  }
-  catch (error) {
-    console.warn('月流量节点 metric 数据缺失，单节点历史兼容链不可用，保留 legacy 显示:', error)
-    const node = nodesMissingMetricData[0]!
-    metricUsages.set(node.uuid, getLegacyUsage(node, cycle))
-  }
-
-  return metricUsages
+  const result = new Map(nodes.map(n => [n.uuid, metricMonthlyTraffic(n, cycle, now, response)]))
+  if (historyAllowed && result.get(nodes[0]!.uuid)?.status === 'unknown')
+    result.set(nodes[0]!.uuid, await historyUsage(nodes[0]!, cycle, now))
+  return result
 }
 
-function sumHistoryTraffic(records: StatusRecord[], node: NodeData, cycle: MonthlyTrafficCycle, now: Date): MonthlyTrafficUsage {
-  let up = 0
-  let down = 0
-  let hasUpDelta = false
-  let hasDownDelta = false
-  const startTime = cycle.start.getTime()
-  const endTime = now.getTime()
-
-  for (const record of records) {
-    const recordTime = Date.parse(String(record.time))
-    if (!Number.isFinite(recordTime) || recordTime < startTime || recordTime > endTime)
-      continue
-
-    const recordUp = finiteNonNegative(record.traffic_up)
-    const recordDown = finiteNonNegative(record.traffic_down)
-    if (recordUp !== null) {
-      up += recordUp
-      hasUpDelta = true
-    }
-    if (recordDown !== null) {
-      down += recordDown
-      hasDownDelta = true
-    }
-  }
-
-  const hasRequiredDelta = node.traffic_limit_type === 'up'
-    ? hasUpDelta
-    : node.traffic_limit_type === 'down'
-      ? hasDownDelta
-      : hasUpDelta && hasDownDelta
-  return hasRequiredDelta ? createUsage(node, cycle, up, down, 'history') : getLegacyUsage(node, cycle)
-}
-
-async function loadHistoryUsageForNode(
-  node: NodeData,
-  cycle: MonthlyTrafficCycle,
-  now: Date,
-): Promise<MonthlyTrafficUsage> {
-  return requestManager.run(
-    historyRequestKey(cycle, now, node.uuid),
-    async () => {
-      const records = await loadNodeLoadRecordsByRange(node.uuid, cycle.start, now, TRAFFIC_HISTORY_MAX_COUNT)
-      return sumHistoryTraffic(records, node, cycle, now)
-    },
-  )
-}
-
-/**
- * Load one shared monthly usage map. Home/shared contexts use the Komari 1.5.0
- * metric path and fall straight back to the v1.0.1 cumulative display when the
- * metric is unavailable. History is opt-in for one explicitly opened detail node.
- */
-export async function loadMonthlyTrafficUsage(
-  nodes: readonly NodeData[],
-  now = new Date(),
-  options: MonthlyTrafficUsageOptions = {},
-): Promise<Map<string, MonthlyTrafficUsage>> {
+/** Shared batched metrics; no legacy substitution, no per-node history fanout. */
+export async function loadMonthlyTrafficUsage(nodes: readonly NodeData[], now = new Date(), options: MonthlyTrafficUsageOptions = {}): Promise<Map<string, MonthlyTrafficUsage>> {
   const result = new Map<string, MonthlyTrafficUsage>()
   const groups = new Map<string, { cycle: MonthlyTrafficCycle, nodes: NodeData[] }>()
-  const cacheMode: MonthlyTrafficCacheMode = options.allowHistoryFallback ? 'detail-history' : 'shared'
-
+  const historyAllowed = options.allowHistoryFallback === true && nodes.length === 1
+  const mode = historyAllowed ? 'detail-history' : 'shared'
   for (const node of nodes) {
     const cycle = getMonthlyTrafficCycle(node, now)
     if (!cycle) {
-      result.set(node.uuid, getLegacyUsage(node))
+      result.set(node.uuid, unavailableMonthlyTraffic(node, null))
       continue
     }
-    if (!isMonthlyTrafficCycleActive(cycle)) {
-      result.set(node.uuid, getLegacyUsage(node, cycle))
-      continue
-    }
-
     const group = groups.get(cycle.key) ?? { cycle, nodes: [] }
     group.nodes.push(node)
     groups.set(cycle.key, group)
   }
-
-  await Promise.all(Array.from(groups.values()).map(async ({ cycle, nodes: groupNodes }) => {
-    const missingNodes: NodeData[] = []
+  await Promise.all(Array.from(groups.values(), async ({ cycle, nodes: groupNodes }) => {
+    const missing: NodeData[] = []
+    const key = (node: NodeData) => `traffic:monthly:${mode}:${monthlyTrafficConfigKey(node, cycle)}`
     for (const node of groupNodes) {
-      const cached = monthlyTrafficUsageCache.get(usageCacheKey(node, cycle.key, cacheMode))
+      const cached = monthlyTrafficUsageCache.get(key(node))
       if (cached)
         result.set(node.uuid, cached)
       else
-        missingNodes.push(node)
+        missing.push(node)
     }
-
-    if (missingNodes.length === 0)
+    if (!missing.length)
       return
-
     let fetched: Map<string, MonthlyTrafficUsage>
     try {
-      fetched = await loadMetricUsageForGroup(missingNodes, cycle, now, options)
+      fetched = await metricGroup(missing, cycle, now, historyAllowed)
     }
-    catch (error) {
-      if (!options.allowHistoryFallback || missingNodes.length !== 1) {
-        if (!hasMetricMethodUnavailable(error))
-          console.warn('月流量 metric 查询失败，shared context 使用 legacy 显示:', error)
-        fetched = new Map(missingNodes.map(node => [node.uuid, getLegacyUsage(node, cycle)]))
-      }
-      else {
-        try {
-          const node = missingNodes[0]!
-          fetched = new Map([[node.uuid, await loadHistoryUsageForNode(node, cycle, now)]])
-        }
-        catch (historyError) {
-          console.warn('月流量历史兼容查询失败，保留 v1.0.1 累计显示:', historyError)
-          fetched = new Map(missingNodes.map(node => [node.uuid, getLegacyUsage(node, cycle)]))
-        }
-      }
+    catch {
+      fetched = new Map(missing.map(n => [n.uuid, unavailableMonthlyTraffic(n, cycle)]))
     }
-
-    for (const node of missingNodes) {
-      const usage = fetched.get(node.uuid) ?? getLegacyUsage(node, cycle)
-      monthlyTrafficUsageCache.set(usageCacheKey(node, cycle.key, cacheMode), usage)
+    for (const node of missing) {
+      const usage = fetched.get(node.uuid) ?? unavailableMonthlyTraffic(node, cycle)
+      monthlyTrafficUsageCache.set(key(node), usage)
       result.set(node.uuid, usage)
     }
   }))
-
   return result
 }
 

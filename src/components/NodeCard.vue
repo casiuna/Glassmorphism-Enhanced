@@ -10,6 +10,7 @@ import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { useNodeCarrierPingSource } from '@/composables/useNodeCarrierPingSource'
 import { useAppStore } from '@/stores/app'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, getStatus, getUptimeDays } from '@/utils/helper'
+import { formatMonthlyPercentage, formatMonthlyTraffic, monthlyTrafficLabel } from '@/utils/monthlyTraffic'
 import { getDiskPercentage, getMemoryPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
@@ -95,7 +96,7 @@ const { carrierDisplays, isTransit } = useNodeCarrierPingSource(() => props.node
 
 const trafficUsage = computed(() => monthlyTrafficUsage.getUsage(props.node))
 const trafficUsedPercentage = computed(() => trafficUsage.value.percentage)
-const trafficUsed = computed(() => trafficUsage.value.used)
+
 const nodeMessage = computed(() => props.node.message?.trim() ?? '')
 const nodeMessageTooltip = computed(() => {
   const message = nodeMessage.value
@@ -109,6 +110,8 @@ const nodeMessageTooltip = computed(() => {
 const trafficStatus = computed(() => {
   if (!hasTrafficLimit(props.node))
     return 'success'
+  if (trafficUsedPercentage.value === null)
+    return 'default'
   if (trafficUsedPercentage.value >= 95)
     return 'error'
   if (trafficUsedPercentage.value >= 80)
@@ -120,6 +123,8 @@ const trafficStatus = computed(() => {
 
 const trafficPercentageClass = computed(() => {
   if (!hasTrafficLimit(props.node))
+    return 'text-muted-foreground'
+  if (trafficUsedPercentage.value === null)
     return 'text-muted-foreground'
   if (trafficUsedPercentage.value >= 95)
     return 'text-destructive'
@@ -310,12 +315,12 @@ function hasRegion(region: string | null | undefined): boolean {
                 <span class="truncate">流量</span>
               </span>
               <span class="tabular-nums font-medium" :class="trafficPercentageClass">
-                {{ hasTrafficLimit(props.node) ? `${trafficUsedPercentage.toFixed(1)}%` : '∞' }}
+                {{ hasTrafficLimit(props.node) ? formatMonthlyPercentage(trafficUsedPercentage) : '∞' }}
               </span>
             </div>
-            <ProgressThin :percentage="trafficUsedPercentage" :status="trafficStatus" :height="4" />
-            <div class="text-[11px] truncate" :class="trafficUsedPercentage >= 95 ? 'text-destructive' : 'text-muted-foreground'">
-              {{ formatBytes(trafficUsed) }}
+            <ProgressThin v-if="trafficUsedPercentage !== null" :percentage="trafficUsedPercentage" :status="trafficStatus" :height="4" />
+            <div class="text-[11px] truncate" data-monthly-traffic :data-status="trafficUsage.status" :title="`${monthlyTrafficLabel(trafficUsage.status)}；Komari ${trafficUsage.basis}；采集截至 ${trafficUsage.sampledAt ?? '未取得'}；非服务商账单`" :class="trafficUsedPercentage !== null && trafficUsedPercentage >= 95 ? 'text-destructive' : 'text-muted-foreground'">
+              {{ formatMonthlyTraffic(trafficUsage, formatBytes) }}
               <template v-if="hasTrafficLimit(props.node)">
                 / {{ formatBytes(props.node.traffic_limit) }}
               </template>
@@ -380,12 +385,12 @@ function hasRegion(region: string | null | undefined): boolean {
                 <span class="truncate">流量</span>
               </span>
               <span class="tabular-nums font-medium" :class="trafficPercentageClass">
-                {{ hasTrafficLimit(props.node) ? `${trafficUsedPercentage.toFixed(1)}%` : '∞' }}
+                {{ hasTrafficLimit(props.node) ? formatMonthlyPercentage(trafficUsedPercentage) : '∞' }}
               </span>
             </div>
-            <ProgressThin :percentage="trafficUsedPercentage" :status="trafficStatus" :height="4" />
-            <div class="text-[11px] truncate" :class="trafficUsedPercentage >= 95 ? 'text-destructive' : 'text-muted-foreground'">
-              {{ formatBytes(trafficUsed) }}
+            <ProgressThin v-if="trafficUsedPercentage !== null" :percentage="trafficUsedPercentage" :status="trafficStatus" :height="4" />
+            <div class="text-[11px] truncate" data-monthly-traffic :data-status="trafficUsage.status" :title="`${monthlyTrafficLabel(trafficUsage.status)}；Komari ${trafficUsage.basis}；采集截至 ${trafficUsage.sampledAt ?? '未取得'}；非服务商账单`" :class="trafficUsedPercentage !== null && trafficUsedPercentage >= 95 ? 'text-destructive' : 'text-muted-foreground'">
+              {{ formatMonthlyTraffic(trafficUsage, formatBytes) }}
               <template v-if="hasTrafficLimit(props.node)">
                 / {{ formatBytes(props.node.traffic_limit) }}
               </template>

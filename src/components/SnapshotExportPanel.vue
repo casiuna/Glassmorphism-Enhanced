@@ -35,9 +35,11 @@ interface SnapshotRow {
   memoryTotalBytes: number
   diskUsedBytes: number
   diskTotalBytes: number
-  trafficUsedBytes: number
+  trafficUsedBytes: number | null
   trafficLimitBytes: number
-  trafficUsedPercent: number
+  trafficUsedPercent: number | null
+  trafficDataStatus: string
+  trafficBasis: string
   netInBytesPerSecond: number
   netOutBytesPerSecond: number
   uptimeSeconds: number
@@ -78,7 +80,9 @@ onMounted(async () => {
   exchangeRates.value = rates
 })
 
-function formatBytes(bytes: number): string {
+function formatBytes(bytes: number | null): string {
+  if (bytes === null)
+    return '暂无可靠月度数据/待核对'
   return formatBytesWithConfig(bytes, appStore.byteDecimals)
 }
 
@@ -86,7 +90,9 @@ function formatSpeed(bytes: number): string {
   return formatBytesPerSecondWithConfig(bytes, appStore.byteDecimals)
 }
 
-function formatPercent(value: number): string {
+function formatPercent(value: number | null): string {
+  if (value === null)
+    return '待核对'
   return `${(Number.isFinite(value) ? value : 0).toFixed(1)}%`
 }
 
@@ -182,6 +188,8 @@ function buildRow(node: NodeData): SnapshotRow {
     trafficUsedBytes: monthlyTrafficUsage.getUsage(node).used,
     trafficLimitBytes: node.traffic_limit || 0,
     trafficUsedPercent: monthlyTrafficUsage.getUsage(node).percentage,
+    trafficDataStatus: monthlyTrafficUsage.getUsage(node).status,
+    trafficBasis: node.traffic_limit_type,
     netInBytesPerSecond: node.net_in || 0,
     netOutBytesPerSecond: node.net_out || 0,
     uptimeSeconds: node.uptime || 0,
@@ -229,7 +237,9 @@ const csvColumns: CsvColumn[] = [
   { label: '硬盘使用', value: row => formatBytes(row.diskUsedBytes) },
   { label: '硬盘总量', value: row => formatBytes(row.diskTotalBytes) },
   { label: '硬盘使用率', value: row => formatPercent(getPercent(row.diskUsedBytes, row.diskTotalBytes)) },
-  { label: '流量使用', value: row => formatBytes(row.trafficUsedBytes) },
+  { label: '采集月度流量（非账单）', value: row => formatBytes(row.trafficUsedBytes) },
+  { label: '月度数据状态', value: row => row.trafficDataStatus },
+  { label: 'Komari 配置流量口径', value: row => row.trafficBasis },
   { label: '流量限额', value: row => formatLimit(row.trafficLimitBytes) },
   { label: '流量使用率', value: row => row.trafficLimitBytes > 0 ? formatPercent(row.trafficUsedPercent) : '无限制' },
   { label: '实时上行', value: row => formatSpeed(row.netOutBytesPerSecond) },
@@ -305,6 +315,10 @@ function buildJsonNode(row: SnapshotRow) {
         usage: formatPercent(getPercent(row.diskUsedBytes, row.diskTotalBytes)),
       },
       traffic: {
+        status: row.trafficDataStatus,
+        basis: row.trafficBasis,
+        scope: 'collected-monthly-not-provider-bill',
+        usedBytes: row.trafficUsedBytes,
         used: formatBytes(row.trafficUsedBytes),
         limit: formatLimit(row.trafficLimitBytes),
         usage: row.trafficLimitBytes > 0 ? formatPercent(row.trafficUsedPercent) : '无限制',

@@ -20,6 +20,7 @@ import { formatCityNameZh } from '@/utils/cityNameHelper'
 import { getCpuBenchmarkRating, getPassMarkCpuLookupUrl } from '@/utils/cpuBenchmark'
 import * as financeHelper from '@/utils/financeHelper'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatUptimeWithFormat } from '@/utils/helper'
+import { monthlyTrafficLabel } from '@/utils/monthlyTraffic'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
 
@@ -366,10 +367,10 @@ function getDetailMetricCard(key: DetailMetricCardKey): MetricCard {
       return {
         key,
         label: '流量配额',
-        value: nodeHasTrafficLimit ? nodeTrafficPercentage.toFixed(1) : '∞',
-        unit: nodeHasTrafficLimit ? '%' : undefined,
+        value: nodeHasTrafficLimit ? nodeTrafficPercentage === null ? '待核对' : nodeTrafficPercentage.toFixed(1) : '∞',
+        unit: nodeHasTrafficLimit && nodeTrafficPercentage !== null ? '%' : undefined,
         icon: 'tabler:gauge',
-        tooltip: nodeHasTrafficLimit ? `${formatBytes(nodeTrafficUsed)} / ${formatBytes(nodeTrafficLimit)}` : '无限流量',
+        tooltip: nodeHasTrafficLimit ? nodeTrafficUsed === null ? '暂无可靠月度数据/待核对' : `${formatBytes(nodeTrafficUsed)} / ${formatBytes(nodeTrafficLimit)}（采集月度，非账单）` : '无限流量',
       }
     default:
       return { key: 'cpuUsage', label: 'CPU 使用率', value: (node?.cpu ?? 0).toFixed(1), unit: '%', icon: 'tabler:cpu' }
@@ -415,10 +416,11 @@ const storageInfo = computed<InfoItem[]>(() => [
   { label: '硬盘', value: formatBytes(data.value?.disk_total ?? 0), icon: 'icon-park-outline:hard-disk' },
 ])
 
+const trafficUsage = computed(() => data.value ? monthlyTrafficUsage.getUsage(data.value) : null)
 const trafficUsed = computed(() => {
   const node = data.value
   if (!node)
-    return 0
+    return null
   return monthlyTrafficUsage.getUsage(node).used
 })
 
@@ -427,13 +429,15 @@ const hasTrafficLimit = computed(() => (data.value?.traffic_limit ?? 0) > 0)
 const trafficUsedPercentage = computed(() => {
   const node = data.value
   if (!node)
-    return 0
+    return null
   return monthlyTrafficUsage.getUsage(node).percentage
 })
 
 const trafficUsageText = computed(() => {
   if (!hasTrafficLimit.value)
     return '无限流量'
+  if (trafficUsed.value === null)
+    return monthlyTrafficLabel(trafficUsage.value?.status ?? 'loading')
   return `${formatBytes(trafficUsed.value)} / ${formatBytes(data.value?.traffic_limit ?? 0)}`
 })
 
@@ -444,6 +448,8 @@ const trafficProgressStyle = computed(() => ({
 // 总流量进度条按使用率分级着色：≥80% 红、60-80% 琥珀、<60% 绿
 const trafficProgressClass = computed(() => {
   const p = trafficUsedPercentage.value
+  if (p === null)
+    return 'bg-muted'
   if (p >= 80)
     return 'bg-red-500/30'
   if (p >= 60)
@@ -692,7 +698,7 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
           <div class="gap-3 grid grid-cols-2">
             <div class="relative min-w-0 overflow-hidden rounded-sm bg-slate-500/5 p-2">
               <div
-                v-if="hasTrafficLimit"
+                v-if="hasTrafficLimit && trafficUsedPercentage !== null"
                 class="absolute inset-y-0 left-0 rounded-sm pointer-events-none transition-[width,background-color] duration-300 ease-out"
                 :class="trafficProgressClass"
                 :style="trafficProgressStyle"
@@ -700,7 +706,7 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
               <div class="relative flex flex-col gap-1.5">
                 <div class="flex gap-1 items-center text-muted-foreground">
                   <Icon icon="icon-park-outline:transfer-data" :width="14" :height="14" />
-                  <span class="text-xs sm:text-sm">总流量</span>
+                  <span class="text-xs sm:text-sm">月度流量</span>
                   <Badge
                     v-for="proto in ipSupport" :key="proto" variant="outline"
                     class="!text-[10px] rounded text-emerald-600 border-emerald-600/25 px-1 py-0 leading-none"
@@ -709,10 +715,14 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
                   </Badge>
                   <div class="flex-1" />
                   <span class="hidden sm:block text-[11px] font-medium text-foreground/70">
-                    {{ formatBytes(data?.net_total_up ?? 0) }} / {{ formatBytes(data?.net_total_down ?? 0) }}
+                    机器累计（非本月）：{{ formatBytes(data?.net_total_up ?? 0) }} / {{ formatBytes(data?.net_total_down ?? 0) }}
                   </span>
                 </div>
-                <span class="text-xs sm:text-sm break-all">{{ trafficUsageText }}</span>
+                <span class="text-xs sm:text-sm break-all" data-monthly-traffic :data-status="trafficUsage?.status">{{ trafficUsageText }}</span>
+                <span v-if="trafficUsage?.status === 'partial'" class="text-[10px] text-muted-foreground">
+                  已采集片段（非完整月度）：上行 {{ trafficUsage.up === null ? '未知' : formatBytes(trafficUsage.up) }} / 下行 {{ trafficUsage.down === null ? '未知' : formatBytes(trafficUsage.down) }}
+                </span>
+                <span class="text-[10px] text-muted-foreground">Komari 配置口径：{{ data.traffic_limit_type }}；采集截至 {{ trafficUsage?.sampledAt ?? '未取得' }}；非服务商账单</span>
                 <span v-if="hasPeak" class="text-[10px] text-muted-foreground/80 flex items-center gap-2 leading-none">
                   <span>近一天峰值</span>
                   <span class="text-green-600 flex items-center gap-0.5">

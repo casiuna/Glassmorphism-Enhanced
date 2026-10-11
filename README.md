@@ -132,7 +132,15 @@ dist/
 - 版本唯一来源是 `komari-theme.json.version`；不在 `package.json` 增加顶层 `version`。
 - 内部兼容标识 `short: Glassmorphism` 保持不变，ZIP 命名契约保持不变。
 - Direct 三网任务支持中文名称和既有英文别名：`Unicom` / `CUCC`、`Telecom` / `CTCC` / `ChinaNet` / `CN2`、`Mobile` / `CMCC` / `CMI` / `CMIN2`。
-- Metric 数据不可用时继续使用已有 Legacy fallback；Transit 只在 Relay 数据源上派生，不建立第二套后端请求链。
+- **Ping** Metric 数据不可用时继续使用已有 Legacy fallback；Transit 只在 Relay 数据源上派生，不建立第二套后端请求链。月度流量缺数据不使用机器累计 fallback。
+
+## Monthly traffic（当前未发布修复分支）
+
+`fix/monthly-traffic-reliability` 已取消旧 v1.0.3 grandfathering：有效 recurring 节点打开主题即查询当前 UTC 月窗口，年度/季度付费仍按月度流量周期，29/30/31 短月 clamp 保持。单次购买/自定义或无有效续期信息不伪造周期。
+
+月度值来自 `traffic.up/down` 的 SUM 采集桶，按现有 Komari `traffic_limit_type` 的 up/down/min/max/sum 合并；不是服务商账单。缺方向、缺桶、无 count/interval 或不可用时显示 **暂无可靠月度数据/数据不完整/待核对**，不回填 `net_total_*` 或假零，也不显示满额预警。机器累计另行标记；财务按量估算仍保留用户选择的累计口径。
+
+shared/home 批量 metric、5 分钟 refresh、10 分钟 cache 和并发去重保持；不启动 N-node history fanout。单节点 detail history 只显示已采集片段，因为 1.5.x 重构 records 不能证明完整月度覆盖。完整假设、raw/rollup 限制和不写库对账步骤见 [monthly traffic audit](docs/monthly-traffic-reliability.md)。
 
 ## Development
 
@@ -159,13 +167,13 @@ Playwright 使用确定性 fixture，不连接生产 Komari。修改 Transit 时
 
 ## Versioning and Release
 
-本项目从 `v1.0.0` 开始使用独立 SemVer。当前正式 release branch 是本 fork 的 **`release/v1.0.5`**，目标版本为 **1.0.5**（待用户合并 / 发布）：
+本项目从 `v1.0.0` 开始使用独立 SemVer。已发布基线为 **1.0.5**；当前 `fix/monthly-traffic-reliability` 仅供 review，manifest 暂留 1.0.5，未来 1.0.6 bump 需 owner 另行确认：
 
 - Bugfix：`1.0.1`、`1.0.2`、`1.0.3`……
 - 向后兼容的新功能：`1.1.0`、`1.2.0`……
 - Breaking changes：`2.0.0`。
 
-`release-on-version-bump.yml` 只响应本 fork 的 `main` push，不使用 `workflow_dispatch`。用户未来将 `release/v1.0.5` 合入 `casiuna/Glassmorphism-Enhanced:main` 后，manifest 从 `1.0.4` 变为 `1.0.5`，由本 fork workflow 构建并创建标准 `v1.0.5` tag / GitHub Release。发布前请核对构建 ZIP、版本和 Release 资产；目标 tag 指向其他 commit 时 workflow 会失败，不会自动删除或改写 tag。本轮不创建 PR、不 merge、不手动 tag / Release；所有写操作仅限本 fork，upstream 只读。
+`release-on-version-bump.yml` 只响应本 fork 的 `main` push，不使用 `workflow_dispatch`。本修复分支未 bump，不能直接合入 main 重发 v1.0.5：现有 tag 指向其他 commit 会让 workflow 失败，不会自动删除或改写 tag。正式发布前需另行确认新版本、验证和授权。本轮不创建 PR、不 merge/push main、不 tag / Release；所有写操作仅限本 fork，upstream 只读。
 
 Upstream 版本只作为来源基线记录，不进入本项目版本号。历史 `v3.3.7-enhanced.1`、`upstream-v1.0.0` 和 `v1.0.0` 均保留。
 

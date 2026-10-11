@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { useAppStore } from '@/stores/app'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatUptimeWithFormat } from '@/utils/helper'
+import { formatMonthlyTraffic } from '@/utils/monthlyTraffic'
 import { getDiskPercentage, getMemoryPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { isNodeMatchSearch } from '@/utils/nodeSearch'
 import { formatPriceWithCycle, isFreePrice } from '@/utils/tagHelper'
@@ -72,7 +73,7 @@ const compareMetrics = computed<CompareMetric[]>(() => {
     {
       key: 'trafficQuota',
       label: '流量配额',
-      value: node => hasTrafficLimit(node) ? `${formatBytes(monthlyTrafficUsage.getUsage(node).used)} / ${formatBytes(node.traffic_limit)}` : '无限',
+      value: node => hasTrafficLimit(node) ? `${formatMonthlyTraffic(monthlyTrafficUsage.getUsage(node), formatBytes)} / ${formatBytes(node.traffic_limit)}` : '无限',
       percentage: node => hasTrafficLimit(node) ? monthlyTrafficUsage.getUsage(node).percentage : null,
     },
     { key: 'uptime', label: '运行时间', value: node => formatUptimeWithFormat(node.uptime || 0, 'day') },

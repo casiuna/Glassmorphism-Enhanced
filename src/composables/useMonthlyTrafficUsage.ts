@@ -2,8 +2,7 @@ import type { InjectionKey, MaybeRefOrGetter, Ref } from 'vue'
 import type { MonthlyTrafficUsage, MonthlyTrafficUsageOptions } from '@/services/traffic.service'
 import type { NodeData } from '@/stores/nodes'
 import { computed, inject, onScopeDispose, provide, ref, shallowRef, toValue, watch } from 'vue'
-import { loadMonthlyTrafficUsage } from '@/services/traffic.service'
-import { getTrafficUsed } from '@/utils/nodeMetricsHelper'
+import { loadMonthlyTrafficUsage, monthlyTrafficConfigKey, unavailableMonthlyTraffic } from '@/services/traffic.service'
 import { getMonthlyTrafficCycle } from '@/utils/trafficCycle'
 
 export interface MonthlyTrafficUsageContext {
@@ -56,24 +55,6 @@ export function hasMonthlyTrafficCycleChanged(previousKey: string | null | undef
   return previousKey !== undefined && previousKey !== nextKey
 }
 
-function legacyUsage(node: NodeData, cycle = getMonthlyTrafficCycle(node, sharedTrafficNow.value)): MonthlyTrafficUsage {
-  const up = Number.isFinite(node.net_total_up) && node.net_total_up >= 0 ? node.net_total_up : 0
-  const down = Number.isFinite(node.net_total_down) && node.net_total_down >= 0 ? node.net_total_down : 0
-  const used = getTrafficUsed(node)
-  const limit = Number.isFinite(node.traffic_limit) && node.traffic_limit > 0 ? node.traffic_limit : 0
-  return {
-    uuid: node.uuid,
-    cycleKey: cycle?.key ?? null,
-    cycleStart: cycle?.start.toISOString() ?? null,
-    cycleEnd: cycle?.end.toISOString() ?? null,
-    up,
-    down,
-    used,
-    percentage: limit > 0 ? Math.min(Math.max(used / limit * 100, 0), 100) : 0,
-    source: 'legacy',
-  }
-}
-
 function createMonthlyTrafficUsageContext(
   nodes: MaybeRefOrGetter<readonly NodeData[]>,
   options: MonthlyTrafficUsageOptions = {},
@@ -97,7 +78,7 @@ function createMonthlyTrafficUsageContext(
           usageByUuid.value = next
       })
       .catch((error) => {
-        console.warn('月流量刷新失败，保留现有/legacy 显示:', error)
+        console.warn('月流量刷新失败，不使用机器累计值补月度数据:', error)
       })
       .finally(() => {
         refreshPromise = null
@@ -119,7 +100,7 @@ function createMonthlyTrafficUsageContext(
   ].join(':')).join('|'))
   const cycleSignature = computed(() => nodeList.value.map((node) => {
     const cycle = getMonthlyTrafficCycle(node, sharedTrafficNow.value)
-    return `${node.uuid}:${cycle?.key ?? 'legacy'}`
+    return `${node.uuid}:${cycle?.key ?? 'no-cycle'}`
   }).join('|'))
 
   const releaseClock = acquireSharedTrafficClock()
@@ -145,13 +126,11 @@ function createMonthlyTrafficUsageContext(
     getUsage: (node) => {
       const cycle = getMonthlyTrafficCycle(node, sharedTrafficNow.value)
       if (!cycle)
-        return legacyUsage(node)
+        return unavailableMonthlyTraffic(node, null)
 
       const cached = usageByUuid.value.get(node.uuid)
-      if (!cached || cached.cycleKey !== cycle.key)
-        return legacyUsage(node, cycle)
-      if (cached.source === 'legacy')
-        return legacyUsage(node, cycle)
+      if (!cached || cached.configKey !== monthlyTrafficConfigKey(node, cycle))
+        return unavailableMonthlyTraffic(node, cycle, 'loading')
       return cached
     },
     refresh,

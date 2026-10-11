@@ -49,7 +49,14 @@ export interface VisualFixtureOptions {
   legacyHistoryByHours?: boolean
   trafficMetricDelayMs?: number
   useNativeClock?: boolean
-  trafficGrandfatherNode?: number
+  trafficNow?: string
+  trafficRenewalDay?: number
+  trafficDistinctRenewalDays?: boolean
+  trafficLimitType?: 'up' | 'down' | 'min' | 'max' | 'sum'
+  trafficMetricMissingSide?: 'traffic.up' | 'traffic.down'
+  trafficMetricGapNode?: number
+  trafficMetricPeriodicGapNode?: number
+  trafficMetricNullNode?: number
 }
 
 function uuidFor(index: number): string {
@@ -84,20 +91,22 @@ function buildClients(options: VisualFixtureOptions = {}) {
       billing_cycle: 365,
       auto_renewal: index % 2 === 0,
       currency: 'USD',
-      expired_at: options.trafficGrandfatherNode === index
-        ? '2027-07-31T00:00:00.000Z'
-        : options.expiryThresholds && index === 0
-          ? '2026-07-30T12:00:00.000Z'
-          : options.expiryThresholds && index === 1
-            ? '2026-08-04T12:00:00.000Z'
-            : index === 6 ? '2026-08-02T00:00:00.000Z' : '2027-07-25T00:00:00.000Z',
+      expired_at: options.trafficDistinctRenewalDays
+        ? `2027-10-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`
+        : options.trafficRenewalDay !== undefined
+          ? `2027-10-${String(options.trafficRenewalDay).padStart(2, '0')}T00:00:00.000Z`
+          : options.expiryThresholds && index === 0
+            ? '2026-07-30T12:00:00.000Z'
+            : options.expiryThresholds && index === 1
+              ? '2026-08-04T12:00:00.000Z'
+              : index === 6 ? '2026-08-02T00:00:00.000Z' : '2027-07-25T00:00:00.000Z',
       group: index < 6 ? '生产' : '测试,边缘',
       tags: options.upstreamTags && index >= 1 && index <= 3
         ? `upstream:${REGION_FIXTURES[index - 1]!.name}`
         : index % 2 === 0 ? 'core<jade>,visual<blue>' : 'edge<orange>',
       hidden: !!(options.hiddenRelay && index === 1),
       traffic_limit: index === 6 ? 2 * TIB : 20 * TIB,
-      traffic_limit_type: 'sum',
+      traffic_limit_type: options.trafficLimitType ?? 'sum',
       created_at: '2026-01-01T00:00:00.000Z',
       updated_at: FIXED_NOW,
     }]
@@ -263,14 +272,27 @@ function buildMetricResponse(
         return []
       const up = (nodeIndex + 1) * 45 * GIB
       const down = nodeIndex === 6 ? 1.78 * TIB : (nodeIndex + 1) * 62 * GIB
-      return requested.map((key) => {
+      return requested.filter(key => key !== options.trafficMetricMissingSide).map((key) => {
         const value = options.trafficMetricZeroNode === nodeIndex ? 0 : key === 'traffic.up' ? up : down
+        const interval = 3600
+        const count = Math.max(1, Math.ceil((Date.parse(end) - Date.parse(start)) / (interval * 1000)))
+        const points = Array.from({ length: count }, (_, i) => ({
+          time: new Date(Date.parse(start) + i * interval * 1000).toISOString(),
+          value: options.trafficMetricNullNode === nodeIndex && i === 0 ? null : value / count,
+          count: options.trafficMetricNullNode === nodeIndex && i === 0 ? 0 : 1,
+        })).filter((_, i) => (options.trafficMetricGapNode !== nodeIndex || i !== 1)
+          && (options.trafficMetricPeriodicGapNode !== nodeIndex || i % 2 === 0))
         return {
           metric_key: key,
           entity_id: entityId,
           type: 'sum',
           downsampled: true,
-          points: [{ time: start, value: value / 2 }, { time: end, value: value / 2 }],
+          downsample_algorithm: 'sum',
+          // Reproduce Komari's adaptive interval inflation when fill is enabled.
+          interval_seconds: options.trafficMetricPeriodicGapNode === nodeIndex && payload.fill_empty === true ? interval * 2 : interval,
+          fill_empty: payload.fill_empty === true,
+          count: points.length,
+          points,
         }
       })
     })
@@ -500,7 +522,7 @@ export async function installKomariFixture(page: Page, options: VisualFixtureOpt
         }
       }
       window.Date = FixedDate as DateConstructor
-    }, { fixedNow: FIXED_NOW })
+    }, { fixedNow: options.trafficNow ?? FIXED_NOW })
   }
 
   await page.route('**/api/public', route => route.fulfill({

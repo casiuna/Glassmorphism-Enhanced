@@ -16,6 +16,7 @@ export function hasTrafficLimit(node: Pick<NodeData, 'traffic_limit'>): boolean 
   return (node.traffic_limit || 0) > 0
 }
 
+/** Machine-lifetime counters only; never a monthly quota or provider bill. */
 export function getTrafficUsed(node: Pick<NodeData, 'net_total_up' | 'net_total_down' | 'traffic_limit_type'>): number {
   const { net_total_up = 0, net_total_down = 0, traffic_limit_type } = node
 
@@ -29,6 +30,7 @@ export function getTrafficUsed(node: Pick<NodeData, 'net_total_up' | 'net_total_
   }
 }
 
+/** Legacy machine-counter diagnostic only; must not drive monthly quota UI/alerts. */
 export function getTrafficUsedPercentage(node: Pick<NodeData, 'traffic_limit' | 'net_total_up' | 'net_total_down' | 'traffic_limit_type'>): number {
   if (!hasTrafficLimit(node))
     return 0
@@ -110,11 +112,11 @@ export function isExpiringNode(node: NodeData, days: number): boolean {
   return expiryDays <= Math.max(1, days)
 }
 
-export function isTrafficWarningNode(node: NodeData, threshold: number): boolean {
+export function isTrafficWarningNode(node: NodeData, threshold: number, monthlyPercentage: number | null = null): boolean {
   if (!hasTrafficLimit(node))
     return false
 
-  return getTrafficUsedPercentage(node) >= clampThreshold(threshold, 80)
+  return monthlyPercentage !== null && Number.isFinite(monthlyPercentage) && monthlyPercentage >= clampThreshold(threshold, 80)
 }
 
 export function getTopNodeBy(nodes: readonly NodeData[], selector: (node: NodeData) => number): TopNodeMetric | null {

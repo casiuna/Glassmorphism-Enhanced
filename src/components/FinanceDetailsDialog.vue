@@ -377,7 +377,7 @@ function formatTraffic(tib: number): string {
 
         <TabsContent value="metered" class="space-y-3">
           <div class="rounded-md border border-sky-500/20 bg-sky-500/7 px-3 py-2 text-xs text-muted-foreground">
-            按量费用估算器仅在当前浏览器计算，不写入 Komari。当前探针累计流量可能因机器重启、Agent 重启或网卡变化而重置，也可能包含安装 Komari 前的流量。1 TiB = 1024⁴ bytes，本结果不是正式账单。
+            按量费用估算器仅在当前浏览器计算，不写入 Komari。当前探针累计流量可能因机器重启、Agent 重启或网卡变化而重置，也可能包含安装 Komari 前的流量。流量口径保留用户选择，不代表服务商规则，也不是本月配额用量。1 TiB = 1024⁴ bytes，本结果不是正式账单。
           </div>
 
           <div class="flex flex-wrap items-end gap-3">

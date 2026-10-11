@@ -2,13 +2,13 @@
 
 Repository: https://github.com/casiuna/Glassmorphism-Enhanced
 
-Current delivery branch: **`release/v1.0.5`** in this fork. The temporary safety branch was retired only after the standard branch was read back at the verified v1.0.5 candidate SHA. Keep manifest **`1.0.5`** and the future Git tag / Release **`v1.0.5`**; temporary names are not release identifiers.
+Published baseline: **v1.0.5**, main/tag peeled `3bb76d9fd6f86d9fe56845b12922ee75866f2ed3`; `release/v1.0.5` remains retained. Current work is **`fix/monthly-traffic-reliability`**, not a release branch. Manifest stays **1.0.5** pending owner approval of a future version (suggested 1.0.6); do not merge/push main with this unchanged release version or replace the published v1.0.5 assets.
 
-All writes must target **`casiuna/Glassmorphism-Enhanced`** only. Upstream is read-only: no upstream PRs, pushes, issues, comments or reviews. This branch-normalization pass creates no PR in any repository and does not revisit the unrelated upstream PR cleanup.
+All writes must target **`casiuna/Glassmorphism-Enhanced`** only. Upstream is read-only: no upstream PRs, pushes, issues, comments or reviews. This review-only pass creates no PR in any repository and does not access upstream PR #57, production, databases or provider accounts.
 
 ## Independent version policy
 
-The independent version line began at **1.0.0**, which is released as Git tag / GitHub Release **v1.0.0**. The owner-approved version for this review is **1.0.5**, based on released **1.0.4**. `komari-theme.json.version` is the sole source of truth; do not add `package.json.version`.
+The independent version line began at **1.0.0**, which is released as Git tag / GitHub Release **v1.0.0**. The current published version is **1.0.5**; no future bump is authorized yet. `komari-theme.json.version` is the sole source of truth; do not add `package.json.version`.
 
 - Bugfix: `1.0.1`, `1.0.2`, `1.0.3`, …
 - Compatible feature: `1.1.0`, `1.2.0`, …
@@ -19,7 +19,7 @@ The independent version line began at **1.0.0**, which is released as Git tag / 
 
 ## Tag namespace sanitation
 
-The fork's inherited upstream SemVer tags were audited before the independent release line was reopened. The 43 inherited original tags are preserved as `upstream-<original-tag>` refs and removed from the fork's original namespace. Existing release tags, including `v1.0.0` through `v1.0.4`, `v3.3.7-enhanced.1`, `upstream-v1.0.0`, and `komari`, remain protected; `v1.0.5` is the next intended Enhanced release namespace and must be checked for collisions before publication.
+The fork's inherited upstream SemVer tags were audited before the independent release line was reopened. The 43 inherited original tags are preserved as `upstream-<original-tag>` refs and removed from the fork's original namespace. Existing release tags, including `v1.0.0` through published `v1.0.5`, `v3.3.7-enhanced.1`, `upstream-v1.0.0`, and `komari`, remain protected. Any future owner-approved release namespace must be checked for collisions before publication; the published v1.0.5 must not be reused or moved.
 
 ## v1.0.5 Transit configuration migration
 
@@ -27,23 +27,23 @@ Old format: `TargetNode|RelayNode|Task`. New format: `RelayNode|TargetNode|Task`
 
 ## Komari 1.5.0 compatibility and monthly traffic
 
-The validated compatibility target for this bugfix is **Komari Server 1.5.0**. The theme does not depend on `traffic_up` / `traffic_down` in `common:getNodesLatestStatus`; those latest payloads may contain only persistent `net_total_up` / `net_total_down` counters. Monthly quota usage is derived through the existing shared `public:queryMetrics` path using `traffic.up` and `traffic.down` with `aggregation=sum`, and every returned SUM bucket is accumulated.
+The source-audited compatibility targets for this bugfix are **Komari Server 1.5.0/1.5.1**; deterministic frontend tests are not production validation. The theme does not depend on `traffic_up` / `traffic_down` in `common:getNodesLatestStatus`; those latest payloads may contain only persistent `net_total_up` / `net_total_down` counters. Monthly quota usage is derived through the existing shared `public:queryMetrics` path using `traffic.up` and `traffic.down` with `aggregation=sum`; only uniquely matched observations inside the provisional current window are accumulated, and numeric quota usage additionally requires conservative returned-bucket coverage checks.
 
-The monthly window uses the existing `expired_at` calendar day as the renewal-day anchor. Annual billing changes the fee cycle only; traffic still rolls monthly. Short months clamp day 29/30/31 to the last day, and the original day is restored in the next month that contains it. The cycle starts at UTC midnight so Komari's UTC-aligned rollup buckets do not include the previous calendar day.
+The provisional monthly window uses the existing `expired_at` UTC calendar day as the renewal-day anchor. Annual billing changes the fee cycle only; traffic still rolls monthly in this theme. Short months clamp day 29/30/31 to the last day, and the original day is restored in the next month that contains it. The cycle starts at UTC midnight so Komari's UTC-aligned rollup buckets do not include the previous calendar day. Provider reset dates/timezones and traffic rules are not inferred or verified from that metadata; official reconciliation remains separate.
 
-If `public:queryMetrics` is unavailable, or a node has no usable traffic series in a successful batch, shared/home contexts immediately use the v1.0.1 cumulative display and do not fan out `common:getRecords` history requests. An explicitly opened single-node detail context may use the existing bounded range/history compatibility path, which sends both the active-window `start/end` and a safe covering `hours` value, filters returned network records to the active window, and sums only `traffic_up` / `traffic_down` deltas. This history path is not described as un-reconstructed or error-free data because Komari may reconstruct records through its metric store and rollups. If no cycle delta is available, the cumulative display remains the explicit legacy fallback. This is separate from Komari 1.5.0 removing the Agent v1 protocol; the theme's frontend/RPC fallback is not an Agent protocol fallback.
+In the current unreleased repair, missing/incomplete monthly metric data is unknown/partial, never a machine cumulative value or manufactured zero. Complete returned-bucket evidence uses SUM + exact entity/range + UTC interval alignment + positive observation counts; it does not certify a provider bill or invisible reporting gaps. Shared/home never fans out history. A single-node detail may request bounded network history with start/end + safe hours + maxCount=-1, but reconstructed records lack coverage counts and can default absent fields to zero, so their subtotal stays partial. See [the read-only source audit and no-write reconciliation plan](monthly-traffic-reliability.md).
 
 ## v1.0.2 incident and v1.0.3 hotfix
 
 The v1.0.2 production regression was frontend request pressure: the shared monthly clock refreshed every minute while the traffic cache expired after 30 seconds, and missing metric data could start one full-cycle history request per node from the shared path. This could monopolize the shared request pool and delay monthly traffic, Ping/three-network data, and theme upload completion. There is no evidence of database corruption or writes/resetting of `net_total_*`; v1.0.3 addresses availability by using metric-to-legacy on shared paths, preserving legacy values while loading, and restricting history fallback to one explicitly opened detail node.
 
-The v1.0.3 migration is forward-only. Its production package uses the fixed UTC rollout anchor `2026-09-16T00:00:00.000Z`: if the current cycle started before that anchor, traffic remains on the v1.0.1-compatible cumulative display and is not reconstructed on upgrade; the first cycle whose UTC renewal start is at or after the anchor activates the new monthly logic. Visual regression builds use a separate fixed test anchor only to keep the repository's historical July fixtures deterministic; this does not affect the production build. Existing finance calculations are stateless current-metadata/rate formatting, so the migration gate is intentionally traffic-only.
+The historical v1.0.3 fixed rollout protection is explicitly withdrawn by the owner for this repair: all valid current cycles query immediately. Production and visual builds no longer inject a migration anchor. Existing stateless finance price/rate calculations remain unchanged; the financial metered estimator keeps its separate user-selected machine-counter scope.
 
 ## Review gate
 
-The v1.0.5 candidate is maintained on this fork's `release/v1.0.5`. The owner decides when and how to merge it into this fork's `main`; no PR is created by this agent pass. Direct pushes to `main`, unprotected force-pushes, manual tag creation and manual Release publication are outside this pass. After the owner's merge, this fork's main-push-only workflow owns publication.
+The current repair is maintained only on this fork's `fix/monthly-traffic-reliability`, with manifest 1.0.5 unchanged. No PR, merge, main push, tag or Release is permitted in this pass. A later release needs a new owner-approved version and authorization; do not reuse or move the published v1.0.5 tag.
 
-The existing `Release On Version Bump` workflow runs on pushes to `main` only; it does not use `workflow_dispatch`. The owner's future merge of `release/v1.0.5` into **`casiuna/Glassmorphism-Enhanced:main`** would change the manifest from `1.0.4` to `1.0.5`. The workflow derives `release_tag=v${currentVersion}`, builds the theme, creates the missing annotated **`v1.0.5`** tag at the resulting main SHA, then creates/updates the Release in this fork and uploads the commit-matched ZIP. An existing tag is accepted only if its peeled commit matches that main SHA; otherwise the job fails. The agent does not execute the merge, create/move tags, or publish a Release. Release assets must come from the resulting main commit, not an earlier branch candidate.
+The existing `Release On Version Bump` workflow runs on this fork's `main` pushes only; it does not use `workflow_dispatch`. Published v1.0.5 was created at `3bb76d9fd6f86d9fe56845b12922ee75866f2ed3`. A future release of this repair requires an owner-approved **new** manifest version first. The workflow derives `release_tag=v${currentVersion}`, builds at the resulting main SHA, and refuses an existing tag pointing elsewhere. Do not merge this unchanged-1.0.5 repair or trigger/reuse the existing release. The workflow is not modified or invoked by this review pass.
 
 ## Verification
 

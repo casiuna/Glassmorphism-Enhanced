@@ -12,6 +12,51 @@
 
 ## 当前任务
 
+### Monthly traffic reliability — immediate current-cycle calculation (unreleased)
+
+- 基线：本 fork 已发布 v1.0.5，main/tag peeled `3bb76d9fd6f86d9fe56845b12922ee75866f2ed3`；干净工作树后创建 `fix/monthly-traffic-reliability`，不复用 release branch。
+- 最新 owner 授权覆盖旧 v1.0.3 rollout 语义：移除 grandfathering；立即读取当前 UTC 月周期。缺失/不完整数据用 unknown/partial，不回填 net_total_*，不假零。
+- 审计 Komari 1.5.0 `f18ad72c173b8821711cba0f2fb238c2486ec9af` / 1.5.1 `f0cc0fba38ce161935372633cae5248c934e2b23` 只读源码。保留批量 metric、5min refresh、10min cache、并发合并、single-node history 和隔离 cache；无 shared history fanout。
+- 保留服务端 traffic_limit_type 配置；服务商计费需用户官方对账，不猜规则、不写库。财务按量估算保留用户选择，明确机器累计/非账单口径。
+- 当前最新 owner 授权一步完成最终构建、commit、普通 push 和远端验收，仅维护本 fork `fix/monthly-traffic-reliability`。复用已完成的分段 126/126 测试与静态验收，不重跑无必要全量回归；不 checkout/stash/reset/clean、不创建 PR、不 merge/push main、不 tag/Release，不操作生产/DB/VPS/Agent或服务商后台；upstream 严禁写入且不访问 #57。
+- manifest 保持 1.0.5，未来 1.0.6 仅建议、待用户确认。实现与分段回归完成，正在最终审计与 feature-only 交付；不是正式发布。
+
+### 2026-10-11 — final build / commit / fork-only push
+
+- 本轮承接原 23 个改动路径，不重做功能；HEAD/origin/main/main 与已发布 v1.0.5 基线一致，origin 仅用户 fork，未发现并发修改任务。
+- 上次仅因缺少 Git identity 而 commit exit 128，未产生提交或推送；owner 已确认复用同仓库历史 author/committer `Hermes Agent <hermes@localhost>`。续交付使用一次性 `git -c user.name=... -c user.email=... commit`，不改全局 identity/凭据，不重跑已通过的审计和测试。
+- 分段 traffic 68/68 + 其它 visual 58/58 正常 exit 0；最近 lint/type-check/diff-check 全 PASS，源码在静态验收前后哈希一致。提交前与该静态快照再比对，只允许 AICACHE 交接文本变化。
+- 提交前验收已完成：production build 正常 exit 0、diff-check PASS；888 个 tracked/unignored 文本的 secret-pattern scan 无命中，新增 IPv4 无异常，源码与最近静态验收快照一致（仅 AICACHE 交接文本变化）。只提交审计的 23 个路径；新 commit 后再 build，验 ZIP 顶层、manifest 1.0.5、CRC、entry count、preview/dist bytes、size/SHA256；仅正常 push 修复分支并读回 refs。真实结果保存在 `/home/hermes/.hermes/cache/scratch/monthly-traffic-final-delivery.json`，避免 commit SHA / ZIP digest 的自引用。
+- 月窗口与配置口径仍是主题推断及采集数据，未做生产校准或服务商官网对账；本轮不是正式发布，main/tag/Release/PR/生产/upstream 写入均禁止。
+
+### 2026-10-11 — static-only checkpoint
+
+- 分支、HEAD/origin/main、origin fetch/push URL 与恢复基线一致；21 tracked + 2 untracked 改动完整，暂存区为空，未发现同工作区 Git/Bun/Node 任务或 index.lock。
+- `bun run lint` / `bun run type-check` / `git diff --check` 均正常 exit 0；快速 secret-pattern scan 无命中，校验前后文件哈希未变化。上轮 68/68 + 58/58 成功日志仍保留，未重跑测试或构建。
+- 本轮仅补交接记录，不改源码/测试，不 commit/push。静态结果：`/home/hermes/.hermes/cache/scratch/monthly-traffic-static-result.json`。下一阶段须按新的当轮授权继续；commit-matched 包必须在新 commit 后重建。
+
+### 2026-10-11 — final feature-only delivery (interrupted plan; not completed)
+
+- 启动现场与上一阶段一致：21 tracked + 2 untracked 路径、暂存区为空，分支/HEAD/origin/main 基线正确。只读核验 origin fetch/push URL 均为用户 fork，远端修复分支尚不存在，main 和既有 v1.0.5 tag peeled 均为发布基线；保存远端 refs 用于交付后差异核验。
+- 上阶段独立真实终态保留：traffic 68/68、其余 visual 58/58，均 exit 0，无 skip/失败；126 个测试 ID 集合完整且不重叠，不将旧 SIGTERM 算作成功。
+- 最终审查取消旧 migration helper/注入、SUM/覆盖/null/mode、刷新/cache、history 与机器累计隔离及财务非月度估算边界；文档明确月窗口仅按节点元信息推断，服务商官网/账单人工对账尚未做。
+- 当时计划重新执行 package scripts lint/type-check/build 和完整 visual，但在检查脚本写完后中断，未实际执行该交付验证、commit 或 push。计划结果路径 `/home/hermes/.hermes/cache/scratch/monthly-traffic-final-delivery.json` 不能当作已完成证据；最新静态阶段已覆盖这一续跑计划。
+- 新 HEAD 的 production candidate ZIP 才是交付包；预提交旧 HEAD 命名构建仅作验证，不能当新修复产物。仅正常 push 当前修复分支并设置对应 tracking，绝不 force 或创建 PR。生产校准、main 合并及正式发布都不在本轮范围。
+
+### 2026-10-10 — bounded reliability review (local only)
+
+- 恢复现场核对一致：`fix/monthly-traffic-reliability`，HEAD/origin/main 仍为 `3bb76d9fd6f86d9fe56845b12922ee75866f2ed3`；21 tracked + 2 untracked 修改全部承接，暂存区为空；未切分支、未重置/清理。
+- 只读 Komari 1.5.1 `public.metric.go` 证实 `adaptiveFillPublicMetricSeries` 会根据 sparse cadence 放大 `interval_seconds`，可能将规律性中间缺桶伪装成连续覆盖。月度查询改为 `fill_empty=false`，不接受 adaptive-filled 响应为 ready；不改变其他图表的 fill 策略。
+- 无法定位的 invalid timestamp 不能被静默丢弃后认证完整。新增专项覆盖：真正中间缺桶、重复点掩盖缺桶、adaptive interval inflation、invalid time、有效零值与 open final bucket；现有 up/down/min/max/sum、UTC、周期和 no-fanout 回归保留。
+- ready 仍只表示返回的真实聚合桶覆盖，不证明桶内每次 report、retention 前历史、跨边界 delta 或供应商账单完整；raw-only/history 始终 partial/unknown，不做累计值补月流量。
+- compare 隐藏 null 进度，Health 排除 null quota，export 保留 nullable bytes/status/basis；本轮新增跨组件浏览器测试证实 partial/unknown 的比较进度、实际 JSON 下载与显式 Health 摘要不会冒充零或满额预警，不增加月度查询。生产与逐服务商对账未执行。
+- 本轮验证：type-check、ESLint（无 --fix）、visual-test build、production build、diff-check PASS；targeted traffic 68/68 PASS。首次 targeted 为 66 PASS/2 FAIL，原因是新测试误把 fixture 的两个续费周期组当作一个，已只修正测试假设后重跑通过。
+- 完整 visual 用独立短任务分段：traffic 68 PASS + 非 traffic 58 PASS，均正常 exit 0；与 Playwright --list 注册的 126 个测试 ID 作集合核验，无遗漏/重叠/skip，全部覆盖。未更新 snapshots；历史 SIGTERM 不计入成功。单次完整重跑因预算检查未启动（NOT_RUN_BUDGET），随后通过互斥分段补齐。
+- 全部源码/测试只保留本地 dirty 状态；HEAD/origin/main、manifest 1.0.5 不变，未 commit/push/PR/tag/Release/upstream/生产写入。执行日志：`/home/hermes/.hermes/cache/scratch/monthly-traffic-reliability-review-results.json`；集合验收：`/home/hermes/.hermes/cache/scratch/monthly-review-segment-coverage.json`。
+- 下一轮优先：保留当前分支与 23 个改动路径，针对真实节点做另行授权的只读数据对账，重点是桶内漏报、retention 缺口、边界 delta 和元信息周期与官方政策的差异；不要将 ready/126 项 PASS 解释为账单完整性。提交/推送需用户另行授权。
+
+## 历史任务（当前授权已取代以下冻结/迁移要求）
+
 ### v1.0.5 — fork-only release branch normalization
 
 - 唯一写入仓库：`casiuna/Glassmorphism-Enhanced`；upstream 仅可只读参考，禁止向 upstream 创建 PR/issue/comment/review 或 push。本轮不访问或改动 upstream PR #57，也不创建任何 PR（包括 fork 内 PR）。

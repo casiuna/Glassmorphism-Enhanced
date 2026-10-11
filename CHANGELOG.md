@@ -2,7 +2,15 @@
 
 All notable Glassmorphism Enhanced changes are documented here. Upstream history remains in the upstream repository and preserved Git history.
 
-## 1.0.5 — Unreleased
+## Unreleased — Monthly traffic reliability (version bump pending)
+
+- Remove the v1.0.3 rollout anchor/grandfathering; immediately query the actual current monthly UTC renewal window. Keep annual/quarterly payment periods separate from monthly quota periods and preserve short-month clamping. Do not invent windows for one-off/custom/missing renewal metadata.
+- Stop presenting machine-lifetime `net_total_up/down` as monthly usage. Use nullable unknown/partial/loading states instead of legacy cumulative substitution or fabricated zero. Only positive-count, continuous, correctly matched SUM bucket evidence can drive a collected-monthly quota percentage; this is not provider billing certification.
+- Align cards, list progress, detail, summaries, warnings, comparison, health burn-rate and snapshot export on the same configured up/down/min/max/sum monthly source. Min/max combine period totals. Keep the separate financial estimator's user-selected cumulative mode with an explicit non-monthly/non-bill label.
+- Preserve shared batches, five-minute refresh and ten-minute cache; prevent shared history fanout and remove nested request-pool slot acquisition. Single-node bounded history remains controlled and explicitly partial because reconstructed records lack reliable coverage metadata.
+- Audit Komari 1.5.0/1.5.1 source read-only. Record raw/rollup coverage, within-bucket gap and provider-policy limitations in `docs/monthly-traffic-reliability.md`. No Server/Agent/DB/production changes. Manifest stays 1.0.5; a suggested future 1.0.6 needs owner approval before bump/publication.
+
+## 1.0.5 — Released
 
 ### Transit rule format change — manual migration required
 
