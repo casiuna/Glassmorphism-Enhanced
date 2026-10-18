@@ -15,6 +15,7 @@ import { useAppStore } from '@/stores/app'
 import { useNodesStore } from '@/stores/nodes'
 import * as financeHelper from '@/utils/financeHelper'
 import { formatBytesPerSecondSplit, formatBytesSplit } from '@/utils/helper'
+import { trafficValue } from '@/utils/monthlyTraffic'
 import {
   getConnectionCount,
   getExpiryDays,
@@ -271,9 +272,21 @@ const onlineStats = computed<OnlineStats>(() => {
 const totalSpeed = computed(() => onlineStats.value.totalSpeed)
 
 const totalTraffic = computed(() => {
-  const up = summaryNodes.value.reduce((sum, node) => sum + (node.net_total_up || 0), 0)
-  const down = summaryNodes.value.reduce((sum, node) => sum + (node.net_total_down || 0), 0)
-  return { up, down }
+  let up = 0
+  let down = 0
+  let unknownCount = 0
+  for (const node of summaryNodes.value) {
+    const usage = monthlyTrafficUsage.getUsage(node)
+    const monthlyUp = trafficValue(usage.up)
+    const monthlyDown = trafficValue(usage.down)
+    if (usage.status !== 'ready' || monthlyUp === null || monthlyDown === null) {
+      unknownCount += 1
+      continue
+    }
+    up += monthlyUp
+    down += monthlyDown
+  }
+  return { up, down, unknownCount }
 })
 
 const formattedTrafficUp = computed(() => formatBytesSplit(totalTraffic.value.up, appStore.byteDecimals))
@@ -470,11 +483,13 @@ function getCardDefinition(key: GeneralCardKey): GeneralMetricCard {
     case 'totalTraffic':
       return {
         key: 'totalTraffic',
-        label: '累计流量',
+        label: '本月累计',
         icon: 'tabler:download',
-        value: totalTrafficTooltip.value.value,
-        unit: totalTrafficTooltip.value.unit,
-        tooltip: `↑ ${formattedTrafficUp.value.value} ${formattedTrafficUp.value.unit}\n↓ ${formattedTrafficDown.value.value} ${formattedTrafficDown.value.unit}`,
+        value: totalTraffic.value.unknownCount > 0 ? '待核对' : totalTrafficTooltip.value.value,
+        unit: totalTraffic.value.unknownCount > 0 ? `${totalTraffic.value.unknownCount} 台` : totalTrafficTooltip.value.unit,
+        tooltip: totalTraffic.value.unknownCount > 0
+          ? `${totalTraffic.value.unknownCount} 台月度数据未准备好或不可靠，不以终身累计或部分合计补齐`
+          : `↑ ${formattedTrafficUp.value.value} ${formattedTrafficUp.value.unit}\n↓ ${formattedTrafficDown.value.value} ${formattedTrafficDown.value.unit}\n采集月度用量（非账单）`,
       }
     case 'uploadSpeed':
       return {
@@ -828,6 +843,7 @@ onMounted(async () => {
         v-for="(card, index) in visibleCards"
         :key="card.key"
         :data-general-card-key="card.key"
+        :data-monthly-pending-count="card.key === 'totalTraffic' ? totalTraffic.unknownCount : undefined"
         hoverable
         :class="[cardClass, getCardPositionClass(index), card.action && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring']"
         content-class="h-full !p-3"

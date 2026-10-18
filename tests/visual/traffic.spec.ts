@@ -6,6 +6,7 @@ import { hasMonthlyTrafficCycleChanged, MONTHLY_TRAFFIC_REFRESH_INTERVAL_MS } fr
 import { normalizeStatusRecord } from '../../src/services/history.service'
 import { historyMonthlyTraffic, metricMonthlyTraffic, MONTHLY_TRAFFIC_CACHE_TTL_MS, unavailableMonthlyTraffic } from '../../src/services/traffic.service'
 import * as financeHelper from '../../src/utils/financeHelper'
+import { formatBytesSplit } from '../../src/utils/helper'
 import { analyzeTrafficSeries, combineMonthlyTraffic } from '../../src/utils/monthlyTraffic'
 import { isTrafficWarningNode } from '../../src/utils/nodeMetricsHelper'
 import { getMonthlyTrafficCycle } from '../../src/utils/trafficCycle'
@@ -60,7 +61,7 @@ test('leap February and year boundary remain deterministic', () => {
   expect(getMonthlyTrafficCycle(node({ expired_at: '2026-12-31' }), new Date('2027-01-01T00:00:00Z'))?.key).toBe('2026-12-31')
 })
 test('one-off/custom/missing renewal metadata never invents a month or legacy quota', () => {
-  for (const partial of [{ billing_cycle: -1 }, { billing_cycle: 45 }, { billing_cycle: 0 }, { expired_at: '' }, { expired_at: 'invalid' }, { traffic_limit: 0 }]) {
+  for (const partial of [{ billing_cycle: -1 }, { billing_cycle: 45 }, { billing_cycle: 0 }, { expired_at: '' }, { expired_at: 'invalid' }, { billing_cycle: -1, traffic_limit: 0 }, { billing_cycle: 45, traffic_limit: 0 }, { expired_at: '', traffic_limit: 0 }]) {
     const n = node(partial)
     const cycle = getMonthlyTrafficCycle(n, end)
     expect(cycle).toBeNull()
@@ -203,6 +204,25 @@ test('record normalization preserves absent traffic fields instead of creating z
   expect(normalizeStatusRecord(base)?.traffic_up).toBeUndefined()
   expect(normalizeStatusRecord({ ...base, traffic_up: 0, traffic_down: 0 })?.traffic_up).toBe(0)
 })
+
+for (const billingCycle of [30, 365]) {
+  for (const quota of [0, null]) {
+    test(`unlimited recurring ${billingCycle}/${quota} still has monthly UTC windows and metered usage`, () => {
+      const metadata = { ...node({ billing_cycle: billingCycle }), traffic_limit: quota }
+      const cycle = getMonthlyTrafficCycle(metadata, end)!
+      expect(cycle?.start.toISOString()).toBe(start.toISOString())
+      expect(cycle?.end.toISOString()).toBe('2026-08-25T00:00:00.000Z')
+      const metered = metricMonthlyTraffic(node({ billing_cycle: billingCycle, traffic_limit: quota ?? 0 }), cycle, end, response())
+      expect(metered).toMatchObject({ status: 'ready', up: 10, down: 30, percentage: null })
+
+      const monthEnd = { ...metadata, expired_at: '2027-01-31T18:30:00Z' }
+      expect(getMonthlyTrafficCycle(monthEnd, new Date('2027-02-27T23:59:59.999Z'))?.key).toBe('2027-01-31')
+      expect(getMonthlyTrafficCycle(monthEnd, new Date('2027-02-28T00:00:00Z'))?.key).toBe('2027-02-28')
+      expect(getMonthlyTrafficCycle(monthEnd, new Date('2027-02-28T00:00:00Z'))?.end.toISOString()).toBe('2027-03-31T00:00:00.000Z')
+      expect(getMonthlyTrafficCycle(monthEnd, new Date('2027-03-31T00:00:00Z'))?.key).toBe('2027-03-31')
+    })
+  }
+}
 
 interface RpcRequest { method: string, params?: Record<string, unknown> }
 function requests(page: Page) {
@@ -368,4 +388,92 @@ test('UTC renewal boundary switches cycle once and does not manufacture a zero a
   await expect.poll(() => list.filter(r => monthly(r) && r.params?.start === '2026-10-15T00:00:00.000Z').length).toBe(1)
   await page.clock.runFor(2 * 60_000)
   expect(list.filter(r => monthly(r) && r.params?.start === '2026-10-15T00:00:00.000Z')).toHaveLength(1)
+})
+
+for (const billingCycle of [30, 365]) {
+  for (const quota of [0, null, 20 * TIB]) {
+    test(`monthly directional card and home total use collected deltas for ${billingCycle}/${quota}`, async ({ page }) => {
+      const list = requests(page)
+      await installKomariFixture(page, {
+        hideEarth: true,
+        generalCardKeys: ['totalTraffic'],
+        trafficFirstNode: { billing_cycle: billingCycle, traffic_limit: quota },
+        largeLifetimeTraffic: true,
+      })
+      await page.goto('/')
+      const up = card(page).locator('[data-monthly-direction="up"]')
+      const down = card(page).locator('[data-monthly-direction="down"]')
+      await expect(up).toContainText('45.0 GB')
+      await expect(down).toContainText('62.0 GB')
+      await expect(up).toContainText('本月上行')
+      await expect(down).toContainText('本月下行')
+      await expect(card(page)).not.toContainText('100.00 TB')
+      await expect(card(page)).not.toContainText('200.00 TB')
+      if (quota === null || quota === 0)
+        await expect(card(page).locator('[data-monthly-traffic]')).toContainText('∞')
+
+      const total = page.locator('[data-general-card-key="totalTraffic"]')
+      const expected = formatBytesSplit(Array.from({ length: 12 }, (_, index) =>
+        (index + 1) * 45 * GIB + (index === 6 ? 1.78 * TIB : (index + 1) * 62 * GIB)).reduce((sum, value) => sum + value, 0))
+      await expect(total).toHaveAttribute('data-monthly-pending-count', '0')
+      await expect(total).toContainText('本月累计')
+      await expect(total).toContainText(expected.value)
+      await expect(total).toContainText(expected.unit)
+      await expect(total).not.toContainText('待核对')
+      expect(list.some(rangedHistory)).toBe(false)
+    })
+  }
+}
+
+for (const scenario of ['partial', 'unknown', 'missing-down', 'no-cycle'] as const) {
+  test(`monthly directional card and home total do not disguise ${scenario} data as complete`, async ({ page }) => {
+    await installKomariFixture(page, {
+      hideEarth: true,
+      generalCardKeys: ['totalTraffic'],
+      largeLifetimeTraffic: true,
+      trafficMetricPeriodicGapNode: scenario === 'partial' ? 0 : undefined,
+      trafficMetricUnavailable: scenario === 'unknown',
+      trafficMetricMissingSide: scenario === 'missing-down' ? 'traffic.down' : undefined,
+      trafficLimitType: scenario === 'missing-down' ? 'up' : 'sum',
+      trafficFirstNode: scenario === 'no-cycle' ? { billing_cycle: -1, traffic_limit: 0 } : undefined,
+    })
+    await page.goto('/')
+    const up = card(page).locator('[data-monthly-direction="up"]')
+    const down = card(page).locator('[data-monthly-direction="down"]')
+    await expect(down).toContainText('待核对')
+    if (scenario === 'missing-down')
+      await expect(up).toContainText('45.0 GB')
+    else
+      await expect(up).toContainText('待核对')
+    const pending = scenario === 'unknown' || scenario === 'missing-down' ? 12 : 1
+    const total = page.locator('[data-general-card-key="totalTraffic"]')
+    await expect(total).toHaveAttribute('data-monthly-pending-count', String(pending))
+    await expect(total).toContainText('待核对')
+    await expect(total).toContainText(`${pending} 台`)
+    await expect(total).not.toContainText('TB')
+    await expect(card(page)).not.toContainText('100.00 TB')
+    await expect(card(page)).not.toContainText('200.00 TB')
+  })
+}
+
+test('monthly directional card and home total distinguish loading from a verified zero', async ({ page }) => {
+  await installKomariFixture(page, {
+    hideEarth: true,
+    generalCardKeys: ['totalTraffic'],
+    largeLifetimeTraffic: true,
+    trafficMetricDelayMs: 2000,
+    trafficMetricZeroNode: 0,
+  })
+  await page.goto('/')
+  const up = card(page).locator('[data-monthly-direction="up"]')
+  const down = card(page).locator('[data-monthly-direction="down"]')
+  const total = page.locator('[data-general-card-key="totalTraffic"]')
+  await expect(up).toContainText('待核对')
+  await expect(down).toContainText('待核对')
+  await expect(total).toHaveAttribute('data-monthly-pending-count', '12')
+  await expect(total).toContainText('待核对')
+  await expect(up).toContainText('0 B')
+  await expect(down).toContainText('0 B')
+  await expect(total).toHaveAttribute('data-monthly-pending-count', '0')
+  await expect(total).not.toContainText('待核对')
 })

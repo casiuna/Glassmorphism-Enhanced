@@ -194,6 +194,8 @@ for (const width of [1280, 390]) {
     await expect(card(page).locator('[data-carrier-ping="unicom-latency"] [role="tooltip"]').filter({ hasText: 'Relay-Target-v6' })).toHaveCount(0)
     await expect(card(page, 'RelayNode').locator('[data-carrier-ping="unicom-latency"]')).toContainText('32 ms')
     await expect(card(page, 'RelayNode')).not.toContainText('≈')
+    // Off-screen cards intentionally defer Ping subscriptions until approached.
+    await card(page, 'TargetB').scrollIntoViewIfNeeded()
     await expect(card(page, 'TargetB').locator('[data-carrier-ping="unicom-latency"]')).toContainText('≈95 ms')
     const relayQueries = requests.filter(request => request.method === 'public:queryMetrics' && request.params?.entity_id === '00000000-0000-4000-8000-000000000002')
     const relayStats = requests.filter(request => request.method === 'public:getPingMetricStats' && request.params?.entity_id === '00000000-0000-4000-8000-000000000002')

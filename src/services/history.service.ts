@@ -77,7 +77,9 @@ export function abortNodeLoadRecords(uuid: string, hours: number, maxCount?: num
 }
 
 export function abortPingRecords(hours: number, maxCount?: number, uuid?: string): void {
-  requestManager.abort(getPingRecordsRequestKey(hours, maxCount, uuid))
+  const key = getPingRecordsRequestKey(hours, maxCount, uuid)
+  requestManager.abort(key)
+  requestManager.abort(`${key}:tasks`)
 }
 
 export function normalizeStatusRecord(record: Partial<StatusRecord>): StatusRecord | null {
@@ -141,21 +143,24 @@ export async function loadLoadRecords(uuid: string | undefined, hours: number, m
   )
 }
 
+// Transport-only fallback: callers retain their existing request-pool slot and signal.
+async function fetchNodeLoadRecords(uuid: string, hours: number, maxCount: number | undefined, signal: AbortSignal): Promise<StatusRecord[]> {
+  try {
+    const result = await getSharedRpc().getLoadRecords(uuid, hours, undefined, maxCount, signal)
+    return normalizeStatusRecordsPayload(result.records)
+  }
+  catch {
+    const result = await getSharedApi().getLoadRecords(uuid, hours, maxCount, signal)
+    return normalizeStatusRecords(result.records)
+  }
+}
+
 export async function loadNodeLoadRecords(uuid: string, hours: number, maxCount?: number): Promise<StatusRecord[]> {
   const safeHours = normalizeHours(hours)
   const safeMaxCount = normalizeMaxCount(maxCount)
   return requestManager.run(
     getNodeLoadRecordsRequestKey(uuid, safeHours, safeMaxCount),
-    async (signal) => {
-      try {
-        const result = await getSharedRpc().getLoadRecords(uuid, safeHours, undefined, safeMaxCount, signal)
-        return normalizeStatusRecordsPayload(result.records)
-      }
-      catch {
-        const result = await getSharedApi().getLoadRecords(uuid, safeHours, safeMaxCount, signal)
-        return normalizeStatusRecords(result.records)
-      }
-    },
+    signal => fetchNodeLoadRecords(uuid, safeHours, safeMaxCount, signal),
     { shouldRetry: shouldRetryHistoryRequest },
   )
 }
@@ -204,7 +209,7 @@ export async function loadNodeLoadRecordsByRange(
           return normalizeStatusRecordsPayload(result.records)
         }
         catch {
-          return loadNodeLoadRecords(uuid, safeHours, maxCount > 0 ? maxCount : undefined)
+          return fetchNodeLoadRecords(uuid, safeHours, normalizeMaxCount(maxCount), signal)
         }
       }
     },

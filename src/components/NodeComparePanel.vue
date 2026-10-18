@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { useAppStore } from '@/stores/app'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatUptimeWithFormat } from '@/utils/helper'
-import { formatMonthlyTraffic } from '@/utils/monthlyTraffic'
+import { combineMonthlyTraffic, trafficValue } from '@/utils/monthlyTraffic'
 import { getDiskPercentage, getMemoryPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { isNodeMatchSearch } from '@/utils/nodeSearch'
 import { formatPriceWithCycle, isFreePrice } from '@/utils/tagHelper'
@@ -55,6 +55,20 @@ function formatSpeed(bytes: number): string {
   return formatBytesPerSecondWithConfig(bytes, appStore.byteDecimals)
 }
 
+function formatMonthlyTotal(node: NodeData): string {
+  const usage = monthlyTrafficUsage.getUsage(node)
+  const up = usage.status === 'ready' ? trafficValue(usage.up) : null
+  const down = usage.status === 'ready' ? trafficValue(usage.down) : null
+  const total = combineMonthlyTraffic(up, down, 'sum')
+  return `${total === null ? '待核对' : formatBytes(total)}（↑ ${up === null ? '待核对' : formatBytes(up)} / ↓ ${down === null ? '待核对' : formatBytes(down)}）`
+}
+
+function formatMonthlyQuota(node: NodeData): string {
+  const usage = monthlyTrafficUsage.getUsage(node)
+  const used = usage.status === 'ready' ? trafficValue(usage.used) : null
+  return `${used === null ? '待核对' : formatBytes(used)} / ${hasTrafficLimit(node) ? formatBytes(node.traffic_limit) : '∞（无限）'}`
+}
+
 function clampPercentage(value: number): number {
   return Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0))
 }
@@ -69,12 +83,15 @@ const compareMetrics = computed<CompareMetric[]>(() => {
     { key: 'memory', label: '内存', value: node => `${formatBytes(node.ram || 0)} / ${formatBytes(node.mem_total || 0)}`, percentage: getMemoryPercentage },
     { key: 'disk', label: '磁盘', value: node => `${formatBytes(node.disk || 0)} / ${formatBytes(node.disk_total || 0)}`, percentage: getDiskPercentage },
     { key: 'network', label: '实时网络', value: node => `↑ ${formatSpeed(node.net_out || 0)}  ↓ ${formatSpeed(node.net_in || 0)}` },
-    { key: 'traffic', label: '累计流量', value: node => `${formatBytes(node.net_total_up || 0)} ↑ / ${formatBytes(node.net_total_down || 0)} ↓` },
+    { key: 'traffic', label: '本月累计', value: formatMonthlyTotal },
     {
       key: 'trafficQuota',
       label: '流量配额',
-      value: node => hasTrafficLimit(node) ? `${formatMonthlyTraffic(monthlyTrafficUsage.getUsage(node), formatBytes)} / ${formatBytes(node.traffic_limit)}` : '无限',
-      percentage: node => hasTrafficLimit(node) ? monthlyTrafficUsage.getUsage(node).percentage : null,
+      value: formatMonthlyQuota,
+      percentage: (node) => {
+        const usage = monthlyTrafficUsage.getUsage(node)
+        return hasTrafficLimit(node) && usage.status === 'ready' && trafficValue(usage.used) !== null ? trafficValue(usage.percentage) : null
+      },
     },
     { key: 'uptime', label: '运行时间', value: node => formatUptimeWithFormat(node.uptime || 0, 'day') },
   ]
@@ -164,11 +181,11 @@ watch(() => props.nodes.map(node => node.uuid), (uuids) => {
           <div class="bg-background/45 px-3 py-2 text-xs font-medium text-muted-foreground">
             {{ metric.label }}
           </div>
-          <div v-for="node in selectedNodes" :key="`${metric.key}-${node.uuid}`" class="min-w-0 bg-background/45 px-3 py-2">
+          <div v-for="node in selectedNodes" :key="`${metric.key}-${node.uuid}`" class="min-w-0 bg-background/45 px-3 py-2" :data-compare-metric="metric.key" :data-node-uuid="node.uuid">
             <div class="break-words text-xs tabular-nums" :title="metric.value(node)">
               {{ metric.value(node) }}
             </div>
-            <div v-if="metric.percentage?.(node) != null" class="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-500/10">
+            <div v-if="metric.percentage?.(node) != null" class="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-500/10" :data-monthly-progress="metric.key === 'trafficQuota' ? '' : undefined">
               <div
                 class="h-full rounded-full bg-selection/70"
                 :style="{ width: `${clampPercentage(metric.percentage?.(node) ?? 0)}%` }"

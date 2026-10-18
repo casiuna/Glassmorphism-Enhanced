@@ -20,7 +20,7 @@ import { formatCityNameZh } from '@/utils/cityNameHelper'
 import { getCpuBenchmarkRating, getPassMarkCpuLookupUrl } from '@/utils/cpuBenchmark'
 import * as financeHelper from '@/utils/financeHelper'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatUptimeWithFormat } from '@/utils/helper'
-import { monthlyTrafficLabel } from '@/utils/monthlyTraffic'
+import { combineMonthlyTraffic, monthlyTrafficLabel, trafficValue } from '@/utils/monthlyTraffic'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
 
@@ -303,6 +303,21 @@ function splitMeasurement(value: string): { value: string, unit?: string } {
   }
 }
 
+const trafficUsage = computed(() => data.value ? monthlyTrafficUsage.getUsage(data.value) : null)
+const trafficUp = computed(() => trafficUsage.value?.status === 'ready' ? trafficValue(trafficUsage.value.up) : null)
+const trafficDown = computed(() => trafficUsage.value?.status === 'ready' ? trafficValue(trafficUsage.value.down) : null)
+const trafficTotal = computed(() => combineMonthlyTraffic(trafficUp.value, trafficDown.value, 'sum'))
+const trafficUsed = computed(() => trafficUsage.value?.status === 'ready' ? trafficValue(trafficUsage.value.used) : null)
+const hasTrafficLimit = computed(() => (data.value?.traffic_limit ?? 0) > 0)
+const trafficUsedPercentage = computed(() => trafficUsed.value === null ? null : trafficValue(trafficUsage.value?.percentage))
+const trafficUsageText = computed(() => {
+  let usedText = monthlyTrafficLabel(trafficUsage.value?.status ?? 'loading')
+  if (trafficUsage.value?.status === 'ready')
+    usedText = trafficUsed.value === null ? '待核对' : formatBytes(trafficUsed.value)
+  const quota = hasTrafficLimit.value ? formatBytes(data.value?.traffic_limit ?? 0) : '∞（无限流量）'
+  return `${usedText} / ${quota}`
+})
+
 function getDetailMetricCard(key: DetailMetricCardKey): MetricCard {
   const node = data.value
   const masked = !showPrice.value
@@ -313,10 +328,10 @@ function getDetailMetricCard(key: DetailMetricCardKey): MetricCard {
   const memoryUsage = usagePercentage(node?.ram ?? 0, node?.mem_total ?? 0)
   const swapUsage = usagePercentage(node?.swap ?? 0, node?.swap_total ?? 0)
   const diskUsage = usagePercentage(node?.disk ?? 0, node?.disk_total ?? 0)
-  const nodeTrafficUsed = node ? monthlyTrafficUsage.getUsage(node).used : 0
+  const nodeTrafficUsed = trafficUsed.value
   const nodeTrafficLimit = node?.traffic_limit ?? 0
   const nodeHasTrafficLimit = nodeTrafficLimit > 0
-  const nodeTrafficPercentage = node ? monthlyTrafficUsage.getUsage(node).percentage : 0
+  const nodeTrafficPercentage = trafficUsedPercentage.value
 
   switch (key) {
     case 'nodePrice':
@@ -360,17 +375,19 @@ function getDetailMetricCard(key: DetailMetricCardKey): MetricCard {
       return { key, label: '实时下行', value: speed.value, unit: speed.unit, icon: 'tabler:chevrons-down' }
     }
     case 'totalTraffic': {
-      const traffic = splitMeasurement(formatBytes((node?.net_total_up ?? 0) + (node?.net_total_down ?? 0)))
-      return { key, label: '累计流量', value: traffic.value, unit: traffic.unit, icon: 'tabler:arrows-transfer-up-down', tooltip: `↑ ${formatBytes(node?.net_total_up ?? 0)} / ↓ ${formatBytes(node?.net_total_down ?? 0)}` }
+      const traffic = trafficTotal.value === null ? null : splitMeasurement(formatBytes(trafficTotal.value))
+      const up = trafficUp.value === null ? '待核对' : formatBytes(trafficUp.value)
+      const down = trafficDown.value === null ? '待核对' : formatBytes(trafficDown.value)
+      return { key, label: '本月累计', value: traffic?.value ?? '待核对', unit: traffic?.unit, icon: 'tabler:arrows-transfer-up-down', tooltip: `本月上行 ${up} / 本月下行 ${down}（采集月度，非账单）` }
     }
     case 'trafficQuota':
       return {
         key,
         label: '流量配额',
-        value: nodeHasTrafficLimit ? nodeTrafficPercentage === null ? '待核对' : nodeTrafficPercentage.toFixed(1) : '∞',
-        unit: nodeHasTrafficLimit && nodeTrafficPercentage !== null ? '%' : undefined,
+        value: nodeTrafficUsed === null ? '待核对' : nodeHasTrafficLimit ? nodeTrafficPercentage === null ? '待核对' : nodeTrafficPercentage.toFixed(1) : '∞',
+        unit: nodeTrafficUsed !== null && nodeHasTrafficLimit && nodeTrafficPercentage !== null ? '%' : undefined,
         icon: 'tabler:gauge',
-        tooltip: nodeHasTrafficLimit ? nodeTrafficUsed === null ? '暂无可靠月度数据/待核对' : `${formatBytes(nodeTrafficUsed)} / ${formatBytes(nodeTrafficLimit)}（采集月度，非账单）` : '无限流量',
+        tooltip: `${trafficUsageText.value}（采集月度，非账单）`,
       }
     default:
       return { key: 'cpuUsage', label: 'CPU 使用率', value: (node?.cpu ?? 0).toFixed(1), unit: '%', icon: 'tabler:cpu' }
@@ -415,31 +432,6 @@ const storageInfo = computed<InfoItem[]>(() => [
   { label: '内存交换', value: formatBytes(data.value?.swap_total ?? 0), icon: 'icon-park-outline:switch' },
   { label: '硬盘', value: formatBytes(data.value?.disk_total ?? 0), icon: 'icon-park-outline:hard-disk' },
 ])
-
-const trafficUsage = computed(() => data.value ? monthlyTrafficUsage.getUsage(data.value) : null)
-const trafficUsed = computed(() => {
-  const node = data.value
-  if (!node)
-    return null
-  return monthlyTrafficUsage.getUsage(node).used
-})
-
-const hasTrafficLimit = computed(() => (data.value?.traffic_limit ?? 0) > 0)
-
-const trafficUsedPercentage = computed(() => {
-  const node = data.value
-  if (!node)
-    return null
-  return monthlyTrafficUsage.getUsage(node).percentage
-})
-
-const trafficUsageText = computed(() => {
-  if (!hasTrafficLimit.value)
-    return '无限流量'
-  if (trafficUsed.value === null)
-    return monthlyTrafficLabel(trafficUsage.value?.status ?? 'loading')
-  return `${formatBytes(trafficUsed.value)} / ${formatBytes(data.value?.traffic_limit ?? 0)}`
-})
 
 const trafficProgressStyle = computed(() => ({
   width: `${trafficUsedPercentage.value}%`,
@@ -573,6 +565,7 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
       <div v-if="!appStore.nodeDetailSectionTabsEnabled || activeDetailSection === 'overview'" class="px-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         <CardX
           v-for="item in metricCards" :key="item.key" hoverable size="small"
+          :data-detail-metric="item.key"
           class="group h-full bg-background/50 border-none hover:bg-background transition-all rounded-md"
           content-class="h-full !p-3"
         >
@@ -699,6 +692,7 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
             <div class="relative min-w-0 overflow-hidden rounded-sm bg-slate-500/5 p-2">
               <div
                 v-if="hasTrafficLimit && trafficUsedPercentage !== null"
+                data-monthly-progress
                 class="absolute inset-y-0 left-0 rounded-sm pointer-events-none transition-[width,background-color] duration-300 ease-out"
                 :class="trafficProgressClass"
                 :style="trafficProgressStyle"
@@ -719,6 +713,10 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
                   </span>
                 </div>
                 <span class="text-xs sm:text-sm break-all" data-monthly-traffic :data-status="trafficUsage?.status">{{ trafficUsageText }}</span>
+                <div class="flex flex-wrap gap-x-3 text-[10px] text-muted-foreground">
+                  <span data-monthly-direction="up">本月上行 {{ trafficUp === null ? '待核对' : formatBytes(trafficUp) }}</span>
+                  <span data-monthly-direction="down">本月下行 {{ trafficDown === null ? '待核对' : formatBytes(trafficDown) }}</span>
+                </div>
                 <span v-if="trafficUsage?.status === 'partial'" class="text-[10px] text-muted-foreground">
                   已采集片段（非完整月度）：上行 {{ trafficUsage.up === null ? '未知' : formatBytes(trafficUsage.up) }} / 下行 {{ trafficUsage.down === null ? '未知' : formatBytes(trafficUsage.down) }}
                 </span>

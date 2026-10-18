@@ -64,6 +64,7 @@ interface SharedPingRecordsEntry {
   promise: Promise<void> | null
   refreshTimer: ReturnType<typeof setInterval> | null
   subscribers: number
+  generation: number
   lastFetchedAt: number
 }
 
@@ -213,6 +214,7 @@ function createSharedPingRecordsEntry(): SharedPingRecordsEntry {
     promise: null,
     refreshTimer: null,
     subscribers: 0,
+    generation: 0,
     lastFetchedAt: 0,
   }
 }
@@ -405,16 +407,20 @@ async function loadPingMetricRecords(nodeUuid: string, hours: number, maxCount?:
 }
 
 async function loadSharedPingRecords(entry: SharedPingRecordsEntry, hours: number, maxCount?: number, nodeUuid?: string): Promise<void> {
+  if (entry.subscribers === 0)
+    return
   if (entry.promise)
     return entry.promise
 
+  const generation = entry.generation
+  const isCurrent = () => entry.generation === generation && entry.subscribers > 0
   entry.loading.value = true
   entry.error.value = null
 
   entry.promise = (async () => {
     try {
       const metricState = nodeUuid ? await loadPingMetricRecords(nodeUuid, hours, maxCount).catch(() => null) : null
-      if (entry.subscribers === 0)
+      if (!isCurrent())
         return
 
       if (metricState) {
@@ -422,9 +428,13 @@ async function loadSharedPingRecords(entry: SharedPingRecordsEntry, hours: numbe
       }
       else {
         const payload = await loadPingRecordsWithTasks(hours, maxCount, nodeUuid)
+        if (!isCurrent())
+          return
         const tasks = payload.tasks.length
           ? payload.tasks
           : await loadPublicPingTasks().catch(() => [])
+        if (!isCurrent())
+          return
         entry.data.value = {
           recordsByClient: buildRecordsByClient(payload.records),
           tasks,
@@ -434,12 +444,16 @@ async function loadSharedPingRecords(entry: SharedPingRecordsEntry, hours: numbe
       entry.lastFetchedAt = Date.now()
     }
     catch (err) {
+      if (!isCurrent())
+        return
       entry.error.value = err instanceof Error ? err.message : '获取 Ping 历史失败'
       throw err
     }
     finally {
-      entry.loading.value = false
-      entry.promise = null
+      if (entry.generation === generation) {
+        entry.loading.value = false
+        entry.promise = null
+      }
     }
   })()
 
@@ -493,6 +507,10 @@ function retainSharedPingRecordsEntry(hours: number, maxCount?: number, uuid?: s
     released = true
     entry.subscribers = Math.max(0, entry.subscribers - 1)
     if (entry.subscribers === 0) {
+      // Invalidate before aborting: a new subscriber must not inherit this load.
+      entry.generation += 1
+      entry.promise = null
+      entry.loading.value = false
       stopSharedPingRecordsRefresh(entry)
       abortSharedPingRecordsRequests(hours, maxCount, uuid)
     }

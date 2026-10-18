@@ -12,6 +12,19 @@
 
 ## 当前任务
 
+### v1.0.6 — validated local delivery snapshot
+
+- 固定 Session `20261016_173909_e02c7c`；仅 `/home/hermes/Glassmorphism-Enhanced-v106` 的 `fix/v1.0.6-performance`。原校准工作树的 13 个文件完全不动。
+- 继承并核对 13 tracked 修改、9 untracked 文件；历史验收为 Chromium 155/155、单元/组件 28/28、type-check、203 文件无修复 ESLint、production build 和 diff-check 全通过。本轮不重复 155 项全量浏览器测试。
+- owner 已批准 manifest 1.0.6、原生 Bun 锁文件及冻结安装验证、必要快速验收；仅所有 gate 通过后允许一次精确暂存的本地 commit，再从新 HEAD 重新打包。禁止 push/merge/rebase/tag/Release/deploy、生产和数据库操作。
+- 使用项目指定 Bun 1.3.14；二进制在 scratch 中，下载 SHA-256 已与官方发布校验表比对。release workflow 的 Bun 版本也固定为 1.3.14，不再使用 latest；不改变依赖范围或给 package.json 添加 version。
+- Git 默认 identity 未配置；若提交，沿用本仓库既有代理身份 `Hermes Agent <hermes@localhost>`，仅该条 commit 命令生效，不修改全局或共享 Git 配置。
+- 原生 bun.lock 由 Bun 1.3.14 生成，保留已验收的全部直接依赖版本，再由 Bun 对齐原 package.json 范围；package.json 字节不变。未顺带升级首次解析出的 10 个更新直接依赖版本。
+- 冻结安装真实完成：全新无 node_modules 的 scratch 目录，以及本隔离工作树，`bun install --frozen-lockfile` 均 exit 0；安装前后 lock SHA-256 不变，两处直接依赖与锁一致。仅验证本地 Linux ARM64，不冒充 GitHub Actions 执行结果。
+- 本轮快速验证：npm type-check exit 0；全项目无 --fix ESLint 204 文件、0 error/warning、exit 0；单元/组件 28 pass / 0 fail / 0 skip、exit 0；npm production build exit 0；冻结依赖后 Chromium monthly-views 14 pass / 0 fail / 0 skip、exit 0。未重跑完整 155 项。
+- 最终只读审核：原有 22 个源码/测试文件哈希全部未变；精确允许 29 个源码/测试/版本/文档/工作流/锁文件路径，无异常路径、明显 secret-pattern 或超过 1 MiB 的意外文件；tracked diff-check 与 11 个新增文件的只读补丁检查全部 exit 0。dist/ZIP/node_modules/scratch 不纳入提交。
+- 状态：本地提交前 gate 全部通过；只允许随后的一次本地 commit 及从新 HEAD 重建。旧 ZIP 已在 scratch 原样备份，禁止远端发布及生产操作。实际 commit SHA、最终 ZIP 校验和及最终工作树状态保存到 `/home/hermes/.hermes/cache/scratch/v106-release-verification/task-d-final-delivery.json`，不在本次提交内自引用或预写结果。以下较早记录不扩大本轮授权。
+
 ### Monthly traffic reliability — immediate current-cycle calculation (unreleased)
 
 - 基线：本 fork 已发布 v1.0.5，main/tag peeled `3bb76d9fd6f86d9fe56845b12922ee75866f2ed3`；干净工作树后创建 `fix/monthly-traffic-reliability`，不复用 release branch。

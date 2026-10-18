@@ -47,4 +47,5 @@ test-results/
 
 # Theme build output
 komari-theme-*.zip
-bun.lock
+
+# bun.lock is versioned for reproducible CI installs.

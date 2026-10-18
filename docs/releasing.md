@@ -2,13 +2,13 @@
 
 Repository: https://github.com/casiuna/Glassmorphism-Enhanced
 
-Published baseline: **v1.0.5**, main/tag peeled `3bb76d9fd6f86d9fe56845b12922ee75866f2ed3`; `release/v1.0.5` remains retained. Current work is **`fix/monthly-traffic-reliability`**, not a release branch. Manifest stays **1.0.5** pending owner approval of a future version (suggested 1.0.6); do not merge/push main with this unchanged release version or replace the published v1.0.5 assets.
+Last recorded published baseline: **v1.0.5**, main/tag peeled `3bb76d9fd6f86d9fe56845b12922ee75866f2ed3`; `release/v1.0.5` remains retained. Current candidate work is **`fix/v1.0.6-performance`**, with owner-approved manifest **1.0.6**. This pass permits one reviewed local commit and commit-matched packaging only; no push, merge, tag, Release or deployment is authorized. Do not replace published v1.0.5 assets. See the [v1.0.6 release notes](release-notes-v1.0.6.md).
 
-All writes must target **`casiuna/Glassmorphism-Enhanced`** only. Upstream is read-only: no upstream PRs, pushes, issues, comments or reviews. This review-only pass creates no PR in any repository and does not access upstream PR #57, production, databases or provider accounts.
+All repository changes must target **`casiuna/Glassmorphism-Enhanced`** only. Upstream is read-only: no upstream PRs, pushes, issues, comments or reviews. This local-only pass creates no PR in any repository and does not access upstream PR #57, production, databases or provider accounts.
 
 ## Independent version policy
 
-The independent version line began at **1.0.0**, which is released as Git tag / GitHub Release **v1.0.0**. The current published version is **1.0.5**; no future bump is authorized yet. `komari-theme.json.version` is the sole source of truth; do not add `package.json.version`.
+The independent version line began at **1.0.0**, which is released as Git tag / GitHub Release **v1.0.0**. The last recorded published version is **1.0.5**; **1.0.6** is an owner-approved local candidate, not a published Release. `komari-theme.json.version` is the sole source of truth; do not add `package.json.version`.
 
 - Bugfix: `1.0.1`, `1.0.2`, `1.0.3`, …
 - Compatible feature: `1.1.0`, `1.2.0`, …
@@ -41,9 +41,9 @@ The historical v1.0.3 fixed rollout protection is explicitly withdrawn by the ow
 
 ## Review gate
 
-The current repair is maintained only on this fork's `fix/monthly-traffic-reliability`, with manifest 1.0.5 unchanged. No PR, merge, main push, tag or Release is permitted in this pass. A later release needs a new owner-approved version and authorization; do not reuse or move the published v1.0.5 tag.
+The current candidate is maintained only on this fork's `fix/v1.0.6-performance`, with manifest 1.0.6. One local commit is authorized only after review, reproducible frozen installation and the necessary checks pass. No PR, push, merge, rebase, tag, Release or deployment is permitted in this pass; do not reuse or move the published v1.0.5 tag.
 
-The existing `Release On Version Bump` workflow runs on this fork's `main` pushes only; it does not use `workflow_dispatch`. Published v1.0.5 was created at `3bb76d9fd6f86d9fe56845b12922ee75866f2ed3`. A future release of this repair requires an owner-approved **new** manifest version first. The workflow derives `release_tag=v${currentVersion}`, builds at the resulting main SHA, and refuses an existing tag pointing elsewhere. Do not merge this unchanged-1.0.5 repair or trigger/reuse the existing release. The workflow is not modified or invoked by this review pass.
+The existing `Release On Version Bump` workflow runs on this fork's `main` pushes only; it does not use `workflow_dispatch`. Published v1.0.5 was created at `3bb76d9fd6f86d9fe56845b12922ee75866f2ed3`. The workflow derives `release_tag=v${currentVersion}`, builds at the resulting main SHA, and refuses an existing tag pointing elsewhere. Its Bun version is pinned to **1.3.14**, matching `package.json` and the quality/visual workflows; `bun.lock` must be committed and `bun install --frozen-lockfile` must succeed. This workflow is not invoked here. Publication still needs separate owner authorization and remote verification.
 
 ## Verification
 

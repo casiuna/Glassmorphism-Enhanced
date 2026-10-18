@@ -66,7 +66,8 @@ export class RequestManager {
       } as QueuedRequest<unknown>)
       this.drainQueue()
     }).finally(() => {
-      this.pending.delete(key)
+      if (this.pending.get(key)?.promise === promise)
+        this.pending.delete(key)
     })
 
     this.pending.set(key, { promise, controller })

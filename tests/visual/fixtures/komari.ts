@@ -41,6 +41,7 @@ export interface VisualFixtureOptions {
   missingGeoNode?: boolean
   loggedIn?: boolean
   generalCardKeys?: string[]
+  detailMetricCardKeys?: string[]
   latestStatusWithoutTraffic?: boolean
   trafficMetricUnavailable?: boolean
   trafficMetricEmptyNode?: number
@@ -57,6 +58,8 @@ export interface VisualFixtureOptions {
   trafficMetricGapNode?: number
   trafficMetricPeriodicGapNode?: number
   trafficMetricNullNode?: number
+  trafficFirstNode?: { billing_cycle?: number, expired_at?: string, traffic_limit?: number | null }
+  largeLifetimeTraffic?: boolean
 }
 
 function uuidFor(index: number): string {
@@ -109,6 +112,7 @@ function buildClients(options: VisualFixtureOptions = {}) {
       traffic_limit_type: options.trafficLimitType ?? 'sum',
       created_at: '2026-01-01T00:00:00.000Z',
       updated_at: FIXED_NOW,
+      ...(index === 0 ? options.trafficFirstNode : {}),
     }]
   }))
 }
@@ -396,6 +400,12 @@ async function handleRpc(route: Route, clientFixtures = clients, options: Visual
       break
     case 'common:getNodesLatestStatus':
       result = options.latestStatusWithoutTraffic ? withoutLatestTrafficFields() : statuses
+      if (options.largeLifetimeTraffic) {
+        result = {
+          ...(result as Record<string, unknown>),
+          [uuidFor(0)]: { ...statuses[uuidFor(0)], net_total_up: 100 * TIB, net_total_down: 200 * TIB },
+        }
+      }
       if (options.relayOffline)
         result = { ...(result as Record<string, unknown>), [uuidFor(1)]: { ...(result as Record<string, Record<string, unknown>>)[uuidFor(1)], online: false } }
       break
@@ -494,6 +504,7 @@ export async function installKomariFixture(page: Page, options: VisualFixtureOpt
     homeQuickControlPreset: '完整',
     homeToolsEnabled: true,
     generalCardPreset: '自定义',
+    ...(options.detailMetricCardKeys ? { detailMetricCardPreset: '自定义', detailMetricCardKeys: options.detailMetricCardKeys.join('\n') } : {}),
     generalCardKeys: (options.generalCardKeys ?? (
       options.earthRenderer === 'tiled'
         ? ['onlineNodes', 'remainingValue', 'monthlyCost', 'totalTraffic', 'uploadSpeed', 'downloadSpeed']

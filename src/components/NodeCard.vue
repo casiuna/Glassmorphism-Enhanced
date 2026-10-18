@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import type { ComponentPublicInstance } from 'vue'
 import type { NodeData } from '@/stores/nodes'
 import { Icon } from '@iconify/vue'
-import { computed } from 'vue'
+import { useIntersectionObserver } from '@vueuse/core'
+import { computed, ref, useTemplateRef } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { CardX } from '@/components/ui/card-x'
 import { DataTooltip } from '@/components/ui/data-tooltip'
@@ -10,7 +12,7 @@ import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { useNodeCarrierPingSource } from '@/composables/useNodeCarrierPingSource'
 import { useAppStore } from '@/stores/app'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, getStatus, getUptimeDays } from '@/utils/helper'
-import { formatMonthlyPercentage, formatMonthlyTraffic, monthlyTrafficLabel } from '@/utils/monthlyTraffic'
+import { formatMonthlyPercentage, formatMonthlyTraffic, monthlyTrafficLabel, trafficValue } from '@/utils/monthlyTraffic'
 import { getDiskPercentage, getMemoryPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
@@ -92,10 +94,28 @@ const swapTooltip = computed(() => {
 const diskPercentage = computed(() => getDiskPercentage(props.node))
 const diskStatus = computed(() => getStatus(diskPercentage.value))
 
-const { carrierDisplays, isTransit } = useNodeCarrierPingSource(() => props.node, () => props.pingEnabled)
+const pingRoot = useTemplateRef<ComponentPublicInstance>('pingRoot')
+const pingVisible = ref(false)
+const { isSupported } = useIntersectionObserver(
+  pingRoot,
+  (entries) => {
+    pingVisible.value = entries.at(-1)?.isIntersecting ?? false
+  },
+  { rootMargin: '200px 0px' },
+)
+const { carrierDisplays, isTransit } = useNodeCarrierPingSource(
+  () => props.node,
+  () => props.pingEnabled && (!isSupported.value || pingVisible.value),
+)
 
 const trafficUsage = computed(() => monthlyTrafficUsage.getUsage(props.node))
 const trafficUsedPercentage = computed(() => trafficUsage.value.percentage)
+
+function formatMonthlyDirection(direction: 'up' | 'down'): string {
+  const usage = trafficUsage.value
+  const value = trafficValue(usage[direction])
+  return usage.status === 'ready' && value !== null ? formatBytes(value) : '待核对'
+}
 
 const nodeMessage = computed(() => props.node.message?.trim() ?? '')
 const nodeMessageTooltip = computed(() => {
@@ -202,6 +222,7 @@ function hasRegion(region: string | null | undefined): boolean {
 
 <template>
   <CardX
+    ref="pingRoot"
     hoverable
     :size="nodeCardXSize"
     :content-class="nodeCardContentPaddingClass"
@@ -415,15 +436,15 @@ function hasRegion(region: string | null | undefined): boolean {
             </div>
           </div>
 
-          <!-- 总流量 -->
-          <div class="flex flex-col gap-0.5 rounded-lg bg-slate-500/5 min-w-0 overflow-hidden" :class="nodeCardMetricBoxClass">
-            <div class="text-[11px] text-muted-foreground flex items-center gap-1">
+          <!-- 本月双向流量，不以终身累计补缺失数据 -->
+          <div class="flex flex-col gap-0.5 rounded-lg bg-slate-500/5 min-w-0 overflow-hidden" :class="nodeCardMetricBoxClass" :title="monthlyTrafficLabel(trafficUsage.status)">
+            <div class="text-[11px] text-muted-foreground flex items-center gap-1" data-monthly-direction="up" :data-status="trafficUsage.status">
               <Icon icon="tabler:upload" width="11" height="11" />
-              <span class="truncate min-w-0 overflow-hidden">{{ formatBytes(props.node.net_total_up ?? 0) }}</span>
+              <span class="truncate min-w-0 overflow-hidden">本月上行 {{ formatMonthlyDirection('up') }}</span>
             </div>
-            <div class="text-[11px] text-muted-foreground flex items-center gap-1">
+            <div class="text-[11px] text-muted-foreground flex items-center gap-1" data-monthly-direction="down" :data-status="trafficUsage.status">
               <Icon icon="tabler:download" width="11" height="11" />
-              <span class="truncate min-w-0 overflow-hidden">{{ formatBytes(props.node.net_total_down ?? 0) }}</span>
+              <span class="truncate min-w-0 overflow-hidden">本月下行 {{ formatMonthlyDirection('down') }}</span>
             </div>
           </div>
 

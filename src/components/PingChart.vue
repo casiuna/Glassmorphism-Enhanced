@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { PingChartCacheParams } from '@/services/ping-chart-cache.service'
 import type { MetricSeries, PingMetricTaskStats, PingRecord, PingTaskInfo } from '@/utils/rpc'
 import { Icon } from '@iconify/vue'
 import dayjs from 'dayjs'
@@ -13,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { PING_RECORD_MAX_COUNT } from '@/constants/load'
 import { loadPingRecordsWithTasks } from '@/services/history.service'
 import { loadPingMetricStats, loadPublicPingTasks, queryMetrics } from '@/services/metrics.service'
+import { pingChartCache } from '@/services/ping-chart-cache.service'
 import { useAppStore } from '@/stores/app'
 import { ACCESSIBLE_LINE_TYPES, getChartSeriesPalette } from '@/utils/chartPalette'
 import { isPingMetric, normalizeMetricSeriesList, orderPingTasksByBackend, PING_LATENCY_METRIC, pingTaskId, pingTaskName } from '@/utils/metricSeries'
@@ -257,21 +259,18 @@ function buildMetricRecords(seriesList: MetricSeries[]): PingRecord[] {
   return records.sort((a, b) => dayjs(a.time).valueOf() - dayjs(b.time).valueOf())
 }
 
-async function loadMetricPingPayload(nodeUuid: string): Promise<{ records: PingRecord[], tasks: PingTaskInfo[] } | null> {
-  const range = appliedCustomRange.value
-  const metricRangeParams = isCustomRange.value && range
-    ? { start: range.start.toDate().toISOString(), end: range.end.toDate().toISOString() }
-    : { hours: selectedHours.value }
+async function loadMetricPingPayload(request: PingChartCacheParams): Promise<{ records: PingRecord[], tasks: PingTaskInfo[], cacheable: boolean } | null> {
+  const { uuid: nodeUuid, range: metricRangeParams, maxCount } = request
 
   const [statsResult, metricsResult, backendTasksResult] = await Promise.allSettled([
-    loadPingMetricStats({ entity_id: nodeUuid, ...metricRangeParams, max_points: PING_RECORD_MAX_COUNT }),
+    loadPingMetricStats({ entity_id: nodeUuid, ...metricRangeParams, max_points: maxCount }),
     queryMetrics({
       metric_keys: [PING_LATENCY_METRIC],
       entity_id: nodeUuid,
       ...metricRangeParams,
       downsample: true,
       fill_empty: true,
-      max_points: PING_RECORD_MAX_COUNT,
+      max_points: maxCount,
       aggregation: 'avg',
     }),
     loadPublicPingTasks(),
@@ -316,6 +315,7 @@ async function loadMetricPingPayload(nodeUuid: string): Promise<{ records: PingR
 
   return {
     records: metricRecords,
+    cacheable: backendTasksResult.status === 'fulfilled',
     tasks: orderPingTasksByBackend(
       [...taskMap.values()],
       backendTasksResult.status === 'fulfilled' ? backendTasksResult.value : [],
@@ -341,32 +341,52 @@ async function fetchRecords() {
   }
 
   appliedCustomRange.value = isCustomRange.value ? customRange.value : null
+  const range = appliedCustomRange.value
+  const requestedHours = selectedHours.value
+  const cacheParams: PingChartCacheParams = {
+    uuid: requestedUuid,
+    range: range
+      ? { start: range.start.toDate().toISOString(), end: range.end.toDate().toISOString() }
+      : { hours: requestedHours },
+    maxCount: PING_RECORD_MAX_COUNT,
+    preserveHours: maxPingRecordPreserveTime.value,
+  }
 
   loading.value = true
   error.value = null
 
   try {
-    const metricPayload = await loadMetricPingPayload(requestedUuid).catch(() => null)
-    if (sequence !== fetchRecordsSequence || requestedUuid !== props.uuid)
-      return
+    let result = pingChartCache.get(cacheParams)
+    if (!result) {
+      const metricPayload = await loadMetricPingPayload(cacheParams).catch(() => null)
+      if (sequence !== fetchRecordsSequence || requestedUuid !== props.uuid)
+        return
 
-    legacyCustomRangeFallback.value = !metricPayload && isCustomRange.value
-    const range = appliedCustomRange.value
-    const legacyHours = range
-      ? Math.min(
-          maxPingRecordPreserveTime.value,
-          Math.max(range.hours, Math.ceil(dayjs().diff(range.start, 'hour', true))),
-        )
-      : selectedHours.value
-    const result = metricPayload ?? await loadPingRecordsWithTasks(legacyHours, PING_RECORD_MAX_COUNT, requestedUuid)
-    if (sequence !== fetchRecordsSequence || requestedUuid !== props.uuid)
-      return
+      const legacyHours = range
+        ? Math.min(
+            cacheParams.preserveHours,
+            Math.max(range.hours, Math.ceil(dayjs().diff(range.start, 'hour', true))),
+          )
+        : requestedHours
+      const payload = metricPayload ?? await loadPingRecordsWithTasks(legacyHours, cacheParams.maxCount, requestedUuid)
+      if (sequence !== fetchRecordsSequence || requestedUuid !== props.uuid)
+        return
+
+      result = {
+        records: payload.records,
+        tasks: payload.tasks,
+        legacyCustomRangeFallback: !metricPayload && !!range,
+      }
+      if (!metricPayload || metricPayload.cacheable)
+        pingChartCache.set(cacheParams, result)
+    }
 
     const records = result.records
     records.sort((a, b) => dayjs(a.time).valueOf() - dayjs(b.time).valueOf())
 
     remoteData.value = records
     tasks.value = result.tasks
+    legacyCustomRangeFallback.value = result.legacyCustomRangeFallback
 
     if (tasks.value.length > 0 && selectedTaskIds.value.length === 0) {
       selectedTaskIds.value = tasks.value.map(t => t.id)
@@ -746,6 +766,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  fetchRecordsSequence += 1
   coarsePointerMediaQuery?.removeEventListener('change', syncTouchTooltipMode)
 })
 </script>

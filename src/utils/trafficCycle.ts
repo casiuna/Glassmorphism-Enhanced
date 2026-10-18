@@ -60,12 +60,6 @@ export function getMonthlyTrafficCycle(
   node: MonthlyTrafficCycleInput,
   now = new Date(),
 ): MonthlyTrafficCycle | null {
-  if (node.traffic_limit !== null && node.traffic_limit !== undefined) {
-    const trafficLimit = Number(node.traffic_limit)
-    if (!Number.isFinite(trafficLimit) || trafficLimit <= 0)
-      return null
-  }
-
   const billingCycle = Number(node.billing_cycle)
   if (!Number.isFinite(billingCycle) || billingCycle <= 0)
     return null

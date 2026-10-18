@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useIntersectionObserver } from '@vueuse/core'
+import { ref, useTemplateRef } from 'vue'
 import { useNodePingDisplay } from '@/composables/useNodePingDisplay'
 
 const props = defineProps<{
@@ -11,14 +13,27 @@ const emit = defineEmits<{
   click: []
 }>()
 
+const pingRoot = useTemplateRef<HTMLButtonElement>('pingRoot')
+const pingVisible = ref(false)
+const { isSupported } = useIntersectionObserver(
+  pingRoot,
+  (entries) => {
+    pingVisible.value = entries.at(-1)?.isIntersecting ?? false
+  },
+  { rootMargin: '200px 0px' },
+)
+
 const {
   latencyRenderBars,
   lossRenderBars,
-} = useNodePingDisplay(() => props.uuid, { enabled: () => props.enabled })
+} = useNodePingDisplay(() => props.uuid, {
+  enabled: () => props.enabled && (!isSupported.value || pingVisible.value),
+})
 </script>
 
 <template>
   <button
+    ref="pingRoot"
     type="button"
     class="group flex w-full flex-col gap-[1px] pr-4 text-left"
     aria-label="打开延迟和丢包监测"
