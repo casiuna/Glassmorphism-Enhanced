@@ -8,12 +8,11 @@ import { Badge } from '@/components/ui/badge'
 import { CardX } from '@/components/ui/card-x'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import { ProgressThin } from '@/components/ui/progress-thin'
-import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
+
 import { useNodeCarrierPingSource } from '@/composables/useNodeCarrierPingSource'
 import { useAppStore } from '@/stores/app'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, getStatus, getUptimeDays } from '@/utils/helper'
-import { formatMonthlyPercentage, formatMonthlyTraffic, monthlyTrafficLabel, trafficValue } from '@/utils/monthlyTraffic'
-import { getDiskPercentage, getMemoryPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
+import { getDiskPercentage, getMemoryPercentage, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
 import { formatCurrencyValue, formatPriceWithCycle, getDaysUntilExpired, getExpireStatus, getRemainingValue, isFreePrice, parseTags } from '@/utils/tagHelper'
@@ -31,7 +30,7 @@ const emit = defineEmits<{
   pingClick: []
 }>()
 const appStore = useAppStore()
-const monthlyTrafficUsage = useMonthlyTrafficUsage(() => [props.node])
+
 const isFavorite = computed(() => appStore.isFavoriteNode(props.node.uuid))
 
 function toggleFavorite(): void {
@@ -108,14 +107,8 @@ const { carrierDisplays, isTransit } = useNodeCarrierPingSource(
   () => props.pingEnabled && (!isSupported.value || pingVisible.value),
 )
 
-const trafficUsage = computed(() => monthlyTrafficUsage.getUsage(props.node))
-const trafficUsedPercentage = computed(() => trafficUsage.value.percentage)
-
-function formatMonthlyDirection(direction: 'up' | 'down'): string {
-  const usage = trafficUsage.value
-  const value = trafficValue(usage[direction])
-  return usage.status === 'ready' && value !== null ? formatBytes(value) : '待核对'
-}
+const trafficUsed = computed(() => getTrafficUsed(props.node))
+const trafficUsedPercentage = computed(() => getTrafficUsedPercentage(props.node))
 
 const nodeMessage = computed(() => props.node.message?.trim() ?? '')
 const nodeMessageTooltip = computed(() => {
@@ -130,8 +123,7 @@ const nodeMessageTooltip = computed(() => {
 const trafficStatus = computed(() => {
   if (!hasTrafficLimit(props.node))
     return 'success'
-  if (trafficUsedPercentage.value === null)
-    return 'default'
+
   if (trafficUsedPercentage.value >= 95)
     return 'error'
   if (trafficUsedPercentage.value >= 80)
@@ -144,8 +136,7 @@ const trafficStatus = computed(() => {
 const trafficPercentageClass = computed(() => {
   if (!hasTrafficLimit(props.node))
     return 'text-muted-foreground'
-  if (trafficUsedPercentage.value === null)
-    return 'text-muted-foreground'
+
   if (trafficUsedPercentage.value >= 95)
     return 'text-destructive'
   if (trafficUsedPercentage.value >= 80)
@@ -333,15 +324,15 @@ function hasRegion(region: string | null | undefined): boolean {
             <div class="flex justify-between text-xs">
               <span class="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
                 <Icon :icon="NODE_METRIC_ICONS.traffic" data-node-metric-icon="traffic" width="12" height="12" class="shrink-0 text-violet-500" aria-hidden="true" />
-                <span class="truncate">流量</span>
+                <span class="truncate">累计流量</span>
               </span>
               <span class="tabular-nums font-medium" :class="trafficPercentageClass">
-                {{ hasTrafficLimit(props.node) ? formatMonthlyPercentage(trafficUsedPercentage) : '∞' }}
+                {{ hasTrafficLimit(props.node) ? `${trafficUsedPercentage.toFixed(1)}%` : '∞' }}
               </span>
             </div>
-            <ProgressThin v-if="trafficUsedPercentage !== null" :percentage="trafficUsedPercentage" :status="trafficStatus" :height="4" />
-            <div class="text-[11px] truncate" data-monthly-traffic :data-status="trafficUsage.status" :title="`${monthlyTrafficLabel(trafficUsage.status)}；Komari ${trafficUsage.basis}；采集截至 ${trafficUsage.sampledAt ?? '未取得'}；非服务商账单`" :class="trafficUsedPercentage !== null && trafficUsedPercentage >= 95 ? 'text-destructive' : 'text-muted-foreground'">
-              {{ formatMonthlyTraffic(trafficUsage, formatBytes) }}
+            <ProgressThin v-if="hasTrafficLimit(props.node)" :percentage="trafficUsedPercentage" :status="trafficStatus" :height="4" />
+            <div class="text-[11px] truncate" data-machine-traffic title="机器累计与配额的参考比值，非供应商月度用量" :class="trafficUsedPercentage >= 95 ? 'text-destructive' : 'text-muted-foreground'">
+              {{ formatBytes(trafficUsed) }}
               <template v-if="hasTrafficLimit(props.node)">
                 / {{ formatBytes(props.node.traffic_limit) }}
               </template>
@@ -403,15 +394,15 @@ function hasRegion(region: string | null | undefined): boolean {
             <div class="flex justify-between text-xs">
               <span class="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
                 <Icon :icon="NODE_METRIC_ICONS.traffic" data-node-metric-icon="traffic" width="13" height="13" class="shrink-0 text-violet-500" aria-hidden="true" />
-                <span class="truncate">流量</span>
+                <span class="truncate">累计流量</span>
               </span>
               <span class="tabular-nums font-medium" :class="trafficPercentageClass">
-                {{ hasTrafficLimit(props.node) ? formatMonthlyPercentage(trafficUsedPercentage) : '∞' }}
+                {{ hasTrafficLimit(props.node) ? `${trafficUsedPercentage.toFixed(1)}%` : '∞' }}
               </span>
             </div>
-            <ProgressThin v-if="trafficUsedPercentage !== null" :percentage="trafficUsedPercentage" :status="trafficStatus" :height="4" />
-            <div class="text-[11px] truncate" data-monthly-traffic :data-status="trafficUsage.status" :title="`${monthlyTrafficLabel(trafficUsage.status)}；Komari ${trafficUsage.basis}；采集截至 ${trafficUsage.sampledAt ?? '未取得'}；非服务商账单`" :class="trafficUsedPercentage !== null && trafficUsedPercentage >= 95 ? 'text-destructive' : 'text-muted-foreground'">
-              {{ formatMonthlyTraffic(trafficUsage, formatBytes) }}
+            <ProgressThin v-if="hasTrafficLimit(props.node)" :percentage="trafficUsedPercentage" :status="trafficStatus" :height="4" />
+            <div class="text-[11px] truncate" data-machine-traffic title="机器累计与配额的参考比值，非供应商月度用量" :class="trafficUsedPercentage >= 95 ? 'text-destructive' : 'text-muted-foreground'">
+              {{ formatBytes(trafficUsed) }}
               <template v-if="hasTrafficLimit(props.node)">
                 / {{ formatBytes(props.node.traffic_limit) }}
               </template>
@@ -436,15 +427,15 @@ function hasRegion(region: string | null | undefined): boolean {
             </div>
           </div>
 
-          <!-- 本月双向流量，不以终身累计补缺失数据 -->
-          <div class="flex flex-col gap-0.5 rounded-lg bg-slate-500/5 min-w-0 overflow-hidden" :class="nodeCardMetricBoxClass" :title="monthlyTrafficLabel(trafficUsage.status)">
-            <div class="text-[11px] text-muted-foreground flex items-center gap-1" data-monthly-direction="up" :data-status="trafficUsage.status">
+          <!-- 机器累计双向流量 -->
+          <div class="flex flex-col gap-0.5 rounded-lg bg-slate-500/5 min-w-0 overflow-hidden" :class="nodeCardMetricBoxClass" title="机器累计，非供应商月度用量">
+            <div class="text-[11px] text-muted-foreground flex items-center gap-1" data-machine-direction="up">
               <Icon icon="tabler:upload" width="11" height="11" />
-              <span class="truncate min-w-0 overflow-hidden">本月上行 {{ formatMonthlyDirection('up') }}</span>
+              <span class="truncate min-w-0 overflow-hidden">累计上行 {{ formatBytes(props.node.net_total_up ?? 0) }}</span>
             </div>
-            <div class="text-[11px] text-muted-foreground flex items-center gap-1" data-monthly-direction="down" :data-status="trafficUsage.status">
+            <div class="text-[11px] text-muted-foreground flex items-center gap-1" data-machine-direction="down">
               <Icon icon="tabler:download" width="11" height="11" />
-              <span class="truncate min-w-0 overflow-hidden">本月下行 {{ formatMonthlyDirection('down') }}</span>
+              <span class="truncate min-w-0 overflow-hidden">累计下行 {{ formatBytes(props.node.net_total_down ?? 0) }}</span>
             </div>
           </div>
 

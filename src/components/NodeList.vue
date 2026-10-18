@@ -9,14 +9,13 @@ import TrafficProgress from '@/components/TrafficProgress.vue'
 import { Badge } from '@/components/ui/badge'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import { ProgressThin } from '@/components/ui/progress-thin'
-import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
+
 import { useNodeProviderMetadata } from '@/composables/useNodeProviderMetadata'
 import { UI_CONFIG } from '@/constants/ui'
 import { useAppStore } from '@/stores/app'
 import { formatCityNameZh } from '@/utils/cityNameHelper'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, formatUptimeWithFormat, getStatus } from '@/utils/helper'
-import { formatMonthlyPercentage, formatMonthlyTraffic } from '@/utils/monthlyTraffic'
-import { getRealtimeTotalSpeed, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
+import { getRealtimeTotalSpeed, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
 import { formatPriceWithCycle, getDaysUntilExpired, getExpireStatus, parseTags } from '@/utils/tagHelper'
@@ -55,7 +54,6 @@ const rowStaggerMs = UI_CONFIG.motion.staggerMs
 const rowStaggerLimit = UI_CONFIG.motion.staggerLimit
 
 const appStore = useAppStore()
-const monthlyTrafficUsage = useMonthlyTrafficUsage(() => props.nodes)
 
 function toggleFavorite(node: NodeData): void {
   appStore.toggleFavoriteNode(node.uuid)
@@ -73,7 +71,7 @@ const baseColumns: ColumnConfig[] = [
   { key: 'cpu', label: 'CPU', width: '100px', sortable: false },
   { key: 'mem', label: '内存', width: '100px', sortable: false },
   { key: 'disk', label: '硬盘', width: '100px', sortable: false },
-  { key: 'traffic', label: '流量', width: '104px', sortable: false },
+  { key: 'traffic', label: '累计流量', width: '104px', sortable: false },
   { key: 'rate', label: '速率', width: '88px', sortable: true },
 ]
 
@@ -142,14 +140,7 @@ const sortedNodes = computed(() => {
       case 'cpu': return dir * ((a.cpu ?? 0) - (b.cpu ?? 0))
       case 'mem': return dir * ((a.ram ?? 0) / (a.mem_total || 1) - (b.ram ?? 0) / (b.mem_total || 1))
       case 'disk': return dir * ((a.disk ?? 0) / (a.disk_total || 1) - (b.disk ?? 0) / (b.disk_total || 1))
-      case 'traffic':
-      {
-        const av = monthlyTrafficUsage.getUsage(a).percentage
-        const bv = monthlyTrafficUsage.getUsage(b).percentage
-        if (av === null || bv === null)
-          return av === bv ? 0 : av === null ? 1 : -1
-        return dir * (av - bv)
-      }
+      case 'traffic': return dir * (getTrafficUsedPercentage(a) - getTrafficUsedPercentage(b))
       case 'rate':
         return dir * (getRealtimeTotalSpeed(a) - getRealtimeTotalSpeed(b))
       default: return 0
@@ -571,23 +562,23 @@ function buildNodeMetadataItems(node: NodeData): NodeMetadataItem[] {
                 <div
                   v-else-if="col.key === 'traffic'"
                   class="group min-w-0"
-                  :title="`机器累计（非本月）：↑ ${formatBytes(node.net_total_up ?? 0)}\n↓ ${formatBytes(node.net_total_down ?? 0)}；月度按 Komari ${node.traffic_limit_type}；非账单`"
-                  data-monthly-traffic :data-status="monthlyTrafficUsage.getUsage(node).status"
+                  :title="`机器累计：↑ ${formatBytes(node.net_total_up ?? 0)}\n↓ ${formatBytes(node.net_total_down ?? 0)}；按 Komari ${node.traffic_limit_type}；与配额仅为参考比值，非供应商月度用量`"
+                  data-machine-traffic
                 >
                   <div class="space-y-1 w-full">
                     <div class="text-[11px] font-medium text-foreground/75 truncate">
                       <span class="inline group-hover:hidden">
-                        {{ formatMonthlyPercentage(monthlyTrafficUsage.getUsage(node).percentage) }}
+                        {{ hasTrafficLimit(node) ? `${getTrafficUsedPercentage(node).toFixed(1)}%` : '∞' }}
                       </span>
                       <span class="hidden group-hover:inline">
-                        {{ formatMonthlyTraffic(monthlyTrafficUsage.getUsage(node), formatBytes) }} /
+                        {{ formatBytes(getTrafficUsed(node)) }} /
                         <template v-if="hasTrafficLimit(node)">{{ formatBytes(node.traffic_limit) }}</template>
                         <template v-else>∞</template>
                       </span>
                     </div>
                     <TrafficProgress
-                      v-if="monthlyTrafficUsage.getUsage(node).used !== null"
-                      :upload="monthlyTrafficUsage.getUsage(node).up ?? 0" :download="monthlyTrafficUsage.getUsage(node).down ?? 0"
+                      v-if="hasTrafficLimit(node)"
+                      :upload="node.net_total_up ?? 0" :download="node.net_total_down ?? 0"
                       :traffic-limit="node.traffic_limit" :traffic-limit-type="(node.traffic_limit_type || 'sum')"
                       height="4px"
                     />

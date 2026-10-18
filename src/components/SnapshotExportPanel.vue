@@ -5,13 +5,13 @@ import { computed, onMounted, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import { CardX } from '@/components/ui/card-x'
 import { Input } from '@/components/ui/input'
-import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
 import { useNodeProviderMetadata } from '@/composables/useNodeProviderMetadata'
 import { useVisitorAudit } from '@/composables/useVisitorAudit'
 import { buildSnapshotCsvAsync, buildSnapshotJsonAsync, downloadText } from '@/services/snapshot.service'
 import { useAppStore } from '@/stores/app'
 import * as financeHelper from '@/utils/financeHelper'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, formatUptimeWithFormat } from '@/utils/helper'
+import { getTrafficUsed, getTrafficUsedPercentage } from '@/utils/nodeMetricsHelper'
 
 interface SnapshotRow {
   uuid: string
@@ -35,10 +35,10 @@ interface SnapshotRow {
   memoryTotalBytes: number
   diskUsedBytes: number
   diskTotalBytes: number
-  trafficUsedBytes: number | null
+  trafficUsedBytes: number
   trafficLimitBytes: number
   trafficUsedPercent: number | null
-  trafficDataStatus: string
+  trafficDataStatus: 'machine-cumulative'
   trafficBasis: string
   netInBytesPerSecond: number
   netOutBytesPerSecond: number
@@ -65,7 +65,6 @@ const { record: recordVisitorEvent } = useVisitorAudit()
 const exchangeRates = ref(financeHelper.DEFAULT_EXCHANGE_RATES)
 const exportPasswordInput = ref('')
 const exporting = ref<null | 'json' | 'csv'>(null)
-const monthlyTrafficUsage = useMonthlyTrafficUsage(() => props.nodes)
 
 const { getNodeProviderMetadata } = useNodeProviderMetadata({
   nodes: () => props.nodes,
@@ -80,9 +79,7 @@ onMounted(async () => {
   exchangeRates.value = rates
 })
 
-function formatBytes(bytes: number | null): string {
-  if (bytes === null)
-    return '暂无可靠月度数据/待核对'
+function formatBytes(bytes: number): string {
   return formatBytesWithConfig(bytes, appStore.byteDecimals)
 }
 
@@ -90,9 +87,7 @@ function formatSpeed(bytes: number): string {
   return formatBytesPerSecondWithConfig(bytes, appStore.byteDecimals)
 }
 
-function formatPercent(value: number | null): string {
-  if (value === null)
-    return '待核对'
+function formatPercent(value: number): string {
   return `${(Number.isFinite(value) ? value : 0).toFixed(1)}%`
 }
 
@@ -185,10 +180,10 @@ function buildRow(node: NodeData): SnapshotRow {
     memoryTotalBytes: node.mem_total || 0,
     diskUsedBytes: node.disk || 0,
     diskTotalBytes: node.disk_total || 0,
-    trafficUsedBytes: monthlyTrafficUsage.getUsage(node).used,
+    trafficUsedBytes: getTrafficUsed(node),
     trafficLimitBytes: node.traffic_limit || 0,
-    trafficUsedPercent: monthlyTrafficUsage.getUsage(node).percentage,
-    trafficDataStatus: monthlyTrafficUsage.getUsage(node).status,
+    trafficUsedPercent: Number.isFinite(node.traffic_limit) && node.traffic_limit > 0 ? getTrafficUsedPercentage(node) : null,
+    trafficDataStatus: 'machine-cumulative',
     trafficBasis: node.traffic_limit_type,
     netInBytesPerSecond: node.net_in || 0,
     netOutBytesPerSecond: node.net_out || 0,
@@ -237,11 +232,11 @@ const csvColumns: CsvColumn[] = [
   { label: '硬盘使用', value: row => formatBytes(row.diskUsedBytes) },
   { label: '硬盘总量', value: row => formatBytes(row.diskTotalBytes) },
   { label: '硬盘使用率', value: row => formatPercent(getPercent(row.diskUsedBytes, row.diskTotalBytes)) },
-  { label: '采集月度流量（非账单）', value: row => formatBytes(row.trafficUsedBytes) },
-  { label: '月度数据状态', value: row => row.trafficDataStatus },
+  { label: '机器累计流量（非月度账单）', value: row => formatBytes(row.trafficUsedBytes) },
+  { label: '流量数据口径', value: row => row.trafficDataStatus },
   { label: 'Komari 配置流量口径', value: row => row.trafficBasis },
   { label: '流量限额', value: row => formatLimit(row.trafficLimitBytes) },
-  { label: '流量使用率', value: row => row.trafficLimitBytes > 0 ? formatPercent(row.trafficUsedPercent) : '无限制' },
+  { label: '机器累计/配额参考比值（非本月）', value: row => row.trafficUsedPercent !== null ? formatPercent(row.trafficUsedPercent) : '无限制' },
   { label: '实时上行', value: row => formatSpeed(row.netOutBytesPerSecond) },
   { label: '实时下行', value: row => formatSpeed(row.netInBytesPerSecond) },
   { label: '运行时间', value: row => formatUptime(row.uptimeSeconds) },
@@ -317,11 +312,11 @@ function buildJsonNode(row: SnapshotRow) {
       traffic: {
         status: row.trafficDataStatus,
         basis: row.trafficBasis,
-        scope: 'collected-monthly-not-provider-bill',
+        scope: 'machine-cumulative-not-provider-bill',
         usedBytes: row.trafficUsedBytes,
         used: formatBytes(row.trafficUsedBytes),
         limit: formatLimit(row.trafficLimitBytes),
-        usage: row.trafficLimitBytes > 0 ? formatPercent(row.trafficUsedPercent) : '无限制',
+        usage: row.trafficUsedPercent !== null ? formatPercent(row.trafficUsedPercent) : '无限制',
       },
       network: {
         upload: formatSpeed(row.netOutBytesPerSecond),
@@ -567,7 +562,7 @@ async function exportCsv(): Promise<void> {
               {{ row.cpuCores }} 核 · {{ formatBytes(row.memoryTotalBytes) }} · {{ formatBytes(row.diskTotalBytes) }}
             </td>
             <td class="px-2 py-3 text-xs text-muted-foreground">
-              CPU {{ formatPercent(row.cpuUsage) }} · 流量 {{ row.trafficLimitBytes > 0 ? formatPercent(row.trafficUsedPercent) : '无限制' }}
+              CPU {{ formatPercent(row.cpuUsage) }} · 累计/配额参考（非本月） {{ row.trafficUsedPercent !== null ? formatPercent(row.trafficUsedPercent) : '无限制' }}
             </td>
             <td class="px-2 py-3 tabular-nums">
               {{ formatMonthlyCost(row) }}

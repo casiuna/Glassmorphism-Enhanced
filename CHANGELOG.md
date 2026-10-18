@@ -2,6 +2,16 @@
 
 All notable Glassmorphism Enhanced changes are documented here. Upstream history remains in the upstream repository and preserved Git history.
 
+## 1.0.7 — Released
+
+- Restore the original three-network theme's machine-cumulative traffic display from current `net_total_up` / `net_total_down` snapshots. Quota-related values follow Komari `traffic_limit_type` (`up`, `down`, `min`, `max`, `sum`); bidirectional totals remain upload plus download.
+- Align home cards and summaries, lists, detail upload/download, node comparison, health warnings and CSV/JSON export on the cumulative scope. Percentages are machine-cumulative/configured-quota reference ratios, not current-month usage or provider bills; no monthly reset is promised. Unlimited quotas do not generate health/export percentages or quota warnings.
+- Remove the monthly-only hook, traffic service, bucket-completeness helpers and renewal-window calculation, together with their extra monthly SUM queries. Do not hide machine counters behind missing-monthly-data states. Counter resets display the new snapshot without reconstructing earlier totals.
+- Replace the health panel's misleading period-average traffic burn rate with current `net_in + net_out`, labeled “当前网络速率”. Preserve other health, pricing, authorization and export behavior; identify JSON traffic as `machine-cumulative-not-provider-bill`.
+- Preserve three-network Ping, Transit, v1.0.6 viewport subscriptions, request cancellation/queue fixes and chart caches. Shared metrics/history/request services and historical collection remain; no Server, Agent, database or production changes, and no counter writes or resets.
+- Verified cumulative helper/view/export regressions: **21/21 passed**. Three-network/Transit, viewport subscriptions and header regressions: **29/29 passed**. TypeScript, full no-fix ESLint, diff-check and production build passed; Vite transformed 1864 modules and produced 761 dist files (12.206 MiB). These are 50 targeted tests, not a full pixel-baseline run.
+- Manifest is 1.0.7 and publication is owner-authorized. The main-push Actions workflow is the authoritative release build; verify its final commit and theme ZIP rather than publishing the old-HEAD local validation package. [Release/download](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.7) · [Release notes](docs/release-notes-v1.0.7.md).
+
 ## 1.0.6 — Released (2026-10-18)
 
 - Remove the v1.0.3 rollout anchor/grandfathering; immediately query the actual current monthly UTC renewal window. Keep annual/quarterly payment periods separate from monthly quota periods and preserve short-month clamping. Do not invent windows for one-off/custom/missing renewal metadata.

@@ -1,190 +1,62 @@
 # Glassmorphism Enhanced
 
-Glassmorphism Enhanced 是一个面向 [Komari Monitor](https://github.com/komari-monitor/komari) 的独立维护主题：用毛玻璃界面、三网质量指标、响应式 NodeCard 和可选的 Transit Carrier Ping，帮助你快速判断节点状态与入口路径。
+基于 [Komari](https://github.com/komari-monitor/komari) 的第三方监控主题。保留毛玻璃设计，重点展示节点状态、流量和中国联通／电信／移动三网延迟。
 
-[![Release](https://img.shields.io/badge/Release-v1.0.6-10b981)](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.6)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Release](https://img.shields.io/badge/Release-v1.0.7-10b981)](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.7)
+[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-[下载 Releases](https://github.com/casiuna/Glassmorphism-Enhanced/releases) · [安装](#installation) · [Transit Carrier Ping](#transit-carrier-ping) · [开发](#development)
+![主题预览](docs/preview.png)
 
-**v1.0.6 已于 2026-10-18 发布**：[下载主题 ZIP](https://github.com/casiuna/Glassmorphism-Enhanced/releases/download/v1.0.6/komari-theme-Glassmorphism-build-b9f7f4f.zip) · [发行说明](docs/release-notes-v1.0.6.md)。本版修复 Ping 重复加载、取消竞态与请求队列阻塞，并统一首页、卡片、详情和对比面板的月度流量；历史累计保留，无可靠月度数据时明确“待核对”。
+## 主要功能
 
-## Preview
+- **三网监控**：分别显示联通、电信、移动的延迟、丢包率和历史记录，支持多个 Ping 任务。
+- **中转延迟**：可选 Transit Carrier Ping，使用 Relay 两段探测数据估算目标节点的三网质量。
+- **流量展示**：恢复原三网主题的机器累计上／下行和配额进度，不再因月度采集缺失隐藏流量。
+- **节点与界面**：多尺寸卡片、列表、节点详情、响应式布局、浅色／深色主题及可选地球可视化。
+- **辅助工具**：节点对比、健康摘要、财务估算和 CSV／JSON 导出。
 
-![Glassmorphism Enhanced preview](docs/preview.png)
+## 安装
 
-## Features
+1. 打开 [Releases](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.7)，下载 **主题 ZIP 附件**（`komari-theme-Glassmorphism-build-*.zip`），不要下载 GitHub 自动生成的 Source code ZIP。
+2. 在 Komari 后台的主题管理中上传、启用。
+3. 按需调整三网任务、主题外观和中转规则。
 
-- **Glassmorphism UI**：毛玻璃卡片、浅色 / 深色 / 北京时间自动模式、动态背景、色觉友好配色与减弱动画。
-- **三网延迟与丢包**：分别展示中国联通、电信、移动的 RTT、丢包率和历史色块；同一运营商的多个 Ping Task 会聚合。
-- **Transit Carrier Ping**：可选地用“用户 → Relay → Target”的两段数据派生三网估算，明确区分估算值和 direct 探测。
-- **多种 NodeCard 尺寸**：`mini`、`compact`、`comfortable`、`large`，并提供适合密集巡检的列表视图。
-- **地球与拓扑可视化**：realistic、Cobe 和 tiled 地图，支持自动、常驻、upstream 与关闭连线模式。
-- **财务、流量与健康工具**：费用辅助估算、流量配额、健康摘要、节点对比和快照导出；受限功能遵循登录权限。
-- **响应式布局**：桌面与移动端 NodeCard、详情图表、收藏和快速切换。
-- **Ping 兼容链**：优先使用 Komari Metric 数据，保留 Legacy fallback、共享缓存、请求去重和既有刷新生命周期。
+不需要修改 Komari Server 或 Agent。
 
-## Transit Carrier Ping
+## 三网与中转
 
-### What it does
-
-某些目标节点不适合直接执行中国三网探测，例如入口路径与目标落地位置不同，或目标本身是 IPv6-only。Transit Carrier Ping 在前端从同一 Relay 的原始 Ping 数据派生展示结果：
-
-```text
-User
-  -> RelayNode
-  -> TargetNode
-```
-
-这是 **frontend-only derived estimate**，不是目标节点直接测量中国三网，也不是严格的 end-to-end probe。它不会修改 Komari Server、Komari Agent、Pinia 原始统计或任何后端采样。
-
-功能默认关闭；没有有效规则的节点继续使用原有 direct 数据源。
-
-### Configuration
-
-在主题设置的 **08 · 三网与中转延迟** 中：
-
-| Key                         | Type       | Default | Description                    |
-| --------------------------- | ---------- | ------- | ------------------------------ |
-| `transitCarrierPingEnabled` | `switch`   | `false` | 启用匹配节点的中转估算         |
-| `transitCarrierPingRules`   | `richtext` | empty   | 每行一个 Relay、目标和链路任务 |
-
-规则示例使用泛化名称，不代表任何生产配置：
+三网直连探测使用已有 Komari Ping 任务，支持中文运营商名称及常见英文别名。若需要让目标节点显示经 Relay 的估算延迟，在主题设置 **「08 · 三网与中转延迟」** 启用 Transit Carrier Ping，并按行填写：
 
 ```text
 # 中转节点|目标节点|链路任务名
 RelayNode|TargetNode|Relay-Target
-RelayNode|TargetB|Relay-TargetB
-RelayTwo|TargetC|RelayTwo-TargetC
 ```
 
-规则行为：
+Relay 需要三网探测任务和探测目标节点的链路任务。**字段顺序固定为「中转节点｜目标节点｜链路任务」**；使用 v1.0.5 之前的旧规则时，须手动交换前两列。
 
-- v1.0.5 字段顺序固定为 **relay → target → task**：旧格式 `TargetNode|RelayNode|Task`，新格式 `RelayNode|TargetNode|Task`。已有配置需手动交换前两列；不自动迁移、不自动识别旧顺序，也不自动改写后端配置。
+中转结果是两段数据的估算值，**不是目标节点直接测得的端到端延迟**。功能默认关闭；未匹配的节点继续显示直连探测。完整规则见 [Transit 配置说明](docs/transit-rules.md)。
 
-- 三个字段必须都存在，字段之间使用 `|`；前后空格会被 trim。
-- 节点名和任务名精确匹配并区分大小写；同一目标最后一条有效规则覆盖之前的规则。
-- 空行、`#` 开头的注释和 malformed line 会被安全忽略；目标与 Relay 相同的规则无效。
-- 可以配置多个目标和多个 Relay；共享同一 Relay 的目标复用现有 Ping cache 与 request dedupe。
-- 主题只读取任务，不创建任务，也不保存生产 UUID、IP、域名或端口。
+## 流量说明
 
-### How transit estimation works
+v1.0.7 显示 Komari 当前提供的机器累计计数 `net_total_up`、`net_total_down`。配额参考值遵循 `traffic_limit_type`（`up`／`down`／`min`／`max`／`sum`）；首页、列表、节点详情、对比与导出采用相同口径。
 
-Relay 必须保留三网 Ping Task，并额外拥有一个由该 Relay 执行、探测目标的 `LinkTask`。目标节点不需要为了 Transit 再执行一套中国三网任务。
+**机器累计流量不等于本月用量，也不代表服务商账单。** 配额百分比只是累计计数相对于配置限额的参考值，可能不会按月清零；Agent 或网络计数器重置也可能使它变化。准确的月度流量请以服务商后台为准。主题不会修改或清零 Komari 后端的流量数据。
 
-```text
-Estimated RTT = carrier -> relay RTT + relay -> target RTT
-```
+## 开发
 
-两段 RTT **直接相加，relay-target RTT 不除以 2**。例如 `42 ms + 57 ms` 会显示为 `≈99 ms`。
-
-丢包率按成功概率组合，而不是简单相加：
-
-```text
-p_total = 1 - (1 - p1) * (1 - p2)
-```
-
-`1%` 与 `2%` 得到 `2.98%`，UI 显示为约 `3.0%`。历史数据在共同的 20-slot 时间轴上派生；任一段在对应槽位没有数据，结果保持 `null`，不会补成零。派生 volatility 不直接相加，也不会在 Transit Tooltip 中伪造统计意义。
-
-当前数值 Tooltip 只保留必要信息，例如：
-
-```text
-电信 · 中转估算
-经 RelayNode
-42 ms + 57 ms = ≈99 ms
-```
-
-历史格只保留运营商、Transit 标识、时间和估算值，例如：
-
-```text
-电信 · 中转估算
-03:24:53
-≈99 ms
-```
-
-完整链路任务名属于配置与诊断信息，不会重复堆在每一个历史格里。
-
-### Limitations and fallback
-
-- Relay 不存在、名称重复、链路任务不存在、任务无数据或 Relay offline 时显示 `--`，不会无限期伪装旧的实时估算。
-- 某一家运营商缺数据时只影响该行，其他运营商仍可显示。
-- 未登录访问时，Hidden 节点不会作为可解析的 Relay；Relay 必须对该访问者可见，Transit 不会为了匹配规则暴露 Komari Hidden 节点。实现继续使用 `nodes.visibleNodes`。
-- 关闭开关、删除目标规则或目标没有匹配规则后，节点恢复 direct 行为。
-- 估算不等同于端到端体验；反向路由、协议、拥塞和两个采样时刻的差异都可能使估算与真实用户体验不同。
-
-## Installation
-
-这是 Komari 可导入的主题 ZIP，不是普通静态网站部署包，也不需要修改 Komari Server 或 Agent。
-
-1. 从 [Releases](https://github.com/casiuna/Glassmorphism-Enhanced/releases) 选择版本。
-2. 下载 Release 附件中的主题 ZIP，不要使用 GitHub 自动生成的 Source code ZIP。
-3. 在 Komari 后台主题管理中上传并启用。
-4. 根据需要调整主题设置，确认节点、三网、背景和布局正常。
-
-构建产物名为 `komari-theme-Glassmorphism-build-<short-sha>.zip`，顶层固定为：
-
-```text
-komari-theme.json
-preview.png
-dist/
-```
-
-## Compatibility
-
-- 版本唯一来源是 `komari-theme.json.version`；不在 `package.json` 增加顶层 `version`。
-- 内部兼容标识 `short: Glassmorphism` 保持不变，ZIP 命名契约保持不变。
-- Direct 三网任务支持中文名称和既有英文别名：`Unicom` / `CUCC`、`Telecom` / `CTCC` / `ChinaNet` / `CN2`、`Mobile` / `CMCC` / `CMI` / `CMIN2`。
-- **Ping** Metric 数据不可用时继续使用已有 Legacy fallback；Transit 只在 Relay 数据源上派生，不建立第二套后端请求链。月度流量缺数据不使用机器累计 fallback。
-
-## Monthly traffic（v1.0.6 已发布）
-
-v1.0.6 已取消旧 v1.0.3 grandfathering：有效 recurring 节点打开主题即查询当前 UTC 月窗口，月付、年付/季度付费均按月度流量周期，零/null 无限配额也会生成有效月窗口；29/30/31 短月 clamp 保持。单次购买/自定义或无有效续期信息不伪造周期。
-
-月度值来自 `traffic.up/down` 的 SUM 采集桶，按现有 Komari `traffic_limit_type` 的 up/down/min/max/sum 合并；不是服务商账单。缺方向、缺桶、无 count/interval 或不可用时显示 **暂无可靠月度数据/数据不完整/待核对**，不回填 `net_total_*` 或假零，也不显示满额预警。机器累计另行标记；财务按量估算仍保留用户选择的累计口径。
-
-shared/home 批量 metric、5 分钟 refresh、10 分钟 cache 和并发去重保持；不启动 N-node history fanout。单节点 detail history 只显示已采集片段，因为 1.5.x 重构 records 不能证明完整月度覆盖。完整假设、raw/rollup 限制和不写库对账步骤见 [monthly traffic audit](docs/monthly-traffic-reliability.md)。
-
-## Development
-
-环境要求：Node.js `^20.19.0` 或 `>=22.12.0`；项目 `packageManager`、锁文件与 CI 使用 Bun `1.3.14`。
+需要 Node.js `^20.19.0` 或 `>=22.12.0`，以及 Bun 1.3.14。
 
 ```bash
-git clone git@github.com:casiuna/Glassmorphism-Enhanced.git
-cd Glassmorphism-Enhanced
 bun install --frozen-lockfile
 bun run dev
-```
-
-验证与构建：
-
-```bash
-bun run lint
 bun run type-check
 bun run build
-bun run test:visual
-git diff --check
 ```
 
-Playwright 使用确定性 fixture，不连接生产 Komari。修改 Transit 时应同时覆盖 direct、Transit 开关、规则匹配、Relay 可见性、缺数据、历史时间轴、请求去重和移动布局。
+更新记录见 [CHANGELOG](CHANGELOG.md)，发布流程见 [docs/releasing.md](docs/releasing.md)。
 
-## Versioning and Release
+## 来源与许可
 
-本项目从 `v1.0.0` 开始使用独立 SemVer。目前已发布 **1.0.6**，manifest 为 `1.0.6`；[v1.0.6 tag / Release](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.6) 固定在发布提交 `b9f7f4f730a9e8445d261363fe8c070c98bd3001`，历史 v1.0.5 保留：
+基于 [Komari Glassmorphism](https://github.com/sanrokamlan-prog/komari-theme-Glassmorphism)，三网功能参考 [Glassmorphism Three-Network](https://github.com/vlongx/komari-theme-Glassmorphism-three-network)。保留原始作者 Tokinx、上游维护者 sanrokamlan 的署名与历史，其他第三方声明见 [THIRD_PARTY.md](THIRD_PARTY.md)。
 
-- Bugfix：`1.0.1`、`1.0.2`、`1.0.3`……
-- 向后兼容的新功能：`1.1.0`、`1.2.0`……
-- Breaking changes：`2.0.0`。
-
-`release-on-version-bump.yml` 响应本 fork 的 `main` push，不使用 `workflow_dispatch`。只有 `komari-theme.json.version` 相比 push 前确实变更时，才校验 tag、构建、创建 tag 和发布 Release；文档-only 提交正常跳过这些步骤，不移动既有 tag 或重写附件。真正变更版本时，若同名 tag 已指向其他提交，仍会拒绝发布。main 可继续接收文档修复，已发布 v1.0.6 的 tag 和附件仍固定在原发布提交。所有写操作仅限本 fork，upstream 只读。
-
-Upstream 版本只作为来源基线记录，不进入本项目版本号。历史 `v3.3.7-enhanced.1`、`upstream-v1.0.0` 和 `v1.0.0` 均保留。
-
-## Credits & Upstream
-
-Glassmorphism Enhanced 源自 [Komari Glassmorphism](https://github.com/sanrokamlan-prog/komari-theme-Glassmorphism)，保留上游 Git history、MIT License 与来源记录。原始主题作者 **Tokinx**、upstream 维护者 **sanrokamlan** 继续保留 attribution。
-
-其他参考与适配来源见 [THIRD_PARTY.md](THIRD_PARTY.md)，包括 Komari Three-Network 和 Komari Emerald。感谢 Komari、Vue、Vite、Tailwind CSS、reka-ui 及所有贡献者。
-
-## License
-
-本项目使用 [MIT License](LICENSE)。上游与第三方版权和许可声明继续保留。
+本项目采用 [MIT License](LICENSE)。

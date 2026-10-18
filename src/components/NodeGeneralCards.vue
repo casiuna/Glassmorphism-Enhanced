@@ -9,20 +9,23 @@ import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import NodeEarthGlobe from '@/components/NodeEarthGlobe.vue'
 import { CardX } from '@/components/ui/card-x'
 import { DataTooltip } from '@/components/ui/data-tooltip'
-import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
+
 import { UI_CONFIG } from '@/constants/ui'
 import { useAppStore } from '@/stores/app'
 import { useNodesStore } from '@/stores/nodes'
 import * as financeHelper from '@/utils/financeHelper'
 import { formatBytesPerSecondSplit, formatBytesSplit } from '@/utils/helper'
-import { trafficValue } from '@/utils/monthlyTraffic'
+
 import {
   getConnectionCount,
   getExpiryDays,
   getHighLoadMetrics,
   getRealtimeTotalSpeed,
+  getTrafficUsed,
+  getTrafficUsedPercentage,
   isExpiringNode,
   isHighLoadNode,
+  isTrafficWarningNode,
 } from '@/utils/nodeMetricsHelper'
 import { getRegionDisplayName } from '@/utils/regionHelper'
 import { isFreeNode } from '@/utils/tagHelper'
@@ -76,7 +79,7 @@ const excludeFreeNodes = ref(true)
 const financeDetailsOpen = ref(false)
 const currentTime = useNow({ interval: 1000 })
 const summaryNodes = computed(() => props.nodes ?? nodesStore.visibleNodes)
-const monthlyTrafficUsage = useMonthlyTrafficUsage(() => summaryNodes.value)
+
 const summaryTransitionKey = computed(() => props.transitionKey ?? nodesStore.visibleNodes.length)
 const metricSwitchTransitionProps = computed(() => ({
   ...(appStore.disablePageAnimation
@@ -274,19 +277,11 @@ const totalSpeed = computed(() => onlineStats.value.totalSpeed)
 const totalTraffic = computed(() => {
   let up = 0
   let down = 0
-  let unknownCount = 0
   for (const node of summaryNodes.value) {
-    const usage = monthlyTrafficUsage.getUsage(node)
-    const monthlyUp = trafficValue(usage.up)
-    const monthlyDown = trafficValue(usage.down)
-    if (usage.status !== 'ready' || monthlyUp === null || monthlyDown === null) {
-      unknownCount += 1
-      continue
-    }
-    up += monthlyUp
-    down += monthlyDown
+    up += node.net_total_up || 0
+    down += node.net_total_down || 0
   }
-  return { up, down, unknownCount }
+  return { up, down }
 })
 
 const formattedTrafficUp = computed(() => formatBytesSplit(totalTraffic.value.up, appStore.byteDecimals))
@@ -354,24 +349,17 @@ const totalCpuCores = computed(() => summaryNodes.value.reduce((sum, node) => su
 const trafficQuota = computed(() => {
   let used = 0
   let limit = 0
-  let unknownCount = 0
 
   for (const node of summaryNodes.value) {
     if ((node.traffic_limit || 0) <= 0)
       continue
-    const value = monthlyTrafficUsage.getUsage(node).used
-    if (value === null)
-      unknownCount += 1
-    else
-      used += value
+    used += getTrafficUsed(node)
     limit += node.traffic_limit || 0
   }
 
-  return { used, limit, unknownCount }
+  return { used, limit }
 })
 const trafficQuotaPercentage = computed(() => {
-  if (trafficQuota.value.unknownCount > 0)
-    return null
   if (trafficQuota.value.limit <= 0)
     return 0
   return trafficQuota.value.used / trafficQuota.value.limit * 100
@@ -384,10 +372,7 @@ const connectionPeakNode = computed(() => onlineStats.value.connectionPeakNode)
 const offlineNodes = computed(() => summaryNodes.value.filter(node => !node.online))
 const highLoadNodes = computed(() => onlineStats.value.highLoadNodes)
 const expiringNodes = computed(() => summaryNodes.value.filter(node => isExpiringNode(node, appStore.homeExpiringDays)))
-const trafficWarningNodes = computed(() => summaryNodes.value.filter((node) => {
-  const percentage = monthlyTrafficUsage.getUsage(node).percentage
-  return percentage !== null && percentage >= appStore.homeTrafficWarningThreshold
-}))
+const trafficWarningNodes = computed(() => summaryNodes.value.filter(node => isTrafficWarningNode(node, appStore.homeTrafficWarningThreshold)))
 const regionDistribution = computed(() => getKnownDistribution(summaryNodes.value, node => getRegionDisplayName(node.region)))
 const systemDistribution = computed(() => getDistribution(summaryNodes.value, node => node.os))
 const virtualizationDistribution = computed(() => getDistribution(summaryNodes.value, node => node.virtualization))
@@ -483,13 +468,11 @@ function getCardDefinition(key: GeneralCardKey): GeneralMetricCard {
     case 'totalTraffic':
       return {
         key: 'totalTraffic',
-        label: '本月累计',
+        label: '机器累计',
         icon: 'tabler:download',
-        value: totalTraffic.value.unknownCount > 0 ? '待核对' : totalTrafficTooltip.value.value,
-        unit: totalTraffic.value.unknownCount > 0 ? `${totalTraffic.value.unknownCount} 台` : totalTrafficTooltip.value.unit,
-        tooltip: totalTraffic.value.unknownCount > 0
-          ? `${totalTraffic.value.unknownCount} 台月度数据未准备好或不可靠，不以终身累计或部分合计补齐`
-          : `↑ ${formattedTrafficUp.value.value} ${formattedTrafficUp.value.unit}\n↓ ${formattedTrafficDown.value.value} ${formattedTrafficDown.value.unit}\n采集月度用量（非账单）`,
+        value: totalTrafficTooltip.value.value,
+        unit: totalTrafficTooltip.value.unit,
+        tooltip: `↑ ${formattedTrafficUp.value.value} ${formattedTrafficUp.value.unit}\n↓ ${formattedTrafficDown.value.value} ${formattedTrafficDown.value.unit}\n机器累计，非供应商月度用量`,
       }
     case 'uploadSpeed':
       return {
@@ -592,12 +575,12 @@ function getCardDefinition(key: GeneralCardKey): GeneralMetricCard {
     case 'trafficQuota':
       return {
         key: 'trafficQuota',
-        label: '流量配额',
+        label: '累计/配额参考',
         icon: 'tabler:gauge',
-        value: trafficQuotaPercentage.value === null ? '待核对' : trafficQuota.value.limit > 0 ? formatDecimal(trafficQuotaPercentage.value) : '-',
-        unit: trafficQuotaPercentage.value !== null && trafficQuota.value.limit > 0 ? '%' : undefined,
+        value: trafficQuota.value.limit > 0 ? formatDecimal(trafficQuotaPercentage.value) : '-',
+        unit: trafficQuota.value.limit > 0 ? '%' : undefined,
         tooltip: trafficQuota.value.limit > 0
-          ? trafficQuota.value.unknownCount > 0 ? `${trafficQuota.value.unknownCount} 台暂无可靠月度数据/待核对；不以机器累计补齐` : `${formatBytesText(trafficQuota.value.used)} / ${formatBytesText(trafficQuota.value.limit)}（采集月度，非账单）`
+          ? `${formatBytesText(trafficQuota.value.used)} / ${formatBytesText(trafficQuota.value.limit)}（机器累计与配额的参考比值，非供应商月度用量）`
           : '无限流量',
       }
     case 'trafficPeak':
@@ -660,11 +643,11 @@ function getCardDefinition(key: GeneralCardKey): GeneralMetricCard {
     case 'trafficWarnings':
       return {
         key: 'trafficWarnings',
-        label: '流量预警',
+        label: '累计流量参考预警',
         icon: 'tabler:traffic-cone',
         value: formatCount(trafficWarningNodes.value.length),
         unit: '台',
-        tooltip: `${formatNodeNames(trafficWarningNodes.value, node => `${node.name}: ${formatDecimal(monthlyTrafficUsage.getUsage(node).percentage!)}%`)}；${trafficQuota.value.unknownCount} 台月度数据待核对（不纳入阈值预警）`,
+        tooltip: `${formatNodeNames(trafficWarningNodes.value, node => `${node.name}: ${formatDecimal(getTrafficUsedPercentage(node))}%`)}；机器累计与配额的参考比值，非供应商月度用量`,
       }
     case 'connectionPeakNode':
       return {
@@ -843,7 +826,7 @@ onMounted(async () => {
         v-for="(card, index) in visibleCards"
         :key="card.key"
         :data-general-card-key="card.key"
-        :data-monthly-pending-count="card.key === 'totalTraffic' ? totalTraffic.unknownCount : undefined"
+
         hoverable
         :class="[cardClass, getCardPositionClass(index), card.action && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring']"
         content-class="h-full !p-3"

@@ -2,6 +2,16 @@
 
 > 这个文件给 AI 编程代理和二开维护者使用，用来保存任务计划、执行日志、验证结果、风险点和交接信息。它的目标是防止断网、会话丢失、上下文被压缩后无法继续工作。
 
+## 当前快照：v1.0.7 已获发布授权，文档定稿交接
+
+- 固定 Session `20261016_173909_e02c7c`；仅 `/home/hermes/Glassmorphism-Enhanced-v107-rollback`，分支 `fix/v1.0.7-traffic-rollback`，HEAD 仍为基线 `3b00bb93e5c834fb8dd87b8013a52121c2483bfd`。原有源码/测试脏改动及四个月度专用源模块的删除继续保留，不操作其他工作树。
+- UI 已恢复 `net_total_up/down` 机器累计与 Komari up/down/min/max/sum 口径；配额为非本月参考比值，健康速率为实时上下行合计。三网 Ping / Transit、性能修复与历史采集保留，不写库、不清零。
+- 已真实通过 **50 个定向测试**：累计流量 21/21，Transit 20/20、header 5/5、viewport 4/4（后三者共29/29），0 failed / skipped。TypeScript、全项目无修复 ESLint、diff-check 和生产构建 exit 0；Vite 1864 modules，dist 761 files / 12.206 MiB。不是全量像素基线验收。
+- 报告：`test-results/traffic-cumulative-report-stage5b-first.json`、`test-results/stage6-transit-header.json`、`test-results/stage6-node-ping-viewport.json`。本地旧 HEAD 命名 ZIP 7.826 MiB，manifest 1.0.7、CRC 和全部 dist 字节已核验，但不能作为正式发布包。
+- 用户已明确授权“精简 README，然后发布”。本任务只定稿指定7个文档，README 使用发布版徽章、发行文档标记 Released；不重跑50测试，不更改源码/测试/manifest/依赖/workflow，不执行 commit/push/tag/Release 或生产部署。
+- **下一任务执行已授权的提交和 main push**，触发现有 main version-bump Actions；正式构建与附件以 CI 为准，须读回 main、tag、Release 和下载资产进行核验。本步骤没有远端写入成功记录，不可把文档 Released 标记当作 push/Actions 已完成。原27个 dirty 路径完整保留。
+- v1.0.6 tag / 附件仍固定于原发布提交 `b9f7f4f730a9e8445d261363fe8c070c98bd3001`；其他工作树和历史日志不动。以下旧“权威当前状态”及旧任务授权均为历史，不能覆盖上述交接或扩大本轮范围。
+
 ## 权威当前状态：v1.0.6 已发布
 
 - GitHub 已于 2026-10-18 发布 v1.0.6；源提交及 annotated tag peeled 固定为 `b9f7f4f730a9e8445d261363fe8c070c98bd3001`，附件为 `komari-theme-Glassmorphism-build-b9f7f4f.zip`。main 后续文档提交不改变这个发布锚点；旧 v1.0.5 保留。GitHub 发布不等于生产网站已安装。

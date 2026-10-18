@@ -100,7 +100,6 @@ async function createRuntime(kind: 'card' | 'list', supported: boolean) {
     { find: '@vueuse/core', replacement: `${virtual}observer` },
     { find: '@/composables/useNodeCarrierPingSource', replacement: `${virtual}ping` },
     { find: '@/composables/useNodePingDisplay', replacement: `${virtual}ping` },
-    { find: '@/composables/useMonthlyTrafficUsage', replacement: `${virtual}monthly` },
     { find: '@/stores/app', replacement: `${virtual}store` },
     { find: /^@\/components\/ui\/.*/, replacement: `${virtual}ui` },
     { find: '@iconify/vue', replacement: `${virtual}ui` },
@@ -125,8 +124,6 @@ async function createRuntime(kind: 'card' | 'list', supported: boolean) {
           return `export function useNodeCarrierPingSource(node, enabled) { globalThis.__nodeViewportTest.bind(() => node().uuid, enabled); return { carrierDisplays: [], isTransit: false }; }
 export function useNodePingDisplay(uuid, options) { globalThis.__nodeViewportTest.bind(uuid, options.enabled); return { latencyRenderBars: [], lossRenderBars: [] }; }`
         }
-        if (id === `\0${virtual}monthly`)
-          return 'export const useMonthlyTrafficUsage = () => ({ getUsage: () => ({ percentage: null }) });'
         if (id === `\0${virtual}store`)
           return 'export const useAppStore = () => ({ isFavoriteNode: () => false });'
         if (id === `\0${virtual}ui`)

@@ -1,5 +1,7 @@
 # Monthly traffic reliability — published in v1.0.6
 
+> **历史方案，非当前实现：v1.0.7 已撤回本文所述前端月度实现，恢复原版三网主题的机器累计 `net_total_up/down`。** 月度 hook/service、桶完整性判定和月窗口派生查询已移除。配额仅为机器累计与配置限额的参考比值，不是本月账单，也不保证月度清零。本文及下方 “Current status / Current behavior” 均仅记录 v1.0.6 的历史设计与审计，不可用作 v1.0.7 的行为说明或发布证明；没有修改或清空后端数据。现状请看 [README 流量说明](../README.md#流量说明) 和 [v1.0.7 发行说明](release-notes-v1.0.7.md)。
+
 **Current status:** released in [v1.0.6](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.6) on 2026-10-18 at `b9f7f4f730a9e8445d261363fe8c070c98bd3001`. Valid recurring monthly/annual plans include zero/null unlimited quotas; missing or untrusted monthly data remains **待核对**. Provider-bill reconciliation and production calibration are not claimed.
 
 **Historical design/audit baseline (predates publication):** the following original branch/version/review restrictions describe that earlier audit, not the current release status.

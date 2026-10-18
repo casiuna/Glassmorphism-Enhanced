@@ -2,13 +2,19 @@
 
 Repository: https://github.com/casiuna/Glassmorphism-Enhanced
 
-Current published version: **v1.0.6**, published on **2026-10-18** by the main-push release workflow at `b9f7f4f730a9e8445d261363fe8c070c98bd3001`. The annotated tag and [GitHub Release](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.6) remain fixed at that source commit; the attached ZIP is `komari-theme-Glassmorphism-build-b9f7f4f.zip`. Main may advance with documentation-only commits without changing this release. Historical **v1.0.5**, its tag/assets and `release/v1.0.5` remain retained. See the [v1.0.6 release notes](release-notes-v1.0.6.md).
+**Current release: v1.0.7 — Released**, manifest `1.0.7`. The owner has authorized publication after successful local acceptance: cumulative traffic **21/21**, three-network/Transit/header/viewport **29/29**, TypeScript, full no-fix ESLint, diff-check and production build. The build transformed 1864 modules into 761 dist files (12.206 MiB). See [v1.0.7 release notes](release-notes-v1.0.7.md) and the [Release/download entry](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.7).
+
+**Execution handoff:** this documentation finalization does not commit or push. The next task performs the authorized main push, then verifies Actions, the final tag/Release and the downloaded theme ZIP. CI is the authoritative release build; the old-HEAD local validation ZIP must not be uploaded as the final asset. No remote push or publication success is asserted by this handoff.
+
+**Historical scope:** the monthly-window compatibility discussion and v1.0.2/v1.0.3 incident notes below describe v1.0.6 and earlier releases, not v1.0.7. Its frontend monthly implementation has been withdrawn; current traffic semantics are in the [README](../README.md#流量说明). Existing release policies and historical records remain intact.
+
+**Historical v1.0.6** was published on **2026-10-18** at `b9f7f4f730a9e8445d261363fe8c070c98bd3001`. Its annotated tag, [GitHub Release](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.6) and `komari-theme-Glassmorphism-build-b9f7f4f.zip` remain unchanged. Historical v1.0.5 and earlier tags/assets are also retained. See [v1.0.6 notes](release-notes-v1.0.6.md).
 
 All repository changes must target **`casiuna/Glassmorphism-Enhanced`** only. Upstream is read-only: no upstream PRs, pushes, issues, comments or reviews. GitHub publication is separate from installing a theme on a production Komari server; production, databases and provider accounts are not modified by documentation synchronization.
 
 ## Independent version policy
 
-The independent version line began at **1.0.0**, released as Git tag / GitHub Release **v1.0.0**. The current published version is **1.0.6**; v1.0.5 and earlier releases are preserved. `komari-theme.json.version` is the sole source of truth; do not add `package.json.version`.
+The independent version line began at **1.0.0**, released as Git tag / GitHub Release **v1.0.0**. The current release version is **1.0.7**; historical v1.0.6 and earlier releases are preserved. `komari-theme.json.version` is the sole source of truth; do not add `package.json.version`.
 
 - Bugfix: `1.0.1`, `1.0.2`, `1.0.3`, …
 - Compatible feature: `1.1.0`, `1.2.0`, …
@@ -40,6 +46,8 @@ The v1.0.2 production regression was frontend request pressure: the shared month
 The historical v1.0.3 fixed rollout protection is explicitly withdrawn by the owner for this repair: all valid current cycles query immediately. Production and visual builds no longer inject a migration anchor. Existing stateless finance price/rate calculations remain unchanged; the financial metered estimator keeps its separate user-selected machine-counter scope.
 
 ## Review gate
+
+**v1.0.7 acceptance passed and publication is owner-authorized.** All 50 targeted tests and the static/production-build gates above passed. The next execution task commits the reviewed changes and pushes main, after which CI publication and exact remote/asset verification must complete. The final v1.0.7 theme ZIP must identify its own reviewed commit; never publish the old-HEAD validation ZIP, reuse v1.0.6 assets or move its tag. This documentation task performs no Git or production write.
 
 v1.0.6 has passed its release gate and is published at `b9f7f4f730a9e8445d261363fe8c070c98bd3001`, with manifest 1.0.6. Documentation/workflow-only follow-up commits do not bump the manifest, rebuild its package, move its tag or rewrite its Release/assets. A future version requires its own approved version change, validation and collision checks; never reuse a published tag.
 

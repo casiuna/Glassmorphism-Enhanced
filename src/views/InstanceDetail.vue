@@ -10,7 +10,7 @@ import { CardX } from '@/components/ui/card-x'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import { Empty } from '@/components/ui/empty'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useMonthlyTrafficUsage } from '@/composables/useMonthlyTrafficUsage'
+
 import { useNodeProviderMetadata } from '@/composables/useNodeProviderMetadata'
 import { LOAD_RECORD_MAX_COUNT } from '@/constants/load'
 import { loadNodeLoadRecords } from '@/services/history.service'
@@ -20,7 +20,7 @@ import { formatCityNameZh } from '@/utils/cityNameHelper'
 import { getCpuBenchmarkRating, getPassMarkCpuLookupUrl } from '@/utils/cpuBenchmark'
 import * as financeHelper from '@/utils/financeHelper'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatUptimeWithFormat } from '@/utils/helper'
-import { combineMonthlyTraffic, monthlyTrafficLabel, trafficValue } from '@/utils/monthlyTraffic'
+import { getTrafficUsed, getTrafficUsedPercentage } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
 
@@ -42,7 +42,7 @@ const peakNetOut = ref(0)
 const peakNetIn = ref(0)
 const activeDetailSection = ref<'overview' | 'load' | 'ping'>('overview')
 const data = computed(() => nodesStore.visibleNodesByUuid.get(String(route.params.id)))
-const monthlyTrafficUsage = useMonthlyTrafficUsage(() => data.value ? [data.value] : [], { allowHistoryFallback: true })
+
 const detailNodes = computed(() => nodesStore.visibleNodes)
 const detailNodeIndex = computed(() => detailNodes.value.findIndex(node => node.uuid === data.value?.uuid))
 const isFavoriteNode = computed(() => data.value ? appStore.isFavoriteNode(data.value.uuid) : false)
@@ -303,17 +303,14 @@ function splitMeasurement(value: string): { value: string, unit?: string } {
   }
 }
 
-const trafficUsage = computed(() => data.value ? monthlyTrafficUsage.getUsage(data.value) : null)
-const trafficUp = computed(() => trafficUsage.value?.status === 'ready' ? trafficValue(trafficUsage.value.up) : null)
-const trafficDown = computed(() => trafficUsage.value?.status === 'ready' ? trafficValue(trafficUsage.value.down) : null)
-const trafficTotal = computed(() => combineMonthlyTraffic(trafficUp.value, trafficDown.value, 'sum'))
-const trafficUsed = computed(() => trafficUsage.value?.status === 'ready' ? trafficValue(trafficUsage.value.used) : null)
+const trafficUp = computed(() => data.value?.net_total_up ?? 0)
+const trafficDown = computed(() => data.value?.net_total_down ?? 0)
+const trafficTotal = computed(() => trafficUp.value + trafficDown.value)
+const trafficUsed = computed(() => data.value ? getTrafficUsed(data.value) : 0)
 const hasTrafficLimit = computed(() => (data.value?.traffic_limit ?? 0) > 0)
-const trafficUsedPercentage = computed(() => trafficUsed.value === null ? null : trafficValue(trafficUsage.value?.percentage))
+const trafficUsedPercentage = computed(() => data.value ? getTrafficUsedPercentage(data.value) : 0)
 const trafficUsageText = computed(() => {
-  let usedText = monthlyTrafficLabel(trafficUsage.value?.status ?? 'loading')
-  if (trafficUsage.value?.status === 'ready')
-    usedText = trafficUsed.value === null ? '待核对' : formatBytes(trafficUsed.value)
+  const usedText = formatBytes(trafficUsed.value)
   const quota = hasTrafficLimit.value ? formatBytes(data.value?.traffic_limit ?? 0) : '∞（无限流量）'
   return `${usedText} / ${quota}`
 })
@@ -328,7 +325,7 @@ function getDetailMetricCard(key: DetailMetricCardKey): MetricCard {
   const memoryUsage = usagePercentage(node?.ram ?? 0, node?.mem_total ?? 0)
   const swapUsage = usagePercentage(node?.swap ?? 0, node?.swap_total ?? 0)
   const diskUsage = usagePercentage(node?.disk ?? 0, node?.disk_total ?? 0)
-  const nodeTrafficUsed = trafficUsed.value
+
   const nodeTrafficLimit = node?.traffic_limit ?? 0
   const nodeHasTrafficLimit = nodeTrafficLimit > 0
   const nodeTrafficPercentage = trafficUsedPercentage.value
@@ -375,19 +372,19 @@ function getDetailMetricCard(key: DetailMetricCardKey): MetricCard {
       return { key, label: '实时下行', value: speed.value, unit: speed.unit, icon: 'tabler:chevrons-down' }
     }
     case 'totalTraffic': {
-      const traffic = trafficTotal.value === null ? null : splitMeasurement(formatBytes(trafficTotal.value))
-      const up = trafficUp.value === null ? '待核对' : formatBytes(trafficUp.value)
-      const down = trafficDown.value === null ? '待核对' : formatBytes(trafficDown.value)
-      return { key, label: '本月累计', value: traffic?.value ?? '待核对', unit: traffic?.unit, icon: 'tabler:arrows-transfer-up-down', tooltip: `本月上行 ${up} / 本月下行 ${down}（采集月度，非账单）` }
+      const traffic = splitMeasurement(formatBytes(trafficTotal.value))
+      const up = formatBytes(trafficUp.value)
+      const down = formatBytes(trafficDown.value)
+      return { key, label: '机器累计', value: traffic.value, unit: traffic.unit, icon: 'tabler:arrows-transfer-up-down', tooltip: `累计上行 ${up} / 累计下行 ${down}；非供应商月度用量` }
     }
     case 'trafficQuota':
       return {
         key,
-        label: '流量配额',
-        value: nodeTrafficUsed === null ? '待核对' : nodeHasTrafficLimit ? nodeTrafficPercentage === null ? '待核对' : nodeTrafficPercentage.toFixed(1) : '∞',
-        unit: nodeTrafficUsed !== null && nodeHasTrafficLimit && nodeTrafficPercentage !== null ? '%' : undefined,
+        label: '累计/配额参考',
+        value: nodeHasTrafficLimit ? nodeTrafficPercentage.toFixed(1) : '∞',
+        unit: nodeHasTrafficLimit ? '%' : undefined,
         icon: 'tabler:gauge',
-        tooltip: `${trafficUsageText.value}（采集月度，非账单）`,
+        tooltip: `${trafficUsageText.value}（机器累计与配额的参考比值，非供应商月度用量）`,
       }
     default:
       return { key: 'cpuUsage', label: 'CPU 使用率', value: (node?.cpu ?? 0).toFixed(1), unit: '%', icon: 'tabler:cpu' }
@@ -691,8 +688,8 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
           <div class="gap-3 grid grid-cols-2">
             <div class="relative min-w-0 overflow-hidden rounded-sm bg-slate-500/5 p-2">
               <div
-                v-if="hasTrafficLimit && trafficUsedPercentage !== null"
-                data-monthly-progress
+                v-if="hasTrafficLimit"
+                data-machine-progress
                 class="absolute inset-y-0 left-0 rounded-sm pointer-events-none transition-[width,background-color] duration-300 ease-out"
                 :class="trafficProgressClass"
                 :style="trafficProgressStyle"
@@ -700,7 +697,7 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
               <div class="relative flex flex-col gap-1.5">
                 <div class="flex gap-1 items-center text-muted-foreground">
                   <Icon icon="icon-park-outline:transfer-data" :width="14" :height="14" />
-                  <span class="text-xs sm:text-sm">月度流量</span>
+                  <span class="text-xs sm:text-sm">机器累计流量</span>
                   <Badge
                     v-for="proto in ipSupport" :key="proto" variant="outline"
                     class="!text-[10px] rounded text-emerald-600 border-emerald-600/25 px-1 py-0 leading-none"
@@ -709,18 +706,15 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
                   </Badge>
                   <div class="flex-1" />
                   <span class="hidden sm:block text-[11px] font-medium text-foreground/70">
-                    机器累计（非本月）：{{ formatBytes(data?.net_total_up ?? 0) }} / {{ formatBytes(data?.net_total_down ?? 0) }}
+                    累计上行 / 下行：{{ formatBytes(trafficUp) }} / {{ formatBytes(trafficDown) }}
                   </span>
                 </div>
-                <span class="text-xs sm:text-sm break-all" data-monthly-traffic :data-status="trafficUsage?.status">{{ trafficUsageText }}</span>
+                <span class="text-xs sm:text-sm break-all" data-machine-traffic>{{ trafficUsageText }}</span>
                 <div class="flex flex-wrap gap-x-3 text-[10px] text-muted-foreground">
-                  <span data-monthly-direction="up">本月上行 {{ trafficUp === null ? '待核对' : formatBytes(trafficUp) }}</span>
-                  <span data-monthly-direction="down">本月下行 {{ trafficDown === null ? '待核对' : formatBytes(trafficDown) }}</span>
+                  <span data-machine-direction="up">累计上行 {{ formatBytes(trafficUp) }}</span>
+                  <span data-machine-direction="down">累计下行 {{ formatBytes(trafficDown) }}</span>
                 </div>
-                <span v-if="trafficUsage?.status === 'partial'" class="text-[10px] text-muted-foreground">
-                  已采集片段（非完整月度）：上行 {{ trafficUsage.up === null ? '未知' : formatBytes(trafficUsage.up) }} / 下行 {{ trafficUsage.down === null ? '未知' : formatBytes(trafficUsage.down) }}
-                </span>
-                <span class="text-[10px] text-muted-foreground">Komari 配置口径：{{ data.traffic_limit_type }}；采集截至 {{ trafficUsage?.sampledAt ?? '未取得' }}；非服务商账单</span>
+                <span class="text-[10px] text-muted-foreground">Komari 配置口径：{{ data.traffic_limit_type }}；机器累计与配额的参考比值，非供应商月度用量，不代表月度清零</span>
                 <span v-if="hasPeak" class="text-[10px] text-muted-foreground/80 flex items-center gap-2 leading-none">
                   <span>近一天峰值</span>
                   <span class="text-green-600 flex items-center gap-0.5">
