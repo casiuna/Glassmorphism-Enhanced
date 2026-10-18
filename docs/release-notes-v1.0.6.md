@@ -1,6 +1,6 @@
 # Glassmorphism Enhanced v1.0.6 — release notes
 
-Status: owner-approved local candidate on **`casiuna/Glassmorphism-Enhanced:fix/v1.0.6-performance`**. This pass permits one reviewed local commit and commit-matched packaging only. It does not push, merge, create a tag/Release, deploy, or modify production or databases.
+Status: **published on 2026-10-18** by this fork's main-push release workflow at **`b9f7f4f730a9e8445d261363fe8c070c98bd3001`**. The annotated tag and [v1.0.6 Release](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.6) identify that commit. [Download the theme ZIP](https://github.com/casiuna/Glassmorphism-Enhanced/releases/download/v1.0.6/komari-theme-Glassmorphism-build-b9f7f4f.zip). GitHub publication does not imply production installation or database changes.
 
 ## Ping loading and request queue fixes
 
@@ -19,14 +19,14 @@ These changes are covered by deterministic request/cache/component tests. No pro
 - Missing/untrusted dates, non-ready usage or missing directions remain **待核对**, not fabricated zeroes or ready percentages. A genuine ready zero remains zero. Quota usage retains the configured traffic basis.
 - Historical counters and collected data are preserved. Monthly windows derived from node metadata and metric coverage are not official provider-bill reconciliation.
 
-## Reproducible build preparation
+## Reproducible build and published package
 
 - `komari-theme.json.version` is **1.0.6** and remains the sole version source; no `package.json.version` is added.
-- Commit the native `bun.lock` and use **Bun 1.3.14** with `bun install --frozen-lockfile`. The release workflow now uses the same Bun version as the quality/visual workflows and `package.json`.
-- Keep the existing package contract: `komari-theme-Glassmorphism-build-<short-sha>.zip` containing exactly `komari-theme.json`, `preview.png`, and `dist/`. Rebuild after the final local commit; a later authorized main merge requires a new build at that main SHA.
+- The native `bun.lock` is committed and uses **Bun 1.3.14** with `bun install --frozen-lockfile`. The release workflow uses the same Bun version as the quality/visual workflows and `package.json`.
+- The published package is `komari-theme-Glassmorphism-build-b9f7f4f.zip`, containing exactly `komari-theme.json`, `preview.png`, and `dist/`, built at the release commit. The package contract remains `komari-theme-Glassmorphism-build-<short-sha>.zip`. Subsequent documentation-only main commits leave this tag and asset unchanged; future versions require their own commit-matched build.
 
 ## Compatibility and publication boundary
 
 The v1.0.5 Transit rule order remains **relay | target | task**; there is no new rule migration in v1.0.6. Komari Server/Agent, the database schema, history and provider accounts are unchanged. Existing theme configuration and historical releases are not rewritten.
 
-The earlier Chromium 155/155 and unit/component 28/28 checks are historical validation of this candidate's source changes. Current release-preparation installation, static, unit and build results are recorded in `AICACHE.md`; local success is not proof of a published GitHub Release or production deployment.
+Pre-release local source validation passed Chromium 155/155 and unit/component 28/28, TypeScript, ESLint and production build. Frozen-dependency revalidation also passed 28 unit/component tests and 14 focused detail/comparison Chromium cases; preparation records remain in `AICACHE.md`. GitHub publication is now verified separately by the published tag, Release and ZIP. Neither fixture tests nor publication certify a provider bill or a production deployment.

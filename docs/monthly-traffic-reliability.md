@@ -1,4 +1,8 @@
-# Monthly traffic reliability — review-only change
+# Monthly traffic reliability — published in v1.0.6
+
+**Current status:** released in [v1.0.6](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.6) on 2026-10-18 at `b9f7f4f730a9e8445d261363fe8c070c98bd3001`. Valid recurring monthly/annual plans include zero/null unlimited quotas; missing or untrusted monthly data remains **待核对**. Provider-bill reconciliation and production calibration are not claimed.
+
+**Historical design/audit baseline (predates publication):** the following original branch/version/review restrictions describe that earlier audit, not the current release status.
 
 Baseline: published fork v1.0.5, `3bb76d9fd6f86d9fe56845b12922ee75866f2ed3`. Branch: `fix/monthly-traffic-reliability`. Manifest stays **1.0.5**; a future 1.0.6 bump needs owner approval. No PR, merge, main push, tag or Release in this pass. Only `casiuna/Glassmorphism-Enhanced` is writable; no production/DB/VPS/Agent/provider access and no upstream PR #57 access.
 
@@ -63,4 +67,4 @@ Source links use the official Komari repository, e.g. https://github.com/komari-
 2. From user-authorized read-only exports, compare the same **UTC start/end** with per-direction SUM series and bucket/count coverage. Record raw vs rollup resolution, missing buckets, retention and collection start; do not fill gaps or subtract lifetime totals as a repair.
 3. User exports the matching official provider bill/usage window without credentials or unnecessary account details. Check timezone, unit (GB vs GiB), direction rules, included traffic/interface scope and reset time individually.
 4. Keep collected usage, provider-reported usage and any unexplained delta in separate columns. Missing evidence stays unknown/partial. No UPDATE/DELETE/DDL, bulk fixes, hidden settings writes or automatic policy changes.
-5. Before deploying this unreleased theme, the user should test known long-running and newly added nodes, recently offline/reset nodes, each configured direction mode, and an actual renewal boundary. Fixtures are not production or provider validation.
+5. Before deploying v1.0.6 to a live installation, the user should test known long-running and newly added nodes, recently offline/reset nodes, each configured direction mode, and an actual renewal boundary. Fixtures are not production or provider validation.

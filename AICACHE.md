@@ -2,6 +2,13 @@
 
 > 这个文件给 AI 编程代理和二开维护者使用，用来保存任务计划、执行日志、验证结果、风险点和交接信息。它的目标是防止断网、会话丢失、上下文被压缩后无法继续工作。
 
+## 权威当前状态：v1.0.6 已发布
+
+- GitHub 已于 2026-10-18 发布 v1.0.6；源提交及 annotated tag peeled 固定为 `b9f7f4f730a9e8445d261363fe8c070c98bd3001`，附件为 `komari-theme-Glassmorphism-build-b9f7f4f.zip`。main 后续文档提交不改变这个发布锚点；旧 v1.0.5 保留。GitHub 发布不等于生产网站已安装。
+- 本文下方旧“当前任务 / 未发布 / local candidate / 仅本地提交”均是历史快照，不能覆盖上述已发布事实，也不能扩大当前授权。
+- 当前固定 Session `20261016_173909_e02c7c`，在隔离工作树的新分支 `docs/v1.0.6-postrelease-sync` 仅同步指定文档及 release workflow 的 version_changed 门控，审核后普通推送 main；不修改源码、manifest、依赖、测试或 ZIP，不创建/移动 tag、Release 或部署，不访问原校准工作树。
+- 本轮验证与远端读回结果存于 `/home/hermes/.hermes/cache/scratch/v106-postrelease-sync/`；GitHub Release 和附件在操作前已通过官方只读接口确认。本轮不重跑 155 项测试、不构建。
+
 ## 使用规则
 
 - 开始多文件、架构、安全、发布、迁移类任务前，先新增或更新“当前任务”。
@@ -10,7 +17,7 @@
 - 不要写入密钥、token、cookie、服务器密码、私有用户数据。
 - 如果记录过期，直接标注“已完成/已废弃”，不要让后续 AI 误判。
 
-## 当前任务
+## 历史任务与验收快照（以下并非当前发布状态）
 
 ### v1.0.6 — validated local delivery snapshot
 

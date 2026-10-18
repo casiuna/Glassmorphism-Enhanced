@@ -2,10 +2,12 @@
 
 Glassmorphism Enhanced 是一个面向 [Komari Monitor](https://github.com/komari-monitor/komari) 的独立维护主题：用毛玻璃界面、三网质量指标、响应式 NodeCard 和可选的 Transit Carrier Ping，帮助你快速判断节点状态与入口路径。
 
-[![Release](https://img.shields.io/badge/Release-v1.0.5-10b981)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/Release-v1.0.6-10b981)](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.6)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 [下载 Releases](https://github.com/casiuna/Glassmorphism-Enhanced/releases) · [安装](#installation) · [Transit Carrier Ping](#transit-carrier-ping) · [开发](#development)
+
+**v1.0.6 已于 2026-10-18 发布**：[下载主题 ZIP](https://github.com/casiuna/Glassmorphism-Enhanced/releases/download/v1.0.6/komari-theme-Glassmorphism-build-b9f7f4f.zip) · [发行说明](docs/release-notes-v1.0.6.md)。本版修复 Ping 重复加载、取消竞态与请求队列阻塞，并统一首页、卡片、详情和对比面板的月度流量；历史累计保留，无可靠月度数据时明确“待核对”。
 
 ## Preview
 
@@ -134,9 +136,9 @@ dist/
 - Direct 三网任务支持中文名称和既有英文别名：`Unicom` / `CUCC`、`Telecom` / `CTCC` / `ChinaNet` / `CN2`、`Mobile` / `CMCC` / `CMI` / `CMIN2`。
 - **Ping** Metric 数据不可用时继续使用已有 Legacy fallback；Transit 只在 Relay 数据源上派生，不建立第二套后端请求链。月度流量缺数据不使用机器累计 fallback。
 
-## Monthly traffic（当前未发布修复分支）
+## Monthly traffic（v1.0.6 已发布）
 
-`fix/monthly-traffic-reliability` 已取消旧 v1.0.3 grandfathering：有效 recurring 节点打开主题即查询当前 UTC 月窗口，年度/季度付费仍按月度流量周期，29/30/31 短月 clamp 保持。单次购买/自定义或无有效续期信息不伪造周期。
+v1.0.6 已取消旧 v1.0.3 grandfathering：有效 recurring 节点打开主题即查询当前 UTC 月窗口，月付、年付/季度付费均按月度流量周期，零/null 无限配额也会生成有效月窗口；29/30/31 短月 clamp 保持。单次购买/自定义或无有效续期信息不伪造周期。
 
 月度值来自 `traffic.up/down` 的 SUM 采集桶，按现有 Komari `traffic_limit_type` 的 up/down/min/max/sum 合并；不是服务商账单。缺方向、缺桶、无 count/interval 或不可用时显示 **暂无可靠月度数据/数据不完整/待核对**，不回填 `net_total_*` 或假零，也不显示满额预警。机器累计另行标记；财务按量估算仍保留用户选择的累计口径。
 
@@ -144,7 +146,7 @@ shared/home 批量 metric、5 分钟 refresh、10 分钟 cache 和并发去重�
 
 ## Development
 
-环境要求：Node.js `^20.19.0` 或 `>=22.12.0`，Bun `>=1.2.0`。
+环境要求：Node.js `^20.19.0` 或 `>=22.12.0`；项目 `packageManager`、锁文件与 CI 使用 Bun `1.3.14`。
 
 ```bash
 git clone git@github.com:casiuna/Glassmorphism-Enhanced.git
@@ -167,13 +169,13 @@ Playwright 使用确定性 fixture，不连接生产 Komari。修改 Transit 时
 
 ## Versioning and Release
 
-本项目从 `v1.0.0` 开始使用独立 SemVer。已发布基线为 **1.0.5**；当前 `fix/monthly-traffic-reliability` 仅供 review，manifest 暂留 1.0.5，未来 1.0.6 bump 需 owner 另行确认：
+本项目从 `v1.0.0` 开始使用独立 SemVer。目前已发布 **1.0.6**，manifest 为 `1.0.6`；[v1.0.6 tag / Release](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.6) 固定在发布提交 `b9f7f4f730a9e8445d261363fe8c070c98bd3001`，历史 v1.0.5 保留：
 
 - Bugfix：`1.0.1`、`1.0.2`、`1.0.3`……
 - 向后兼容的新功能：`1.1.0`、`1.2.0`……
 - Breaking changes：`2.0.0`。
 
-`release-on-version-bump.yml` 只响应本 fork 的 `main` push，不使用 `workflow_dispatch`。本修复分支未 bump，不能直接合入 main 重发 v1.0.5：现有 tag 指向其他 commit 会让 workflow 失败，不会自动删除或改写 tag。正式发布前需另行确认新版本、验证和授权。本轮不创建 PR、不 merge/push main、不 tag / Release；所有写操作仅限本 fork，upstream 只读。
+`release-on-version-bump.yml` 响应本 fork 的 `main` push，不使用 `workflow_dispatch`。只有 `komari-theme.json.version` 相比 push 前确实变更时，才校验 tag、构建、创建 tag 和发布 Release；文档-only 提交正常跳过这些步骤，不移动既有 tag 或重写附件。真正变更版本时，若同名 tag 已指向其他提交，仍会拒绝发布。main 可继续接收文档修复，已发布 v1.0.6 的 tag 和附件仍固定在原发布提交。所有写操作仅限本 fork，upstream 只读。
 
 Upstream 版本只作为来源基线记录，不进入本项目版本号。历史 `v3.3.7-enhanced.1`、`upstream-v1.0.0` 和 `v1.0.0` 均保留。
 

@@ -1,6 +1,6 @@
 # Transit Carrier Ping rules
 
-Current v1.0.5 format: **relay | target | task** (中转节点 | 目标节点 | 链路任务名).
+Current published **v1.0.6** retains the format introduced in **v1.0.5**: **relay | target | task** (中转节点 | 目标节点 | 链路任务名). There is no new v1.0.6 rule migration; see the [current Release](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.6).
 
 ```text
 RelayNode|TargetNode|Relay-Target
@@ -13,4 +13,4 @@ Old format: `TargetNode|RelayNode|Task`. New format: `RelayNode|TargetNode|Task`
 
 This correction does not change latency/loss calculations, cache/request deduplication, visibility restrictions, Server or Agent. Historical release records retain their original examples; use this document and the current README/manifest help for configuration.
 
-The owner has selected **1.0.5** for this rule-order correction. The manifest is bumped from 1.0.4 to 1.0.5; published 1.0.4 assets remain untouched. This review prepares a candidate only; merge, tag and Release publication are not performed by the agent.
+**Historical v1.0.5 review snapshot (not current release status):** the owner selected **1.0.5** for this rule-order correction, bumping the manifest from 1.0.4 while preserving published 1.0.4 assets. That review prepared a candidate without performing merge, tag or Release publication. The correction has since been published and remains unchanged in v1.0.6.
