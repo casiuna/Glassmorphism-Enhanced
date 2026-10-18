@@ -59,7 +59,7 @@ function formatMachineTotal(node: NodeData): string {
 }
 
 function formatMachineQuota(node: NodeData): string {
-  return `${formatBytes(getTrafficUsed(node))} / ${hasTrafficLimit(node) ? formatBytes(node.traffic_limit) : '∞（无限）'}（机器累计与配额的参考比值，非供应商月度用量）`
+  return `${formatBytes(getTrafficUsed(node))} / ${hasTrafficLimit(node) ? formatBytes(node.traffic_limit) : '∞（无限）'}`
 }
 
 function clampPercentage(value: number): number {
@@ -76,10 +76,10 @@ const compareMetrics = computed<CompareMetric[]>(() => {
     { key: 'memory', label: '内存', value: node => `${formatBytes(node.ram || 0)} / ${formatBytes(node.mem_total || 0)}`, percentage: getMemoryPercentage },
     { key: 'disk', label: '磁盘', value: node => `${formatBytes(node.disk || 0)} / ${formatBytes(node.disk_total || 0)}`, percentage: getDiskPercentage },
     { key: 'network', label: '实时网络', value: node => `↑ ${formatSpeed(node.net_out || 0)}  ↓ ${formatSpeed(node.net_in || 0)}` },
-    { key: 'traffic', label: '机器累计', value: formatMachineTotal },
+    { key: 'traffic', label: '总流量', value: formatMachineTotal },
     {
       key: 'trafficQuota',
-      label: '累计/配额参考',
+      label: '流量配额',
       value: formatMachineQuota,
       percentage: node => hasTrafficLimit(node) ? getTrafficUsedPercentage(node) : null,
     },

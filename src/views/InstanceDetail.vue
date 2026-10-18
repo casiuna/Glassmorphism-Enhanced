@@ -375,16 +375,16 @@ function getDetailMetricCard(key: DetailMetricCardKey): MetricCard {
       const traffic = splitMeasurement(formatBytes(trafficTotal.value))
       const up = formatBytes(trafficUp.value)
       const down = formatBytes(trafficDown.value)
-      return { key, label: '机器累计', value: traffic.value, unit: traffic.unit, icon: 'tabler:arrows-transfer-up-down', tooltip: `累计上行 ${up} / 累计下行 ${down}；非供应商月度用量` }
+      return { key, label: '总流量', value: traffic.value, unit: traffic.unit, icon: 'tabler:arrows-transfer-up-down', tooltip: `↑ ${up} / ↓ ${down}` }
     }
     case 'trafficQuota':
       return {
         key,
-        label: '累计/配额参考',
+        label: '流量配额',
         value: nodeHasTrafficLimit ? nodeTrafficPercentage.toFixed(1) : '∞',
         unit: nodeHasTrafficLimit ? '%' : undefined,
         icon: 'tabler:gauge',
-        tooltip: `${trafficUsageText.value}（机器累计与配额的参考比值，非供应商月度用量）`,
+        tooltip: `${trafficUsageText.value}`,
       }
     default:
       return { key: 'cpuUsage', label: 'CPU 使用率', value: (node?.cpu ?? 0).toFixed(1), unit: '%', icon: 'tabler:cpu' }
@@ -697,7 +697,7 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
               <div class="relative flex flex-col gap-1.5">
                 <div class="flex gap-1 items-center text-muted-foreground">
                   <Icon icon="icon-park-outline:transfer-data" :width="14" :height="14" />
-                  <span class="text-xs sm:text-sm">机器累计流量</span>
+                  <span class="text-xs sm:text-sm">总流量</span>
                   <Badge
                     v-for="proto in ipSupport" :key="proto" variant="outline"
                     class="!text-[10px] rounded text-emerald-600 border-emerald-600/25 px-1 py-0 leading-none"
@@ -706,15 +706,14 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
                   </Badge>
                   <div class="flex-1" />
                   <span class="hidden sm:block text-[11px] font-medium text-foreground/70">
-                    累计上行 / 下行：{{ formatBytes(trafficUp) }} / {{ formatBytes(trafficDown) }}
+                    上行 / 下行：{{ formatBytes(trafficUp) }} / {{ formatBytes(trafficDown) }}
                   </span>
                 </div>
                 <span class="text-xs sm:text-sm break-all" data-machine-traffic>{{ trafficUsageText }}</span>
                 <div class="flex flex-wrap gap-x-3 text-[10px] text-muted-foreground">
-                  <span data-machine-direction="up">累计上行 {{ formatBytes(trafficUp) }}</span>
-                  <span data-machine-direction="down">累计下行 {{ formatBytes(trafficDown) }}</span>
+                  <span data-machine-direction="up">上行 {{ formatBytes(trafficUp) }}</span>
+                  <span data-machine-direction="down">下行 {{ formatBytes(trafficDown) }}</span>
                 </div>
-                <span class="text-[10px] text-muted-foreground">Komari 配置口径：{{ data.traffic_limit_type }}；机器累计与配额的参考比值，非供应商月度用量，不代表月度清零</span>
                 <span v-if="hasPeak" class="text-[10px] text-muted-foreground/80 flex items-center gap-2 leading-none">
                   <span>近一天峰值</span>
                   <span class="text-green-600 flex items-center gap-0.5">

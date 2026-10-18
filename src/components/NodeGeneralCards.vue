@@ -468,11 +468,11 @@ function getCardDefinition(key: GeneralCardKey): GeneralMetricCard {
     case 'totalTraffic':
       return {
         key: 'totalTraffic',
-        label: '机器累计',
+        label: '总流量',
         icon: 'tabler:download',
         value: totalTrafficTooltip.value.value,
         unit: totalTrafficTooltip.value.unit,
-        tooltip: `↑ ${formattedTrafficUp.value.value} ${formattedTrafficUp.value.unit}\n↓ ${formattedTrafficDown.value.value} ${formattedTrafficDown.value.unit}\n机器累计，非供应商月度用量`,
+        tooltip: `↑ ${formattedTrafficUp.value.value} ${formattedTrafficUp.value.unit}\n↓ ${formattedTrafficDown.value.value} ${formattedTrafficDown.value.unit}`,
       }
     case 'uploadSpeed':
       return {
@@ -575,12 +575,12 @@ function getCardDefinition(key: GeneralCardKey): GeneralMetricCard {
     case 'trafficQuota':
       return {
         key: 'trafficQuota',
-        label: '累计/配额参考',
+        label: '流量配额',
         icon: 'tabler:gauge',
         value: trafficQuota.value.limit > 0 ? formatDecimal(trafficQuotaPercentage.value) : '-',
         unit: trafficQuota.value.limit > 0 ? '%' : undefined,
         tooltip: trafficQuota.value.limit > 0
-          ? `${formatBytesText(trafficQuota.value.used)} / ${formatBytesText(trafficQuota.value.limit)}（机器累计与配额的参考比值，非供应商月度用量）`
+          ? `${formatBytesText(trafficQuota.value.used)} / ${formatBytesText(trafficQuota.value.limit)}`
           : '无限流量',
       }
     case 'trafficPeak':
@@ -643,11 +643,11 @@ function getCardDefinition(key: GeneralCardKey): GeneralMetricCard {
     case 'trafficWarnings':
       return {
         key: 'trafficWarnings',
-        label: '累计流量参考预警',
+        label: '流量预警',
         icon: 'tabler:traffic-cone',
         value: formatCount(trafficWarningNodes.value.length),
         unit: '台',
-        tooltip: `${formatNodeNames(trafficWarningNodes.value, node => `${node.name}: ${formatDecimal(getTrafficUsedPercentage(node))}%`)}；机器累计与配额的参考比值，非供应商月度用量`,
+        tooltip: `${formatNodeNames(trafficWarningNodes.value, node => `${node.name}: ${formatDecimal(getTrafficUsedPercentage(node))}%`)}`,
       }
     case 'connectionPeakNode':
       return {

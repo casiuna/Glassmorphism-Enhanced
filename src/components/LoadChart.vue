@@ -786,8 +786,8 @@ function gpuDeviceEntries(): Array<{ index: number, name: string }> {
 }
 
 const trafficChartSeries = computed<MetricChartSeriesData[]>(() => [
-  recordMetricSeries('累计下载', chartColors.quinary, 'bytes', record => record.net_total_down),
-  recordMetricSeries('累计上传', chartColors.quaternary, 'bytes', record => record.net_total_up),
+  recordMetricSeries('下载流量', chartColors.quinary, 'bytes', record => record.net_total_down),
+  recordMetricSeries('上传流量', chartColors.quaternary, 'bytes', record => record.net_total_up),
   recordMetricSeries('周期下载', chartColors.tertiary, 'bytes', record => record.traffic_down, true),
   recordMetricSeries('周期上传', chartColors.secondary, 'bytes', record => record.traffic_up, true),
 ].filter(seriesHasData))
@@ -1729,7 +1729,7 @@ onMounted(() => {
 
         <MetricSeriesChartCard
           v-if="isChartCardEnabled('traffic')"
-          title="累计与周期流量"
+          title="流量记录"
           icon="tabler:arrows-transfer-up-down"
           tone="sky"
           :series="trafficChartSeries"

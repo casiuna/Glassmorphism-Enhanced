@@ -2,6 +2,11 @@
 
 All notable Glassmorphism Enhanced changes are documented here. Upstream history remains in the upstream repository and preserved Git history.
 
+## 1.0.8 — Unreleased
+
+- Restore the original three-network theme's simple traffic labels and shorten the README traffic description; remove added explanatory tooltips and direction prefixes.
+- Text-only hotfix: traffic calculations, numeric values, Ping/Transit, caches, test selectors and JSON export schema remain unchanged.
+
 ## 1.0.7 — Released
 
 - Restore the original three-network theme's machine-cumulative traffic display from current `net_total_up` / `net_total_down` snapshots. Quota-related values follow Komari `traffic_limit_type` (`up`, `down`, `min`, `max`, `sum`); bidirectional totals remain upload plus download.

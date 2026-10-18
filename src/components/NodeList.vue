@@ -71,7 +71,7 @@ const baseColumns: ColumnConfig[] = [
   { key: 'cpu', label: 'CPU', width: '100px', sortable: false },
   { key: 'mem', label: '内存', width: '100px', sortable: false },
   { key: 'disk', label: '硬盘', width: '100px', sortable: false },
-  { key: 'traffic', label: '累计流量', width: '104px', sortable: false },
+  { key: 'traffic', label: '流量', width: '104px', sortable: false },
   { key: 'rate', label: '速率', width: '88px', sortable: true },
 ]
 
@@ -562,7 +562,7 @@ function buildNodeMetadataItems(node: NodeData): NodeMetadataItem[] {
                 <div
                   v-else-if="col.key === 'traffic'"
                   class="group min-w-0"
-                  :title="`机器累计：↑ ${formatBytes(node.net_total_up ?? 0)}\n↓ ${formatBytes(node.net_total_down ?? 0)}；按 Komari ${node.traffic_limit_type}；与配额仅为参考比值，非供应商月度用量`"
+                  :title="`↑ ${formatBytes(node.net_total_up ?? 0)}\n↓ ${formatBytes(node.net_total_down ?? 0)}`"
                   data-machine-traffic
                 >
                   <div class="space-y-1 w-full">

@@ -232,11 +232,11 @@ const csvColumns: CsvColumn[] = [
   { label: '硬盘使用', value: row => formatBytes(row.diskUsedBytes) },
   { label: '硬盘总量', value: row => formatBytes(row.diskTotalBytes) },
   { label: '硬盘使用率', value: row => formatPercent(getPercent(row.diskUsedBytes, row.diskTotalBytes)) },
-  { label: '机器累计流量（非月度账单）', value: row => formatBytes(row.trafficUsedBytes) },
+  { label: '流量', value: row => formatBytes(row.trafficUsedBytes) },
   { label: '流量数据口径', value: row => row.trafficDataStatus },
   { label: 'Komari 配置流量口径', value: row => row.trafficBasis },
   { label: '流量限额', value: row => formatLimit(row.trafficLimitBytes) },
-  { label: '机器累计/配额参考比值（非本月）', value: row => row.trafficUsedPercent !== null ? formatPercent(row.trafficUsedPercent) : '无限制' },
+  { label: '流量配额', value: row => row.trafficUsedPercent !== null ? formatPercent(row.trafficUsedPercent) : '无限制' },
   { label: '实时上行', value: row => formatSpeed(row.netOutBytesPerSecond) },
   { label: '实时下行', value: row => formatSpeed(row.netInBytesPerSecond) },
   { label: '运行时间', value: row => formatUptime(row.uptimeSeconds) },
@@ -562,7 +562,7 @@ async function exportCsv(): Promise<void> {
               {{ row.cpuCores }} 核 · {{ formatBytes(row.memoryTotalBytes) }} · {{ formatBytes(row.diskTotalBytes) }}
             </td>
             <td class="px-2 py-3 text-xs text-muted-foreground">
-              CPU {{ formatPercent(row.cpuUsage) }} · 累计/配额参考（非本月） {{ row.trafficUsedPercent !== null ? formatPercent(row.trafficUsedPercent) : '无限制' }}
+              CPU {{ formatPercent(row.cpuUsage) }} · 流量配额 {{ row.trafficUsedPercent !== null ? formatPercent(row.trafficUsedPercent) : '无限制' }}
             </td>
             <td class="px-2 py-3 tabular-nums">
               {{ formatMonthlyCost(row) }}

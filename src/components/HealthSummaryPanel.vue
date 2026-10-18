@@ -367,7 +367,7 @@ const riskRankNodes = computed<NodeRiskSummary[]>(() => summaries.value.map((nod
   const trafficRisk = node.trafficUsedPercentage === null ? 0 : thresholdRisk(node.trafficUsedPercentage, trafficThreshold, 15)
   if (node.trafficUsedPercentage !== null && trafficRisk > 0) {
     score += trafficRisk
-    reasons.push(`机器累计/配额参考（非本月） ${node.trafficUsedPercentage.toFixed(0)}%`)
+    reasons.push(`流量配额 ${node.trafficUsedPercentage.toFixed(0)}%`)
   }
   if (node.avgLoss >= 5) {
     score += Math.min(15, node.avgLoss * 0.75)
@@ -404,7 +404,7 @@ const summaryLines = computed(() => {
   if (diskFullSoon.value.length)
     lines.push(`${diskFullSoon.value[0]?.name} 磁盘风险最高，预计 ${Math.ceil(diskFullSoon.value[0]?.diskPredictionDays ?? 0)} 天后满。`)
   if (trafficWarnings.value.length)
-    lines.push(`${trafficWarnings.value[0]?.name} 机器累计/配额参考（非本月）最高：${trafficWarnings.value[0]?.trafficUsedPercentage?.toFixed(1)}%。`)
+    lines.push(`${trafficWarnings.value[0]?.name} 流量配额最高：${trafficWarnings.value[0]?.trafficUsedPercentage?.toFixed(1)}%。`)
   if (pingWarnings.value.length)
     lines.push(`${pingWarnings.value[0]?.name} 网络质量异常：平均丢包 ${pingWarnings.value[0]?.avgLoss.toFixed(1)}%，平均延迟 ${Math.round(pingWarnings.value[0]?.avgLatency ?? 0)}ms。`)
   if (lines.length === 1)
@@ -530,7 +530,7 @@ const summaryLines = computed(() => {
             </div>
           </CardX>
 
-          <CardX title="机器累计/配额参考（非本月）" size="small" class="border-none bg-background/50">
+          <CardX title="流量预警" size="small" class="border-none bg-background/50">
             <div v-if="trafficWarnings.length" class="space-y-1 text-sm">
               <div v-for="item in trafficWarnings.slice(0, HEALTH_LIST_LIMIT)" :key="item.uuid" class="flex justify-between gap-2">
                 <span class="truncate">{{ item.name }}</span>
@@ -538,7 +538,7 @@ const summaryLines = computed(() => {
               </div>
             </div>
             <div v-else class="text-sm text-muted-foreground">
-              暂无累计流量参考预警
+              暂无流量预警
             </div>
           </CardX>
 
