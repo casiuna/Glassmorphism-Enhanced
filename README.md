@@ -2,7 +2,7 @@
 
 基于 [Komari](https://github.com/komari-monitor/komari) 的第三方监控主题。保留毛玻璃设计，重点展示节点状态、流量和中国联通／电信／移动三网延迟。
 
-[![Release](https://img.shields.io/badge/Release-v1.1.0-10b981)](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.1.0)
+[![Release](https://img.shields.io/badge/Release-v1.1.1-10b981)](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.1.1)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
 已完成独立 Komari 1.6.0 / 1.5.1 兼容性回归；[测试范围与限制](docs/komari-1.6.0-compatibility.md) · [迁移与回退](docs/migration-v1.1.0.md)。
@@ -20,7 +20,7 @@
 
 ## 安装
 
-1. 打开 [Releases](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.1.0)，下载 **主题 ZIP 附件**（`komari-theme-Glassmorphism-build-*.zip`），不要下载 GitHub 自动生成的 Source code ZIP。
+1. 打开 [Releases](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.1.1)，下载 **主题 ZIP 附件**（`komari-theme-Glassmorphism-build-*.zip`），不要下载 GitHub 自动生成的 Source code ZIP。
 2. 在 Komari 后台的主题管理中上传、启用。
 3. 按需调整三网任务、主题外观和中转规则。
 

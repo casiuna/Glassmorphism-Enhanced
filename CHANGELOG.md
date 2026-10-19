@@ -2,6 +2,11 @@
 
 All notable Glassmorphism Enhanced changes are documented here. Upstream history remains in the upstream repository and preserved Git history.
 
+## 1.1.1 — Preview hotfix
+
+- Package the final preview image already uploaded to main as the theme ZIP's root `preview.png`, so installed market previews match the README.
+- Update the release version and download links only; theme identity, configuration, application code and build logic remain unchanged. Preserve v1.1.0 and its assets.
+
 ## 1.1.0 — Released
 
 Release notes finalized for v1.1.0. This heading is not proof of remote publication: the authoritative published state requires the verified GitHub Actions run, tag target and downloaded Release asset.
