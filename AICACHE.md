@@ -1,5 +1,16 @@
 # AI Cache / Agent Handoff Log
 
+## 当前任务：v1.1.0 / Komari 1.6.0（独立 Session，待审核）
+
+- Session `20261019_060547_b240f6`；独立仓库及 Worktree `/home/hermes/workspaces/komari-110-20261019_060547_b240f6/theme`，分支 `feat/komari-1.6.0`，main 基线 `20109bfab5de1278c94d6344114dfd50f3ecf496`。下方旧 Session、发布授权与路径仅属历史，不扩大本轮权限。
+- 里程碑：M6 兼容性测试/文档，必要的 M3 能力门控及 M4 渲染故障回退分开审查；保持布局、机器累计流量、三网及 Transit。
+- 修改应用前的兼容性分析已记录在 `docs/komari-1.6.0-compatibility.md`，固定官方两个版本、三个上游 Tag 和市场 SHA。
+- 基线 type-check / 非修复 ESLint / build 通过，单元 28/28；浏览器首轮因宿主缺动态库未进入断言，正在任务目录内补依赖，不更新快照掩盖失败。
+- 所有服务仅为本任务新建的 loopback 测试实例。不操作线上、其他 Session、旧主题或共享 Git 元数据；不直接编辑数据库。
+- 本轮以待审核交付为边界；正式发布、main 推送和市场 Issue/PR 在验收及审核后进行，未执行不得标记成功。
+- 后续有限验收已完成：浏览器 81/81、单元 67/67、真实 Komari 1.6.0/1.5.1 集成 16/16；最终 diff-check、全项目非修复 ESLint、type-check、生产 build 均 exit 0。最新 ZIP 解压文件与已测集成包逐字节一致；历史浏览器报告无源码指纹，实体 GPU 未验证。
+- 当前授权仅为文档定稿、精确审核并在开发分支创建一次本地提交，不 push/tag/Release/market。下步须独立复核远端 main 可快进且另获授权，再由干净 CI checkout 构建带正式提交 SHA 的发行包，读回 tag/Release/下载资产验证；本地候选及 CHANGELOG 的 Released 标题不代表远端已发布。
+
 > 这个文件给 AI 编程代理和二开维护者使用，用来保存任务计划、执行日志、验证结果、风险点和交接信息。它的目标是防止断网、会话丢失、上下文被压缩后无法继续工作。
 
 ## 当前快照：v1.0.7 已获发布授权，文档定稿交接

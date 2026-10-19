@@ -434,6 +434,7 @@ export class RpcClient {
   private useWebSocket: boolean
   private ws: WebSocket | null = null
   private pendingRequests: Map<number | string, {
+    method: string
     resolve: (value: unknown) => void
     reject: (reason: unknown) => void
     timer: ReturnType<typeof setTimeout>
@@ -471,7 +472,7 @@ export class RpcClient {
     })
   }
 
-  private parseJsonRpcResponse(raw: unknown): JsonRpcResponse | null {
+  private parseJsonRpcResponse(raw: unknown, method?: string): JsonRpcResponse | null {
     if (!raw || typeof raw !== 'object')
       return null
     const record = raw as Record<string, unknown>
@@ -487,6 +488,10 @@ export class RpcClient {
     }
     if ('result' in record)
       return record as unknown as JsonRpcResponse
+    // Official Komari 1.5.1/1.6.0 omit `result` for this void settings ACK.
+    // Keep data-bearing methods strict; never turn a missing payload into data.
+    if (method === 'admin:editSettings' && record.id !== null)
+      return record as unknown as JsonRpcSuccessResponse<void>
     return null
   }
 
@@ -523,7 +528,7 @@ export class RpcClient {
         throw new RpcError(response.status, `HTTP error: ${response.status}`)
       }
 
-      const data = this.parseJsonRpcResponse(await response.json()) as JsonRpcResponse<T> | null
+      const data = this.parseJsonRpcResponse(await response.json(), method) as JsonRpcResponse<T> | null
       if (!data)
         throw new RpcError(-32603, 'Invalid JSON-RPC response')
       return this.handleResponse(data)
@@ -601,13 +606,21 @@ export class RpcClient {
 
       this.ws.onmessage = (event) => {
         try {
-          const data = this.parseJsonRpcResponse(JSON.parse(event.data))
-          if (!data || data.id === null)
+          const raw: unknown = JSON.parse(event.data)
+          if (!raw || typeof raw !== 'object')
             return
-          const pending = this.pendingRequests.get(data.id)
+          const id = (raw as Record<string, unknown>).id
+          if (typeof id !== 'number' && typeof id !== 'string')
+            return
+          const pending = this.pendingRequests.get(id)
           if (pending) {
+            const data = this.parseJsonRpcResponse(raw, pending.method)
+            if (!data) {
+              pending.reject(new RpcError(-32603, 'Invalid JSON-RPC response'))
+              return
+            }
             clearTimeout(pending.timer)
-            this.pendingRequests.delete(data.id)
+            this.pendingRequests.delete(id)
             try {
               pending.resolve(this.handleResponse(data))
             }
@@ -683,6 +696,7 @@ export class RpcClient {
         signal.addEventListener('abort', abort, { once: true })
 
       this.pendingRequests.set(id, {
+        method,
         resolve: (value) => {
           if (cleanup())
             resolve(value as T)

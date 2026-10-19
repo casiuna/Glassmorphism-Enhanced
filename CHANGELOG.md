@@ -2,7 +2,19 @@
 
 All notable Glassmorphism Enhanced changes are documented here. Upstream history remains in the upstream repository and preserved Git history.
 
-## 1.0.8 — Unreleased
+## 1.1.0 — Released
+
+Release notes finalized for v1.1.0. This heading is not proof of remote publication: the authoritative published state requires the verified GitHub Actions run, tag target and downloaded Release asset.
+
+- Prepare the independent `Enhanced` theme identity; retain the existing ZIP naming contract and document explicit configuration copy, coexistence and rollback without SQL changes or deleting the old installation.
+- Correct the visitor-audit messaging for Komari 1.6.0's removed capability. Keep capability-gated legacy 1.5.1 behavior and ordinary administrator audit logs.
+- Fix successful `admin:editSettings` acknowledgements that omit `result` on both official backends. Accept this only for the known void method; keep query payload, protocol and permission-error validation strict in HTTP and WebSocket.
+- Selectively adapt the MIT upstream renderer capability check so missing WebGL falls back to the existing tiled map. Preserve normal layout, raw Ping data, task order, three-carrier/Transit calculations and machine-cumulative traffic semantics.
+- Document the existing thirteen-currency financial features, including SGD, online rates, cache and manual overrides; do not rewrite the exchange-rate algorithm.
+- Add isolated real-backend integration tooling and regressions for void ACKs, audit capability gates, thirteen currencies, IPv6/provider caching and WebGL fallback. Formal Release and market submission remain approval-gated; local verification is not a GitHub Actions result.
+- Verified locally: browser **81/81**, unit/component **67/67**, and real Komari 1.6.0/1.5.1 integration **16/16**; diff-check, full no-fix ESLint, TypeScript and production build passed. Physical GPU telemetry was not tested; no blanket hardware compatibility is claimed.
+
+## 1.0.8 — Released
 
 - Restore the original three-network theme's simple traffic labels and shorten the README traffic description; remove added explanatory tooltips and direction prefixes.
 - Text-only hotfix: traffic calculations, numeric values, Ping/Transit, caches, test selectors and JSON export schema remain unchanged.

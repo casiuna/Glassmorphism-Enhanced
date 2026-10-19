@@ -2,6 +2,7 @@
 import type { NodeData } from '@/stores/nodes'
 import { computed, defineAsyncComponent, useAttrs } from 'vue'
 import { useAppStore } from '@/stores/app'
+import { supportsGlobeRenderer } from '@/utils/globeCapability'
 
 const props = defineProps<{
   nodes?: NodeData[]
@@ -20,7 +21,12 @@ const earthComponent = computed(() => {
     cobe: NodeEarthCobeGlobe,
     tiled: NodeEarthTiledMap,
   }
-  return components[appStore.earthRenderer] ?? NodeEarthRealisticGlobe
+  const renderer = appStore.earthRenderer
+  // Keep the selected preference; only fall back for an unavailable WebGL API.
+  // Do not swallow unrelated rendering errors to make the map appear healthy.
+  if (renderer !== 'tiled' && !supportsGlobeRenderer(renderer))
+    return NodeEarthTiledMap
+  return components[renderer] ?? NodeEarthRealisticGlobe
 })
 </script>
 

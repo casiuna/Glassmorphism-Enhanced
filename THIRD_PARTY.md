@@ -12,6 +12,8 @@ Glassmorphism Enhanced is an enhanced fork, not a clean-room or wholly original 
 
 The complete upstream history, copyright notice, and MIT license remain in this repository. Glassmorphism v3.3.7 (`bf8376587c720de915ac48789a8a180357c762d6`) is the release baseline for v3.3.7-enhanced.1.
 
+For v1.1.0, the small `globeCapability.ts` check is selectively adapted from upstream v3.4.2 (`69878cb95cfa43a2573cf1d9916ea62daf3c93c5`, MIT), which credits pwremilk for detecting the renderer's actual WebGL version. The new wrapper uses the existing tiled renderer when that API is unavailable; no wholesale upstream merge or chart algorithm replacement is included.
+
 ## Three-Network Fork
 
 - Project: <https://github.com/vlongx/komari-theme-Glassmorphism-three-network>
