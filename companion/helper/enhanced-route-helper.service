@@ -1,0 +1,24 @@
+[Unit]
+Description=Enhanced fixed-target return-route helper (opt-in)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=enhanced-route
+Group=enhanced-route
+ExecStart=/usr/bin/python3 /opt/enhanced-route-helper/current/enhanced_route_helper.py --config /etc/enhanced-route-helper/helper.json
+Restart=on-failure
+RestartSec=30
+UMask=0077
+NoNewPrivileges=true
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=64M
+TasksMax=16
+
+[Install]
+WantedBy=multi-user.target

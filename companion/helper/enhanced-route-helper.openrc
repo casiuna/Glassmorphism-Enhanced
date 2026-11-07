@@ -1,0 +1,15 @@
+#!/sbin/openrc-run
+# Optional template; OpenRC runtime must be verified on the target test OS.
+name="Enhanced return-route helper"
+supervisor="supervise-daemon"
+command="/usr/bin/python3"
+command_args="/opt/enhanced-route-helper/current/enhanced_route_helper.py --config /etc/enhanced-route-helper/helper.json"
+command_user="enhanced-route:enhanced-route"
+respawn_delay=30
+respawn_max=5
+output_logger="logger -t enhanced-route-helper"
+error_logger="logger -t enhanced-route-helper"
+
+depend() {
+    need net
+}

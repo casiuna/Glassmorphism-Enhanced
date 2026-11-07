@@ -5,7 +5,8 @@ All notable Glassmorphism Enhanced changes are documented here. Upstream history
 ## Unreleased — node labels and return-route display
 
 - Move normal node tags to the header metadata row's right-hand pill area, with shared visibility and internal-tag filtering; retain raw tags and upstream topology metadata.
-- Add opt-in UUID-keyed manual return-route settings, strict versioned serialization/migration and TTL-aware automatic evidence display, separate from Ping/Transit RTT and user tags. Automatic collection is not connected or validated; no probe is started by the theme.
+- Add opt-in UUID-keyed manual return-route settings, strict versioned serialization/migration and TTL-aware automatic evidence display, separate from Ping/Transit RTT and user tags. No probe is executed in the browser.
+- Add separate opt-in route-only companion plugin and unprivileged fixed-argv Python helper, authenticated by native Komari 1.6.0 sessions/Agent identities. Validate real local plugin/theme installation, fixture collection, result consumption, manual overrides, persistence and uninstall. Automatic results are administrator-only; real network tracing and OS service-manager runtime remain untested.
 - Selectively reference MIT Transit route vocabulary with full packaged license; preserve current traffic, resource, finance/SGD, Ping and Relay behavior. No production installation or release is part of this development.
 
 ## 1.1.1 — Preview hotfix

@@ -3,8 +3,8 @@ import { useNodeReturnRoutes } from '@/composables/useNodeReturnRoutes'
 import { RETURN_CARRIER_NAMES } from '@/utils/returnRouteClassification'
 
 const props = defineProps<{ uuid: string }>()
-const { entries, visible, configError } = useNodeReturnRoutes(() => props.uuid)
-const sourceNames = { manual: '手动', auto: '自动' }
+const { entries, visible, configError, companionStatus } = useNodeReturnRoutes(() => props.uuid)
+const sourceNames = { manual: '手动', auto: '自动', fixture: '模拟' }
 </script>
 
 <template>
@@ -12,6 +12,9 @@ const sourceNames = { manual: '手动', auto: '自动' }
     <div class="text-[10px] text-muted-foreground">
       回程线路 · 节点 → 国内三网
     </div>
+    <p v-if="companionStatus" data-companion-status class="text-[9px] text-muted-foreground">
+      {{ companionStatus }}
+    </p>
     <p v-if="configError" role="status" class="text-[10px] text-warning">
       回程配置无效，请管理员检查主题设置。
     </p>

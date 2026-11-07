@@ -1,0 +1,3 @@
+traceroute to fixed unicom target, deterministic local fixture (NOT A LIVE TRACE)
+ 1  192.0.2.2 [AS9929]  1.0 ms
+ 2  202.106.195.68 [AS9929]  2.0 ms

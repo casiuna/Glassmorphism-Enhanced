@@ -1,0 +1,3 @@
+traceroute to fixed telecom target, deterministic local fixture (NOT A LIVE TRACE)
+ 1  192.0.2.1 [AS4134]  1.0 ms
+ 2  219.141.140.10 [AS4134]  2.0 ms

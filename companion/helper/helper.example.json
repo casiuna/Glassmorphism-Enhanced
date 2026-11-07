@@ -1,0 +1,7 @@
+{
+  "panel": "https://komari-test.example.invalid",
+  "uuid": "00000000-0000-4000-8000-000000000001",
+  "tokenFile": "/etc/enhanced-route-helper/agent-token",
+  "enabled": false,
+  "allowLoopback": false
+}

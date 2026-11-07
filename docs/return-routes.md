@@ -1,5 +1,7 @@
 # 节点标签与回程线路（本地开发，未发布）
 
+> 独立插件/助手候选见 [本地试用说明](companion-trial.md)。真实 Komari 1.6.0 的插件/主题上传、鉴权、fixture 回传与浏览器消费已验证；真实网络 traceroute 仍未运行、未验证。
+
 ## 节点头部自定义标签
 
 Komari 后台「节点 → 编辑信息 → 标签」的普通标签显示在卡片第二行右侧，与在线时长/价格分区并自动换行；底部不再重复。沿用现有分号分隔及 `标签<颜色>` 解析格式，不修改原始 tags。`customTagsVisible=false` 隐藏卡片/详情/列表普通标签；列表还遵从原 `nodeListCustomTagsVisible`。`upstream/parent/上游/父节点` 和 `route/return-route/transit-route/enhanced-route` 元数据不作为普通 pill 显示，但原始数据和拓扑解析仍保留。
@@ -33,7 +35,7 @@ Komari 后台「节点 → 编辑信息 → 标签」的普通标签显示在卡
 
 ## 自动结果消费（已实现，不等于采集）
 
-**本轮没有自动检测按钮、Shell、远程 exec、后台探测任务、插件安装器或实际采集。** 开关「消费已采集的自动结果」默认关闭，打开也只消费上述 JSON 中已有 `auto` 数据，不会发网络请求。格式：
+浏览器没有 Shell、远程 exec 或 traceroute 执行能力。开关「消费已采集的自动结果」默认关闭；若不开伴生连接，只消费上述 JSON 中已有 `auto` 数据。独立助手/插件必须另行安装并按 UUID 明确启用，管理员主题才会经鉴权读取结果；访客不请求自动 API。导入格式：
 
 ```json
 {
@@ -53,17 +55,17 @@ Komari 后台「节点 → 编辑信息 → 标签」的普通标签显示在卡
 
 分类参考 Transit 的三网 ASN 词汇：163 / CN2 / CTGNET，4837 / 9929 / 10099，CMNET / CMI / CMIN2。与上游不同，本实现**不以 AS4809 单一 ASN，甚至两个响应跳直接认证 GIA**：只保留 GIA 候选、GT 候选或混合/未知。它不是运营商商业产品证明。旧有 Ping 的 RTT/丢包与此区域完全独立，Transit Relay 的两段 RTT 估算也不作为路由依据。
 
-## 采集端剩余工作与 1.6.0 边界
+## 独立采集端与 1.6.0 边界
 
 参考源：`yyy622hhh/komari-theme-transit@ee9f31c5ff104e033ded858171ce0b63c672e878`，MIT。仅参考/改编分类词汇和固定目标，不整体合并主题，不复制官方后台。完整 MIT notice 随主题包位于 `dist/licenses/transit-MIT.txt`，见 THIRD_PARTY。
 
-源码核对 Komari **1.6.0 Tag**：`internal/plugin/context.go` 的 route context 有 `principal.roles/client_uuid` 且不暴露原始凭据；插件存在 `allowRoutes` 支持；`web/api/admin/theme.go:741` 的主题配置按 short 存储并覆盖完整 map。**这些只是静态 API 核对，不是自动插件在 1.6.0 上的真实 E2E 验证。** Transit 文档实际列举 1.4.2/1.4.3 的鉴权矩阵，不能将 `komari >=1.4.0` 的声明当作 1.6.0 实测。
+源码核对 Komari **1.6.0 Tag**：`internal/plugin/context.go` 有 `principal.roles/client_uuid`；插件支持 `allowRoutes`；托管配置按 short 覆盖完整 map。续作又在真实隔离 1.6.0 上实际验证这些 API、ZIP 安装、助手 fixture 回传、浏览器显示及重启持久化；没有把 Transit 的 1.4.x 声明直接当作 1.6.0 兼容证据，也没有以模拟 trace 冒充真实网络采集。
 
-下一阶段应单独适配受限伴生插件：管理员认证后排队 UUID + 固定城市 ID；节点助手只主动轮询自己的租约，在本机用固定参数探测白名单目标并验证 AS 归属；结果绑定 UUID、一次性租约和采集时间，限流/TTL/原子持久化。凭据只能经 HTTPS 请求体和本地私有文件传递，不在 URL、argv、公开配置或日志中出现。需要插件身份隔离、重放、注入、失败缓存及真实隔离 1.6.0 E2E 后才能称为可用采集端。
+独立伴生插件按 UUID + 固定城市排队，助手主动轮询自己的租约并用安全固定 argv 执行；逐跳 ASN 证据、来源和时间绑定 UUID，具备限流/缓存/TTL/原子持久化。凭据只经 HTTPS 请求体和本地私有文件传递。可安装包和范围说明见新的试用指南；真实网络可达性和系统服务运行仍需后续授权验证。
 
-没有移植旧 `admin:exec`、写回 tags、助手安装/重启或自动启用 SSH 路径。本轮未安装或运行任何助手、插件、traceroute，也未连接生产数据库/Agent/VPS。要做实测必须另获授权并用隔离测试环境；不能拿 mock 当采集成功。
+没有移植旧 `admin:exec`、写回 tags 或自动启用 SSH 路径。只在本地隔离实验中安装独立插件/助手并执行固定 fixture；没有运行真实 traceroute 或连接生产数据库/Agent/VPS。系统服务模板不自动安装/启动。
 
-## 本轮本地验证边界
+## 首阶段本地验证（历史）
 
 - 单元/组件 105 项通过；标签/回程 UI、Transit、流量关键回归共 47 项通过，均无跳过或失败。六种亮暗/桌面/手机/mini 场景保存截图，并断言标签区域不重叠、不横向溢出、星标/国旗及既有三网延迟丢包可见。
 - 手动配置已验证序列化往返、UUID 隔离、节点改名/页面刷新、手动优先、旧格式迁移、时效和错误提示。保存测试在本地 mock 上验证官方完整 map API 契约及其它设置保留，**未宣称官方后台表单与真实数据库写入已经 E2E 通过**。

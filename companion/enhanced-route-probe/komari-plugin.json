@@ -1,0 +1,18 @@
+{
+  "name": "Enhanced Return Route Probe (local trial)",
+  "short": "enhanced-route-probe",
+  "description": "Opt-in UUID-bound fixed-target collector relay; administrator-only results, no shell or system RPC",
+  "author": "casiuna; Transit reference: yyy622hhh and Tony Liu (MIT)",
+  "version": "0.1.0",
+  "komari": ">=1.6.0",
+  "entry": "script.js",
+  "permissions": { "node": true, "allowRoutes": true, "maxHTTPBodyBytes": 16384, "timeout": 10 },
+  "configuration": {
+    "type": "managed",
+    "name": "受限回程采集",
+    "data": [
+      { "key": "enabled", "name": "允许已安装助手轮询采集", "type": "switch", "default": false, "help": "默认关闭。必须另行在对应测试节点安装并启用助手；不会远程安装或执行 Shell。" },
+      { "key": "nodes", "name": "按节点 UUID 的采集策略 JSON", "type": "richtext", "default": "{}", "help": "例如 {\"节点UUID\":{\"enabled\":true,\"city\":\"beijing\",\"periodMinutes\":360}}。city 只支持 beijing/shanghai/guangzhou，周期至少 60 分钟。结果仅管理员可读，访客沿用手动主题设置。" }
+    ]
+  }
+}

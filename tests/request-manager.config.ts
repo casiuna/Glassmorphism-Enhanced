@@ -16,6 +16,7 @@ export default defineConfig({
     'rpc-settings-ack.spec.ts',
     'node-display-tags.spec.ts',
     'return-routes.spec.ts',
+    'route-probe.spec.ts',
   ],
   tsconfig: '../tsconfig.app.json',
   outputDir: '../test-results/request-manager',

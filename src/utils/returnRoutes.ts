@@ -3,6 +3,8 @@ import { classifyReturnRoute, RETURN_CARRIERS, RETURN_TARGETS } from '@/utils/re
 
 export interface ManualReturnRoute { label: string, updatedAt: string | null }
 export interface AutoReturnRoute {
+  status?: 'ok' | 'unknown' | 'timeout' | 'permission-denied' | 'no-traceroute' | 'probe-failed' | 'output-limit'
+  source?: 'helper' | 'fixture'
   direction: 'node-to-cn'
   target: ReturnTarget
   collectedAt: string
@@ -18,14 +20,15 @@ export interface ReturnRouteConfig { document: ReturnRouteDocument, error: strin
 export interface ReturnRouteDisplay {
   carrier: ReturnCarrier
   label: string
-  status: 'manual' | 'fresh-auto' | 'unknown' | 'expired' | 'not-detected'
-  source: 'manual' | 'auto' | null
+  status: 'manual' | 'fresh-auto' | 'unknown' | 'expired' | 'not-detected' | 'failed'
+  source: 'manual' | 'auto' | 'fixture' | null
   at: string | null
   detail: string
 }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/
 const MAX_CONFIG_CHARS = 262144
+const PROBE_ERRORS: Record<string, string> = { 'timeout': '探测超时', 'permission-denied': '权限不足', 'no-traceroute': '未安装 traceroute', 'probe-failed': '探测失败', 'output-limit': '输出超限' }
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error('需要 JSON 对象')
@@ -49,6 +52,10 @@ function manual(value: unknown, legacy: boolean): ManualReturnRoute {
 function automatic(value: unknown, carrier: ReturnCarrier): AutoReturnRoute {
   const data = object(value)
   const target = data.target as ReturnTarget
+  if (data.status !== undefined && !['ok', 'unknown', ...Object.keys(PROBE_ERRORS)].includes(String(data.status)))
+    throw new Error('无效采集状态')
+  if (data.source !== undefined && data.source !== 'helper' && data.source !== 'fixture')
+    throw new Error('无效采集来源')
   if (data.direction !== 'node-to-cn' || typeof target !== 'string' || !Object.hasOwn(RETURN_TARGETS, target) || RETURN_TARGETS[target].carrier !== carrier)
     throw new Error('自动结果必须是本节点向国内对应三网白名单目标的回程')
   if (typeof data.reachedTarget !== 'boolean' || !Array.isArray(data.hops) || data.hops.length > 30)
@@ -67,7 +74,7 @@ function automatic(value: unknown, carrier: ReturnCarrier): AutoReturnRoute {
     })
     return { ttl, asns: [...new Set(asns)] }
   }).sort((a, b) => a.ttl - b.ttl)
-  return { direction: 'node-to-cn', target, collectedAt: timestamp(data.collectedAt), reachedTarget: data.reachedTarget, hops }
+  return { direction: 'node-to-cn', target, collectedAt: timestamp(data.collectedAt), reachedTarget: data.reachedTarget, hops, ...(data.status ? { status: data.status as AutoReturnRoute['status'] } : {}), ...(data.source ? { source: data.source as AutoReturnRoute['source'] } : {}) }
 }
 
 export function parseReturnRouteConfig(raw: unknown): ReturnRouteConfig {
@@ -128,12 +135,15 @@ export function resolveReturnRoutes(document: ReturnRouteDocument, uuid: string,
     const observed = autoEnabled ? node?.auto[carrier] : undefined
     if (!observed)
       return base
+    const source = observed.source === 'fixture' ? 'fixture' : 'auto'
     const age = now - Date.parse(observed.collectedAt)
     if (!Number.isFinite(age) || age < -300000)
-      return { ...base, label: '未知', status: 'unknown', source: 'auto', at: observed.collectedAt, detail: '采集时间异常；未采用此结果' }
+      return { ...base, label: '未知', status: 'unknown', source, at: observed.collectedAt, detail: '采集时间异常；未采用此结果' }
     if (age >= ttl)
-      return { ...base, label: '已过期', status: 'expired', source: 'auto', at: observed.collectedAt, detail: '超过 TTL，旧线路不作为当前结果' }
+      return { ...base, label: '已过期', status: 'expired', source, at: observed.collectedAt, detail: '超过 TTL，旧线路不作为当前结果' }
+    if (observed.status && PROBE_ERRORS[observed.status])
+      return { ...base, label: PROBE_ERRORS[observed.status]!, status: 'failed', source, at: observed.collectedAt, detail: '采集失败，不以历史记录或 Ping RTT 冒充当前线路' }
     const classified = classifyReturnRoute(carrier, observed.hops, observed.reachedTarget)
-    return { ...base, label: classified.label, status: classified.confidence === 'uncertain' ? 'unknown' : 'fresh-auto', source: 'auto', at: observed.collectedAt, detail: `${observed.target} · ${classified.evidence} · ${classified.confidence}；非运营商产品保证` }
+    return { ...base, label: classified.label, status: classified.confidence === 'uncertain' || observed.status === 'unknown' ? 'unknown' : 'fresh-auto', source, at: observed.collectedAt, detail: `${observed.target} · ${classified.evidence} · ${classified.confidence}；非运营商产品保证` }
   })
 }

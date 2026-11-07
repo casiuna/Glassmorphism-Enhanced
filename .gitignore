@@ -49,3 +49,7 @@ test-results/
 komari-theme-*.zip
 
 # bun.lock is versioned for reproducible CI installs.
+
+# Standard-library companion/test bytecode is never a release asset.
+__pycache__/
+*.pyc

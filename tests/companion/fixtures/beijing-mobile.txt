@@ -1,0 +1,3 @@
+traceroute to fixed mobile target, deterministic local fixture (NOT A LIVE TRACE)
+ 1  192.0.2.3 [AS58807]  1.0 ms
+ 2  221.179.155.161 [AS58807]  2.0 ms

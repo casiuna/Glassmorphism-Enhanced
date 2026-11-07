@@ -58,7 +58,7 @@ bun run build
 
 更新记录见 [CHANGELOG](CHANGELOG.md)，发布流程见 [docs/releasing.md](docs/releasing.md)。
 
-开发中的节点头部标签与可选手动回程线路设置见 [配置说明](docs/return-routes.md)；自动采集尚未接入，不代表已发布功能。
+本地试用中的节点头部标签与手动回程设置见 [配置说明](docs/return-routes.md)，独立采集助手/插件见 [试用、卸载与回滚](docs/companion-trial.md)。自动结果仅管理员可见；尚未验证真实网络探测，不代表已发布功能。
 
 ## 来源与许可
 

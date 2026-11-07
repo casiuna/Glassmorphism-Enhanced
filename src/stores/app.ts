@@ -919,6 +919,7 @@ const useAppStore = defineStore('app', () => {
   const returnRouteConfig = computed(() => parseReturnRouteConfig(themeSettings.value.returnRouteConfig))
   const returnRoutesVisible = computed(() => readBooleanSetting(themeSettings.value, 'returnRoutesVisible', false))
   const returnRouteAutoEnabled = computed(() => readBooleanSetting(themeSettings.value, 'returnRouteAutoEnabled', false))
+  const returnRouteCompanionEnabled = computed(() => readBooleanSetting(themeSettings.value, 'returnRouteCompanionEnabled', false))
   const returnRouteTtlHours = computed(() => readNumberSetting(themeSettings.value, 'returnRouteTtlHours', 24, 1, 168))
   const transitCarrierPingEnabled = computed(() => readBooleanSetting(themeSettings.value, 'transitCarrierPingEnabled', false))
   const transitCarrierPingRules = computed(() => parseTransitCarrierPingRules(themeSettings.value.transitCarrierPingRules))
@@ -1360,6 +1361,7 @@ const useAppStore = defineStore('app', () => {
     returnRouteConfig,
     returnRoutesVisible,
     returnRouteAutoEnabled,
+    returnRouteCompanionEnabled,
     returnRouteTtlHours,
     returnRouteNow: beijingTimeTick,
     nodeDetailSectionTabsEnabled,

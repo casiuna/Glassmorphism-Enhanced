@@ -1,5 +1,25 @@
 # AI Cache / Agent Handoff Log
 
+## 续作：可安装本地候选与受限采集链路
+
+- 当前唯一 Session `20261019_060547_b240f6`，既有 `tags-return-routes` / `feat/enhanced-tags-return-routes`，只读确认起点 `328a37100214c7d530fdc107ea9b936b396076b9` clean，父提交 `c58cff54cfb4128e727c58cfb972e1e1b3254ff8`。此前提交身份阻塞已用用户授权的命令级 casiuna/noreply 身份解决，下面关于“待身份”的条目仅为历史。
+- 授权扩展为本工作树内实际 helper/插件实现、隔离 1.6.0 后端和模拟 traceroute 的 E2E、本地新 commit 与可安装候选；不 amend、不 push/tag/Release/市场/生产，不运行真实 traceroute、SSH 或真实节点。
+- 已读 Transit coordinator/storage/limiter/collector 与 1.6.0 principal/server/主题配置 API。正式 Agent 身份支持 JSON POST body token，插件收到 principal.client_uuid；管理员通过正式 session cookie。只申请 node + allowRoutes，不借用 system RPC、exec、tags 或自创裸回传鉴权。
+- 计划：实现小型版本化逐跳证据协议与一次性租约、默认关闭的 UUID 策略/周期、持久化及限流；Python 标准库固定 argv 节点助手（fixture 模式只允许 loopback）、只读管理员主题消费通道；独立插件 ZIP / helper archive / 主题 ZIP 与安装卸载回滚文档；真实 1.6.0 装载、鉴权、隔离 UUID、回传、重启和 UI 测试。
+- 安全取舍：自动结果 API 默认仅管理员读取，不把隐藏节点/私有站点信息通过新增匿名接口发布。访客继续现有公开主题手动设置；自动结果用于登录管理员试用，不以宽泛 allowSystemRPC 换取无人值守公开写入。试用说明必须显式写出此边界。
+- 基线 105 unit / 47 targeted 的 JSON 与哈希已读取，避免无意义重复；本轮改动后再按影响范围回归。长任务不向 Session 控制传 timeout，不设人为 Job 截止时间；探测和 HTTP 自身仍必须有安全超时限制。
+
+### 受限采集已实现 / 提交前验收
+
+- 新增 `companion/enhanced-route-probe`（0.1.0，node + allowRoutes，不申请 system RPC/exec）及标准库 Python helper。固定九目标/安全 argv、20 跳、每家 25 秒/64 KiB、串行三家；仅 HTTPS（显式 loopback 测试除外），私有 0600 token/config，拒绝 URL/argv 凭据及任意目标，所有回传以正式 Agent principal UUID + 一次性 lease 绑定。
+- 默认关闭的 UUID 策略/周期（默认 360 分钟，最少 60）、单节点冷却、最多 4 个有效 lease、180 秒租约/10 分钟 job、独立请求桶、0600 原子持久化、故障关闭已实现。管理员-only snapshot，主题共用 RequestManager/一份 30 秒订阅；访客不请求私有结果。手动优先，fixture 明确显示模拟，失败/超时/权限/缺 traceroute 等显式显示。
+- 真实官方本地 Komari 1.6.0 + Agent 1.5.11 集成已 19/19，通过原生分片上传安装插件/主题、解包安装 helper、fixture 回传、真实浏览器消费、真实托管设置保存/手动优先、TTL、改名、持久化重启、429、UUID/鉴权/跨站拒绝及原生卸载。JSON `test-results/companion-integration.json`，没有真实 traceroute；后端/Agent 只绑定本次新建的 private runtime、HOME/TMPDIR/SQLite/loopback。
+- Playwright 单元/组件 120/120、协议 Node tests 16/16、helper unittest 13/13，均 0 失败/跳过；全量 Playwright 95/95（未更新旧快照），覆盖原有 Ping/Relay/流量/财务/SGD/资源/拓扑与响应式。ESLint（非 --fix）、type-check、build、diff-check 通过。早期 linter 格式错误已在新文件范围修正。
+- 审查补充了旧 companion 缓存不能覆盖更新导入数据的 regression：先真实 red（得到 expired），再按 collectedAt 选择更新证据后 green；不以隐藏过期数据或禁用三网解决。
+- 独立打包脚本 `scripts/package-route-trial.py` 只枚举源文件；helper archive 含安装/卸载器、默认禁用示例、systemd/OpenRC 最小权限模板和完整 MIT。安装器拒绝覆盖旧版本目录，卸载保留未知文件/私有配置；本地文件安装卸载与模板检查通过，没有安装/启用系统服务。
+- 使用既有命令级 `git -c user.name=casiuna -c user.email=86237623+casiuna@users.noreply.github.com commit` 创建后续本地提交；绝不 amend 328a371，不写持久 Git identity，不 push/tag/Release/市场。最终 clean commit 后必须重建三个包并用 `tests/companion/verify_delivery.py` 校验 commit/SHA/manifest/报告，最终报告在 `test-results/trial/delivery-verification.json`；中间 dirty BUILD.json 不是交付物。
+- 文档：`docs/companion-trial.md`、`docs/companion-validation.md`、helper README。仍未验证真实三网/traceroute、OpenRC/systemd 实际服务运行、物理 GPU；自动结果仅管理员，不偷开匿名发布。所有这几项都须在交付中明示，不作为完成过的测试。
+
 ## 当前开发：节点头部标签与独立回程线路（本地，不发布）
 
 - 固定 Session `20261019_060547_b240f6`；工作树 `tags-return-routes`，分支 `feat/enhanced-tags-return-routes`，来自实时 main / v1.1.1 `c58cff54cfb4128e727c58cfb972e1e1b3254ff8`。原有工作树不动。

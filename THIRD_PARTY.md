@@ -39,7 +39,9 @@ Emerald's current region-to-visitor hub-and-spoke behavior was studied as a visu
 - Source: <https://github.com/yyy622hhh/komari-theme-transit>, pinned commit `ee9f31c5ff104e033ded858171ce0b63c672e878`.
 - MIT; Copyright (c) 2026 yyy622hhh and Copyright (c) 2025 Tony Liu (tonyliuzj, tony-liu.com).
 - `src/utils/returnRouteClassification.ts` selectively adapts the carrier/ASN vocabulary from Transit `routeClassification.ts` and fixed target constants used by its return-route collectors. Enhanced implements a stricter, candidate-only CN2 policy rather than importing the upstream backtrace-derived commercial ranking algorithm or IP-prefix ASN guesses.
-- No upstream `admin:exec`, tags writeback, node helper, installer, plugin or official admin frontend is copied. The optional collector remains future integration, not validated Komari 1.6.0 functionality.
+- `companion/enhanced-route-probe/` selectively adapts the coordinator/lease, principal guard, token bucket and atomic 0600 checkpoint patterns from Transit `protocol.cjs`, `script.js`, `request-limits.cjs` and `storage.cjs`, with a smaller UUID-only protocol and fail-closed storage. The Python helper and explicit-prefix installer are Enhanced implementations referencing the upstream fixed-target/outbound-only architecture; no upstream Shell installer/collector or IP-prefix ASN inference is copied.
+- No upstream `admin:exec`, tags writeback, legacy GET/query-token transport or official admin frontend is copied. Real Komari 1.6.0 plugin upload/authentication and helper-to-theme integration are tested with local trace fixtures, not real network probes. No system-RPC permission is requested; automatic results remain administrator-only.
+- Full MIT notices also ship in the independent companion plugin/helper archives (`companion/enhanced-route-probe/LICENSE`, `companion/helper/LICENSE`).
 - Full MIT permission notice is preserved at [public/licenses/transit-MIT.txt](public/licenses/transit-MIT.txt) and shipped in `dist/licenses/transit-MIT.txt` inside the existing theme ZIP format. Existing project licenses and authorship remain unchanged.
 
 ## License compatibility
