@@ -58,6 +58,8 @@ bun run build
 
 更新记录见 [CHANGELOG](CHANGELOG.md)，发布流程见 [docs/releasing.md](docs/releasing.md)。
 
+开发中的节点头部标签与可选手动回程线路设置见 [配置说明](docs/return-routes.md)；自动采集尚未接入，不代表已发布功能。
+
 ## 来源与许可
 
 基于 [Komari Glassmorphism](https://github.com/sanrokamlan-prog/komari-theme-Glassmorphism)，三网功能参考 [Glassmorphism Three-Network](https://github.com/vlongx/komari-theme-Glassmorphism-three-network)。保留原始作者 Tokinx、上游维护者 sanrokamlan 的署名与历史，其他第三方声明见 [THIRD_PARTY.md](THIRD_PARTY.md)。

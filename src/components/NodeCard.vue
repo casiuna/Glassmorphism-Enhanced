@@ -4,7 +4,8 @@ import type { NodeData } from '@/stores/nodes'
 import { Icon } from '@iconify/vue'
 import { useIntersectionObserver } from '@vueuse/core'
 import { computed, ref, useTemplateRef } from 'vue'
-import { Badge } from '@/components/ui/badge'
+import NodeHeaderTags from '@/components/NodeHeaderTags.vue'
+import NodeReturnRoutes from '@/components/NodeReturnRoutes.vue'
 import { CardX } from '@/components/ui/card-x'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import { ProgressThin } from '@/components/ui/progress-thin'
@@ -15,7 +16,7 @@ import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, 
 import { getDiskPercentage, getMemoryPercentage, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
-import { formatCurrencyValue, formatPriceWithCycle, getDaysUntilExpired, getExpireStatus, getRemainingValue, isFreePrice, parseTags } from '@/utils/tagHelper'
+import { formatCurrencyValue, formatPriceWithCycle, getDaysUntilExpired, getExpireStatus, getRemainingValue, isFreePrice } from '@/utils/tagHelper'
 
 const props = withDefaults(defineProps<{
   node: NodeData
@@ -200,8 +201,6 @@ const remainingInfoTags = computed<RemainingInfoTag[]>(() => {
   return items
 })
 
-const customTags = computed(() => parseTags(props.node.tags).map(t => t.text))
-
 function getRegionAltText(region: string): string {
   return getRegionDisplayName(region) || getRegionCode(region)
 }
@@ -280,16 +279,19 @@ function hasRegion(region: string | null | undefined): boolean {
     <template #default>
       <div class="flex flex-col relative" :class="nodeCardContentClass">
         <!-- 在线天数固定展示，价格独立展示，避免不同主机卡片高度不一致 -->
-        <div class="relative z-20 flex items-center gap-1.5 -mt-1 h-[19px] overflow-hidden">
-          <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-slate-500/10 text-muted-foreground leading-tight">
-            {{ uptimeDaysText }}
-          </span>
-          <span
-            v-if="priceText"
-            class="min-w-0 truncate text-[11px] px-2 py-0.5 rounded-full bg-slate-500/10 text-muted-foreground leading-tight"
-          >
-            {{ priceText }}
-          </span>
+        <div data-node-header-meta class="relative z-20 -mt-1 flex min-w-0 items-start justify-between gap-2">
+          <div class="flex min-w-0 max-w-[60%] flex-wrap items-center gap-1.5">
+            <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-slate-500/10 text-muted-foreground leading-tight">
+              {{ uptimeDaysText }}
+            </span>
+            <span
+              v-if="priceText"
+              class="min-w-0 truncate text-[11px] px-2 py-0.5 rounded-full bg-slate-500/10 text-muted-foreground leading-tight"
+            >
+              {{ priceText }}
+            </span>
+          </div>
+          <NodeHeaderTags :tags="props.node.tags" :visible="appStore.customTagsVisible" />
         </div>
 
         <!-- 四项进度条 -->
@@ -561,17 +563,7 @@ function hasRegion(region: string | null | undefined): boolean {
             </div>
           </button>
         </div>
-
-        <!-- 自定义标签 -->
-        <div v-if="customTags.length > 0" class="flex flex-wrap gap-1">
-          <Badge
-            v-for="(tag, i) in customTags" :key="i"
-            variant="outline"
-            class="!text-[11px] rounded-full text-muted-foreground border-muted-foreground/15 px-2 py-0"
-          >
-            {{ tag }}
-          </Badge>
-        </div>
+        <NodeReturnRoutes :uuid="props.node.uuid" />
 
         <!-- 离线遮罩 -->
         <div

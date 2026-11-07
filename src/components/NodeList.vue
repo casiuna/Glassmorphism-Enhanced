@@ -15,10 +15,11 @@ import { UI_CONFIG } from '@/constants/ui'
 import { useAppStore } from '@/stores/app'
 import { formatCityNameZh } from '@/utils/cityNameHelper'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, formatUptimeWithFormat, getStatus } from '@/utils/helper'
+import { parseNodeDisplayTags } from '@/utils/nodeDisplayTags'
 import { getRealtimeTotalSpeed, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
-import { formatPriceWithCycle, getDaysUntilExpired, getExpireStatus, parseTags } from '@/utils/tagHelper'
+import { formatPriceWithCycle, getDaysUntilExpired, getExpireStatus } from '@/utils/tagHelper'
 
 interface ColumnConfig {
   key: string
@@ -353,10 +354,10 @@ function buildNodeMetadataItems(node: NodeData): NodeMetadataItem[] {
         break
       }
       case 'tags': {
-        if (!appStore.nodeListCustomTagsVisible)
+        if (!appStore.customTagsVisible || !appStore.nodeListCustomTagsVisible)
           break
 
-        parseTags(node.tags).forEach((tag, index) => {
+        parseNodeDisplayTags(node.tags).forEach((tag, index) => {
           items.push({
             key: `tag-${index}-${tag.text}`,
             value: tag.text,

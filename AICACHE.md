@@ -1,5 +1,26 @@
 # AI Cache / Agent Handoff Log
 
+## 当前开发：节点头部标签与独立回程线路（本地，不发布）
+
+- 固定 Session `20261019_060547_b240f6`；工作树 `tags-return-routes`，分支 `feat/enhanced-tags-return-routes`，来自实时 main / v1.1.1 `c58cff54cfb4128e727c58cfb972e1e1b3254ff8`。原有工作树不动。
+- M4：用户标签移至头部右侧，保留可见性配置，过滤内部元数据但不改源 tags。M5：按 UUID 的版本化回程配置、手动优先、自动结果消费和 TTL；M6：MIT 来源、mock / 响应式回归。
+- Transit 参考固定 `ee9f31c5ff104e033ded858171ce0b63c672e878`。不移植 admin:exec、终端或 tags 写回链路；不复制官方后台。自动采集未验证前只交付消费端，禁用默认自动结果消费，不声称可运行采集。
+- 本轮不 push/tag/Release/市场，不接触生产/数据库/Agent，不运行真实 traceroute。保留当前机器累计流量及三网/Transit/费用/SGD/拓扑；不把历史月度实现恢复为当前能力。
+
+### 本轮完成与验证
+
+- 中断后只在既有隔离工作树续作，未新建 Session/worktree；实时 `HERMES_SESSION_ID` 核对为 `20261019_060547_b240f6`。未向 Session Job 传递有限 timeout；所有有界测试自然退出。
+- 普通标签已移到头部第二行右侧，底部不重复；列表/详情共享过滤和可见性，拓扑继续读取未修改的原始 tags。新增回程数据模型、严格校验/序列化/v0 迁移、UUID 手动覆盖、TTL、公开来源/时间显示和官方主题设置字段。未改流量/财务/资源/Ping/Relay/拓扑算法、主题 short/version 或预览图。
+- 单元/组件 `node node_modules/@playwright/test/cli.js test -c tests/request-manager.config.ts --reporter=list,json`：105 passed（其中新增 38），0 failed/skipped/flaky。JSON：`test-results/tags-routes-unit.json`。
+- 关键回归 `node node_modules/@playwright/test/cli.js test tests/visual/node-tags-return-routes.spec.ts tests/visual/transit.spec.ts tests/visual/traffic.spec.ts --retries=0 --reporter=list,json`：47 passed（新增 UI/配置 14、Transit 20、流量 13），0 failed/skipped/flaky。JSON：`test-results/tags-routes-save-final.json`；六种桌面/手机/mini 亮暗场景 PNG 在 `test-results/artifacts/`，测试断言无重叠/横向溢出及星标、国旗、三网可见。没有覆盖旧像素快照。
+- `node node_modules/eslint/bin/eslint.js . --max-warnings 0`、`npm run type-check`、`git diff --check`、`npm run build` 均 exit 0。当前运行环境找不到 bun，因此用现有 npm 执行同一 package.json 脚本，没有安装/更新依赖或全局环境；lint 不用仓库带 --fix 的脚本。浏览器复用 `../tools` 的 Chromium、sysroot 和 fonts.conf；后台 shell 需显式把现有 node 路径加入 PATH。
+- 首轮浏览器曾因未带运行时动态库启动失败；修正本地运行环境后，两个测试又因列表默认未选 tags 字段/详情并非 heading 而失败。按真实配置/DOM 修正测试后已全部通过，没有隐藏应用异常或禁用三网。
+- 设置保存用固定本地 mock 验证 1.6.0 `POST /api/admin/theme/settings?theme=Enhanced` 的完整 map 保存/刷新消费契约及 Transit 规则保留；不是官方后台表单+真实数据库 E2E。1.6.0 插件 principal/allowRoutes 和主题配置覆盖语义仅做官方 Tag 源码核对。
+- Transit MIT 全文位于 `public/licenses/transit-MIT.txt`，构建 ZIP 内 `dist/licenses/transit-MIT.txt` 已逐字节对比上游 LICENSE 一致。所有测试证据/构建产物/依赖均不纳入提交。
+- 自动采集默认关闭且未接入；没有安装插件/助手、运行 traceroute、写回 tags 或调用远程 exec。剩余工作为受限伴生插件/节点轮询助手、安全/身份/限流验证与隔离 1.6.0 真实采集 E2E，不能声称已完成自动识别全链路。
+- 本地提交实际受阻：`git commit -m "feat: add validated return-route model and conservative ASN classification"` exit 128，Git 未配置 author name/email。没有猜测用户身份、设置全局 Git 配置或伪造提交；HEAD 仍为 v1.1.1 基线。首批仅暂存 THIRD_PARTY、MIT notice、两个回程 utils 和对应 unit spec（5 文件），其余 17 文件留在工作区；不 reset/stash/clean。待用户确认 author 后按模型/显示两个功能块提交。
+- 提交失败后仍完成最新生产 build/type-check、全项目非修复 ESLint 和 staged/unstaged diff-check，均 exit 0。当前 ZIP 文件名内 c58cff5 只是基线 HEAD，包含未提交开发内容，仅为本地候选，不是该 commit 的正式发行包。证据总览见 `test-results/local-candidate-verification.json`。
+
 ## 当前任务：v1.1.0 / Komari 1.6.0（独立 Session，待审核）
 
 - Session `20261019_060547_b240f6`；独立仓库及 Worktree `/home/hermes/workspaces/komari-110-20261019_060547_b240f6/theme`，分支 `feat/komari-1.6.0`，main 基线 `20109bfab5de1278c94d6344114dfd50f3ecf496`。下方旧 Session、发布授权与路径仅属历史，不扩大本轮权限。

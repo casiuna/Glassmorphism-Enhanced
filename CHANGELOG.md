@@ -2,6 +2,12 @@
 
 All notable Glassmorphism Enhanced changes are documented here. Upstream history remains in the upstream repository and preserved Git history.
 
+## Unreleased — node labels and return-route display
+
+- Move normal node tags to the header metadata row's right-hand pill area, with shared visibility and internal-tag filtering; retain raw tags and upstream topology metadata.
+- Add opt-in UUID-keyed manual return-route settings, strict versioned serialization/migration and TTL-aware automatic evidence display, separate from Ping/Transit RTT and user tags. Automatic collection is not connected or validated; no probe is started by the theme.
+- Selectively reference MIT Transit route vocabulary with full packaged license; preserve current traffic, resource, finance/SGD, Ping and Relay behavior. No production installation or release is part of this development.
+
 ## 1.1.1 — Preview hotfix
 
 - Package the final preview image already uploaded to main as the theme ZIP's root `preview.png`, so installed market previews match the README.

@@ -4,6 +4,7 @@ import type { CurrencyCode } from '@/utils/financeHelper'
 import { Icon } from '@iconify/vue'
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import NodeReturnRoutes from '@/components/NodeReturnRoutes.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CardX } from '@/components/ui/card-x'
@@ -20,11 +21,12 @@ import { formatCityNameZh } from '@/utils/cityNameHelper'
 import { getCpuBenchmarkRating, getPassMarkCpuLookupUrl } from '@/utils/cpuBenchmark'
 import * as financeHelper from '@/utils/financeHelper'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatUptimeWithFormat } from '@/utils/helper'
+import { parseNodeDisplayTags } from '@/utils/nodeDisplayTags'
 import { getTrafficUsed, getTrafficUsedPercentage } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
 
-import { formatPrice, formatPriceWithCycle, getExpireStatus, getExpireText, isFreePrice, parseTags } from '@/utils/tagHelper'
+import { formatPrice, formatPriceWithCycle, getExpireStatus, getExpireText, isFreePrice } from '@/utils/tagHelper'
 
 const LoadChart = defineAsyncComponent(() => import('@/components/LoadChart.vue'))
 const PingChart = defineAsyncComponent(() => import('@/components/PingChart.vue'))
@@ -164,7 +166,7 @@ const providerDisplay = computed(() => {
 })
 
 // 节点自定义标签
-const customTags = computed(() => parseTags(data.value?.tags).map(t => t.text))
+const customTags = computed(() => appStore.customTagsVisible ? parseNodeDisplayTags(data.value?.tags).map(t => t.text) : [])
 
 // 该节点支持的 IP 协议（仅显示"支持"，不暴露具体 IP）
 const ipSupport = computed(() => {
@@ -556,6 +558,10 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
             </TabsTrigger>
           </TabsList>
         </Tabs>
+      </div>
+
+      <div v-if="appStore.returnRoutesVisible" class="px-4">
+        <NodeReturnRoutes :uuid="data.uuid" />
       </div>
 
       <!-- 价格指标卡片 -->

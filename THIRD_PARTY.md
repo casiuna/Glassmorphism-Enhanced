@@ -34,6 +34,14 @@ Relevant ideas and portions were selectively adapted into new utilities/composab
 
 Emerald's current region-to-visitor hub-and-spoke behavior was studied as a visual reference. Glassmorphism Enhanced implements its own deterministic node-cluster arc generation and reuses the Glassmorphism realistic, Cobe, and tiled renderers; the Emerald globe component was not copied wholesale.
 
+## Transit return-route reference (unreleased local development)
+
+- Source: <https://github.com/yyy622hhh/komari-theme-transit>, pinned commit `ee9f31c5ff104e033ded858171ce0b63c672e878`.
+- MIT; Copyright (c) 2026 yyy622hhh and Copyright (c) 2025 Tony Liu (tonyliuzj, tony-liu.com).
+- `src/utils/returnRouteClassification.ts` selectively adapts the carrier/ASN vocabulary from Transit `routeClassification.ts` and fixed target constants used by its return-route collectors. Enhanced implements a stricter, candidate-only CN2 policy rather than importing the upstream backtrace-derived commercial ranking algorithm or IP-prefix ASN guesses.
+- No upstream `admin:exec`, tags writeback, node helper, installer, plugin or official admin frontend is copied. The optional collector remains future integration, not validated Komari 1.6.0 functionality.
+- Full MIT permission notice is preserved at [public/licenses/transit-MIT.txt](public/licenses/transit-MIT.txt) and shipped in `dist/licenses/transit-MIT.txt` inside the existing theme ZIP format. Existing project licenses and authorship remain unchanged.
+
 ## License compatibility
 
-All three reviewed projects use the MIT License. The licenses permit use, modification, distribution, and sublicensing provided their copyright and permission notices are retained. The upstream root `LICENSE` is unchanged; this file records the additional provenance and attribution relevant to the enhanced patches.
+All four reviewed projects use the MIT License. The licenses permit use, modification, distribution, and sublicensing provided their copyright and permission notices are retained. The upstream root `LICENSE` is unchanged; this file records the additional provenance and attribution relevant to the enhanced patches.

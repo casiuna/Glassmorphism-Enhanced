@@ -16,6 +16,9 @@ const REGION_FIXTURES = [
 ] as const
 
 export interface VisualFixtureOptions {
+  userTags?: string
+  firstNodeName?: string
+  themeSettings?: Record<string, unknown>
   transit?: boolean
   transitEnabled?: boolean
   transitRules?: string
@@ -72,7 +75,9 @@ function buildClients(options: VisualFixtureOptions = {}) {
     const uuid = uuidFor(index)
     return [uuid, {
       uuid,
-      name: options.transit && index < 4 ? ['TargetNode', 'RelayNode', 'TargetB', 'RelayOther'][index]! : index < REGION_FIXTURES.length ? fixture.name : `${fixture.name}-${index + 1}`,
+      name: options.firstNodeName !== undefined && index === 0
+        ? options.firstNodeName
+        : options.transit && index < 4 ? ['TargetNode', 'RelayNode', 'TargetB', 'RelayOther'][index]! : index < REGION_FIXTURES.length ? fixture.name : `${fixture.name}-${index + 1}`,
       cpu_name: fixture.cpu,
       virtualization: index % 3 === 0 ? 'docker' : 'kvm',
       arch: index % 4 === 0 ? 'aarch64' : 'x86_64',
@@ -104,9 +109,11 @@ function buildClients(options: VisualFixtureOptions = {}) {
               ? '2026-08-04T12:00:00.000Z'
               : index === 6 ? '2026-08-02T00:00:00.000Z' : '2027-07-25T00:00:00.000Z',
       group: index < 6 ? '生产' : '测试,边缘',
-      tags: options.upstreamTags && index >= 1 && index <= 3
-        ? `upstream:${REGION_FIXTURES[index - 1]!.name}`
-        : index % 2 === 0 ? 'core<jade>,visual<blue>' : 'edge<orange>',
+      tags: options.userTags !== undefined && index === 0
+        ? options.userTags
+        : options.upstreamTags && index >= 1 && index <= 3
+          ? `upstream:${REGION_FIXTURES[index - 1]!.name}`
+          : index % 2 === 0 ? 'core<jade>,visual<blue>' : 'edge<orange>',
       hidden: !!(options.hiddenRelay && index === 1),
       traffic_limit: index === 6 ? 2 * TIB : 20 * TIB,
       traffic_limit_type: options.trafficLimitType ?? 'sum',
@@ -555,7 +562,7 @@ export async function installKomariFixture(page: Page, options: VisualFixtureOpt
         ping_record_preserve_time: 720,
         sitename: 'Komari Visual Lab',
         theme: 'Glassmorphism',
-        theme_settings: settings,
+        theme_settings: { ...settings, ...options.themeSettings },
         visitor_audit_enabled: false,
       },
     }),

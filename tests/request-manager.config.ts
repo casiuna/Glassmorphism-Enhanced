@@ -14,6 +14,8 @@ export default defineConfig({
     'visitor-audit-compatibility.spec.ts',
     'geo-compatibility.spec.ts',
     'rpc-settings-ack.spec.ts',
+    'node-display-tags.spec.ts',
+    'return-routes.spec.ts',
   ],
   tsconfig: '../tsconfig.app.json',
   outputDir: '../test-results/request-manager',

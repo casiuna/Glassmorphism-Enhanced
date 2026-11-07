@@ -7,6 +7,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { getAuthSession, requirePermission, setAuthSessionFromLogin, verifyLogin } from '@/services/auth.service'
 
+import { parseReturnRouteConfig } from '@/utils/returnRoutes'
 import { parseTransitCarrierPingRules } from '@/utils/transitCarrierPing'
 
 export type ThemeMode = 'auto' | 'light' | 'dark'
@@ -915,6 +916,10 @@ const useAppStore = defineStore('app', () => {
   }
 
   const themeSettings = computed(() => normalizeThemeSettings(publicSettings.value?.theme_settings))
+  const returnRouteConfig = computed(() => parseReturnRouteConfig(themeSettings.value.returnRouteConfig))
+  const returnRoutesVisible = computed(() => readBooleanSetting(themeSettings.value, 'returnRoutesVisible', false))
+  const returnRouteAutoEnabled = computed(() => readBooleanSetting(themeSettings.value, 'returnRouteAutoEnabled', false))
+  const returnRouteTtlHours = computed(() => readNumberSetting(themeSettings.value, 'returnRouteTtlHours', 24, 1, 168))
   const transitCarrierPingEnabled = computed(() => readBooleanSetting(themeSettings.value, 'transitCarrierPingEnabled', false))
   const transitCarrierPingRules = computed(() => parseTransitCarrierPingRules(themeSettings.value.transitCarrierPingRules))
   const visitorAuditSupported = computed(() => typeof publicSettings.value?.visitor_audit_enabled === 'boolean')
@@ -1120,6 +1125,7 @@ const useAppStore = defineStore('app', () => {
   })
 
   const nodeListCustomTagsVisible = computed<boolean>(() => readBooleanSetting(themeSettings.value, 'nodeListCustomTagsVisible', true))
+  const customTagsVisible = computed<boolean>(() => readBooleanSetting(themeSettings.value, 'customTagsVisible', true))
 
   const nodeDetailSectionTabsEnabled = computed<boolean>(() => readBooleanSetting(themeSettings.value, 'nodeDetailSectionTabsEnabled', false))
 
@@ -1350,6 +1356,12 @@ const useAppStore = defineStore('app', () => {
     nodeListMetadataEnabled,
     nodeListMetadataFields,
     nodeListCustomTagsVisible,
+    customTagsVisible,
+    returnRouteConfig,
+    returnRoutesVisible,
+    returnRouteAutoEnabled,
+    returnRouteTtlHours,
+    returnRouteNow: beijingTimeTick,
     nodeDetailSectionTabsEnabled,
     gpuChartEnabled,
     detailMetricCardOrder,
