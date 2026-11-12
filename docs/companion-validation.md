@@ -1,6 +1,6 @@
-# 本地回程试用候选 · 验证范围
+# 历史伴生开发阶段 · 验证范围
 
-本轮从 `328a37100214c7d530fdc107ea9b936b396076b9` 继续，只在 `feat/enhanced-tags-return-routes` 增加本地提交。最终 commit、每个包 SHA-256、文件清单、manifest 和测试报告读回见 **`test-results/trial/delivery-verification.json`**；该文件由 `tests/companion/verify_delivery.py` 对真实产物/报告校验生成，不手工填写成功结果。
+以下保留从 `328a37100214c7d530fdc107ea9b936b396076b9` 到 `37092754388f04d44a3131a4f51130b8b6a1abae` 的历史开发验收，不能作为 v1.2.0 稳定转换后的通过证明。**当前稳定版范围和命令见 [Full 验证记录](full-validation.md)**，最终真实包/commit/报告见本地 `test-results/release/delivery-verification.json`，由 `tests/full/verify_delivery.py` 校验生成。
 
 ## 测试命令与已通过覆盖
 
@@ -39,7 +39,7 @@
 
 ## 包验收
 
-`python3 scripts/package-route-trial.py` 只打包枚举源文件，生成独立 plugin ZIP、helper tar.gz 和 BUILD.json。最终包必须绑定 clean commit，不能使用 dirty 候选元数据。
+`python3 scripts/package-route.py` 只打包枚举源文件，生成独立 plugin ZIP、helper tar.gz 和 BUILD.json。最终包必须绑定 clean commit，不能使用 dirty 候选元数据。
 
 `python3 tests/companion/verify_delivery.py` 检查三个包的 SHA-256、ZIP CRC/重复或危险路径、theme manifest/预览图/当前 dist 一致性、插件最小权限、helper 文件类型、默认关闭、全部 MIT notice、commit 身份，以及实际 JSON/JUnit 通过计数。运行 DB、token、日志、浏览器、缓存、依赖和测试 fixture 都不进入可安装包。
 

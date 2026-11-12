@@ -8,13 +8,15 @@ import json
 import shutil
 from pathlib import Path
 
-FILES = ['enhanced_route_helper.py', 'enhanced-route-helper.service', 'enhanced-route-helper.openrc', 'helper.example.json', 'LICENSE', 'README.md']
+FILES = ['enhanced_route_helper.py', 'helper-version.json', 'enhanced-route-helper.service', 'enhanced-route-helper.openrc', 'helper.example.json', 'LICENSE', 'README.md']
 MARKER = '.enhanced-route-install.json'
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 def install(source, prefix):
+    if any(path.is_symlink() for path in [prefix, *prefix.parents]):
+        raise ValueError('symlink in installation prefix')
     if prefix.exists() or prefix.is_symlink():
         raise ValueError('refusing an existing prefix; use a new version directory')
     # Validate every asset before creating a destination (not a partial install).
@@ -37,7 +39,7 @@ def install(source, prefix):
         raise
 
 def uninstall(prefix):
-    if prefix.is_symlink() or not (prefix / MARKER).is_file():
+    if any(path.is_symlink() for path in [prefix, *prefix.parents]) or (prefix / MARKER).is_symlink() or not (prefix / MARKER).is_file() or (prefix / MARKER).stat().st_size > 65536:
         raise ValueError('not an owned installation')
     data = json.loads((prefix / MARKER).read_text())
     if data.get('version') != 1 or set(data.get('files', {})) != set(FILES):

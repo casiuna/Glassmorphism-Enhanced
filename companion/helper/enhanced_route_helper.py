@@ -55,12 +55,14 @@ def private_text(path, limit):
 
 def panel_url(value, allow_loopback=False):
     try:
+        if not isinstance(value, str) or any(char.isspace() or ord(char) < 32 for char in value) or any(char in value for char in ('?', '#', '\\')):
+            raise ValueError()
         url = urllib.parse.urlsplit(value)
-        if url.username or url.password or url.query or url.fragment or url.path not in ('', '/'):
+        if url.username is not None or url.password is not None or url.query or url.fragment or url.path not in ('', '/') or '%' in url.netloc or url.port == 0:
             raise ValueError()
         if url.scheme == 'https' and url.hostname:
             return value.rstrip('/')
-        if allow_loopback and url.scheme == 'http' and ipaddress.ip_address(url.hostname).is_loopback:
+        if allow_loopback and url.scheme == 'http' and ipaddress.ip_address(url.hostname or '').is_loopback:
             return value.rstrip('/')
     except (ValueError, TypeError):
         pass
@@ -90,7 +92,7 @@ def post(config, endpoint, data):
         raise HelperError('request-output-limit')
     req = urllib.request.Request(config['panel'] + ROOT + endpoint, data=payload, headers={'Content-Type': 'application/json'}, method='POST')
     try:
-        with urllib.request.build_opener(NoRedirect()).open(req, timeout=15) as response:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect()).open(req, timeout=15) as response:
             source = response.read(16385)
             if len(source) > 16384:
                 raise HelperError('response-output-limit')
@@ -188,7 +190,8 @@ def collect(uuid, city, fixture_dir=None, runner=execute_trace):
     return {'schema': 1, 'uuid': uuid, 'city': city, 'collectedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'), 'source': 'fixture' if fixture_dir else 'helper', 'carriers': carriers}
 
 def cycle(config, fixture_dir=None):
-    response = post(config, '/poll', {})
+    version = json.loads(Path(__file__).with_name('helper-version.json').read_text())['version']
+    response = post(config, '/poll', {'helper_version': version})
     if response.get('schema') != 1 or response.get('uuid') != config['uuid']:
         raise HelperError('authenticated-uuid-mismatch')
     job = response.get('job')

@@ -2,9 +2,13 @@
 
 Repository: https://github.com/casiuna/Glassmorphism-Enhanced
 
-**Release preparation: v1.1.0**, manifest `1.1.0`, identity `Enhanced`. The latest independently verified historical publication is [v1.0.8](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.0.8), at `20109bfab5de1278c94d6344114dfd50f3ecf496`. Existing tags and Release assets remain intact.
+**Current target: v1.2.0**, manifest `1.2.0`, identity `Enhanced`. The verified previous publication is [v1.1.1](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.1.1), at `c58cff54cfb4128e727c58cfb972e1e1b3254ff8`. Existing tags and Release assets remain intact. Current source and Full acceptance are in [full-validation.md](full-validation.md).
 
-**Publication authority:** a finalized CHANGELOG entry and local commit do not establish remote publication. After separately authorized publication, verify this fork's main ref, successful Actions run, v1.1.0 tag target, Release metadata and downloaded ZIP. CI is the authoritative release build; never upload the old-HEAD local validation ZIP as the final asset. This preparation authorizes no remote write or production deployment.
+**Publication authority:** the owner explicitly authorized the v1.2.0 fork release and an update submission to the existing Komari market entry, not production deployment. A CHANGELOG heading or local commit is not publication: verify main, successful Actions, v1.2.0 tag, Release metadata and both downloaded assets. CI is the authoritative release build; never upload an old-HEAD validation ZIP.
+
+**Two public assets only:** one `komari-theme-Glassmorphism-build-<short-sha>.zip` (native root `komari-theme.json`, `preview.png`, `dist/`) and one `Glassmorphism-Enhanced-Full-<short-sha>.tar.gz` (one verified inner Full ZIP with installer/modules/docs/checksums/licenses). Do not attach the inner Full ZIP separately: the market updater relies on a single public ZIP. Theme `dist/BUILD.json`, module BUILD files and Full manifest must bind the same clean commit. After full local QA, run `python3 scripts/package-full.py` and `python3 tests/full/verify_delivery.py`; CI gates source/module safety, installer and `--packages-only` verification before publishing.
+
+**Existing market entry:** do not open another new-theme issue. After verifying the official v1.2.0 asset, use `komari-monitor/theme-market`'s updater/normal PR flow to update `v1.json` for short `Enhanced`; recalculate SHA from the downloaded native ZIP. A scheduled or submitted PR is not a merged market update. Never force-write the official market main.
 
 **Historical scope:** the monthly-window compatibility discussion and v1.0.2/v1.0.3 incident notes below describe v1.0.6 and earlier releases, not the current implementation. That frontend monthly implementation was withdrawn in v1.0.7; current machine-cumulative traffic semantics are in the [README](../README.md#流量说明). Existing release policies and historical records remain intact.
 
@@ -14,7 +18,7 @@ All repository changes must target **`casiuna/Glassmorphism-Enhanced`** only. Up
 
 ## Independent version policy
 
-The independent version line began at **1.0.0**, released as Git tag / GitHub Release **v1.0.0**. The version being prepared is **1.1.0**; the verified historical v1.0.8 and earlier publications are preserved. `komari-theme.json.version` is the sole version source; do not add `package.json.version`. Remote publication status must be verified independently.
+The independent version line began at **1.0.0**, released as Git tag / GitHub Release **v1.0.0**. The current release target is **1.2.0**; previous published versions remain preserved. `komari-theme.json.version` is the sole version source; do not add `package.json.version`. Remote publication status must be verified independently.
 
 - Bugfix: `1.0.1`, `1.0.2`, `1.0.3`, …
 - Compatible feature: `1.1.0`, `1.2.0`, …

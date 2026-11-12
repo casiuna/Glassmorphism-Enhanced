@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
-import { computed, inject, ref } from 'vue'
+import { computed, defineAsyncComponent, inject, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,12 @@ const router = useRouter()
 const appStore = useAppStore()
 const { openAdmin, navigating } = useAdminNavigation()
 const { record: recordVisitorEvent } = useVisitorAudit()
+const EnhancedManagementDialog = defineAsyncComponent(() => import('@/components/EnhancedManagementDialog.vue'))
+const managementOpen = ref(false)
+watch(() => appStore.privateFeaturesAllowed, (allowed) => {
+  if (!allowed)
+    managementOpen.value = false
+})
 
 const isScrolled = inject<ReturnType<typeof ref<boolean>>>('isScrolled', ref(false))
 
@@ -35,6 +41,10 @@ const actionButtons = computed(() => {
   } as const
 
   const buttons: Array<{ title: string, icon: string, action: string, pressed?: boolean }> = []
+
+  if (appStore.privateFeaturesAllowed && appStore.publicSettings?.theme === 'Enhanced') {
+    buttons.push({ title: 'Enhanced 管理', icon: 'tabler:package', action: 'enhancedManagement', pressed: managementOpen.value })
+  }
 
   if (router.currentRoute.value.name === 'home' && appStore.homeToolsEnabled) {
     buttons.push({
@@ -63,6 +73,11 @@ const actionButtons = computed(() => {
 
 function handleButtonClick(action: string) {
   switch (action) {
+    case 'enhancedManagement':
+      void appStore.requireLoginPermission('advancedTools', { force: true }).then((allowed) => {
+        managementOpen.value = allowed
+      })
+      break
     case 'toggleTheme':
       appStore.updateThemeMode()
       void recordVisitorEvent({
@@ -92,6 +107,7 @@ const sitename = computed(() => appStore.publicSettings?.sitename || 'Komari Mon
 <template>
   <!-- 访客 IP 组件，全局悬浮 -->
   <VisitorInfo v-if="!appStore.loading && appStore.visitorInfoEnabled" />
+  <EnhancedManagementDialog v-if="managementOpen" :open="managementOpen" @update:open="managementOpen = $event" />
 
   <div
     class="site-header transition-all duration-200 top-0 sticky z-10 border-b border-transparent"

@@ -1,10 +1,11 @@
 {
-  "name": "Enhanced Return Route Probe (local trial)",
+  "name": "Enhanced Return Route Probe",
   "short": "enhanced-route-probe",
   "description": "Opt-in UUID-bound fixed-target collector relay; administrator-only results, no shell or system RPC",
   "author": "casiuna; Transit reference: yyy622hhh and Tony Liu (MIT)",
-  "version": "0.1.0",
-  "komari": ">=1.6.0",
+  "version": "0.2.0",
+  "channel": "stable",
+  "komari": "1.6.0",
   "entry": "script.js",
   "permissions": { "node": true, "allowRoutes": true, "maxHTTPBodyBytes": 16384, "timeout": 10 },
   "configuration": {

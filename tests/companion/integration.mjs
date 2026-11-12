@@ -16,6 +16,9 @@ async function main() {
   chmodSync(state, 0o700)
   const backend = resolve(root, '../tools/backends/komari-1.6.0')
   const short = 'enhanced-route-probe'
+  const themeShort = JSON.parse(readFileSync(join(root, 'komari-theme.json'), 'utf8')).short
+  const pluginVersion = JSON.parse(readFileSync(join(root, 'companion/enhanced-route-probe/komari-plugin.json'), 'utf8')).version
+  const helperVersion = JSON.parse(readFileSync(join(root, 'companion/helper/helper-version.json'), 'utf8')).version
   const reports = []
   let server
   let agent
@@ -124,7 +127,7 @@ async function main() {
     let client
     let other
     await check('native plugin ZIP upload, identification and permission approval', async () => {
-      await upload('plugin', join(root, 'test-results/trial/enhanced-route-probe-0.1.0.zip'))
+      await upload('plugin', join(root, `test-results/release/enhanced-route-probe-${pluginVersion}.zip`))
       await rpc('admin:setPluginEnabled', { short, enabled: true, approved: true })
       assert((await rpc('admin:listPlugins')).some(plugin => plugin.short === short && plugin.enabled))
     })
@@ -172,9 +175,9 @@ async function main() {
     const configFile = join(state, 'helper.json')
     writeFileSync(tokenFile, client.token, { mode: 0o600 })
     writeFileSync(configFile, JSON.stringify({ panel: origin, uuid: client.uuid, tokenFile, enabled: true, allowLoopback: true }), { mode: 0o600 })
-    const installed = join(state, 'helper-0.1.0')
+    const installed = join(state, `helper-${helperVersion}`)
     await check('helper archive validates and installs into a private versioned prefix', async () => {
-      const installedPackage = spawnSync('python3', [join(root, 'tests/companion/install_archive.py'), join(root, 'test-results/trial/enhanced-route-helper-0.1.0.tar.gz'), join(state, 'helper-package'), installed], { encoding: 'utf8' })
+      const installedPackage = spawnSync('python3', [join(root, 'tests/companion/install_archive.py'), join(root, `test-results/release/enhanced-route-helper-${helperVersion}.tar.gz`), join(state, 'helper-package'), installed], { encoding: 'utf8' })
       assert.equal(installedPackage.status, 0, 'local archive installer failed')
     })
     const runHelper = () => spawnSync('python3', [join(installed, 'enhanced_route_helper.py'), '--config', configFile, '--once', '--fixture-dir', join(root, 'tests/companion/fixtures')], { encoding: 'utf8' })
@@ -203,8 +206,8 @@ async function main() {
     await check('native theme ZIP upload, activation and managed settings', async () => {
       const hash = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim()
       await upload('theme', join(root, `komari-theme-Glassmorphism-build-${hash}.zip`))
-      await api('/api/admin/theme/set?theme=Enhanced')
-      await api('/api/admin/theme/settings?theme=Enhanced', settings)
+      await api(`/api/admin/theme/set?theme=${themeShort}`)
+      await api(`/api/admin/theme/settings?theme=${themeShort}`, settings)
     })
     browser = await chromium.launch({ headless: true })
     const context = await browser.newContext()
@@ -222,7 +225,7 @@ async function main() {
     })
     await check('real backend managed-setting save preserves manual priority and unrelated fields', async () => {
       settings.returnRouteConfig = JSON.stringify({ version: 1, nodes: { [client.uuid]: { manual: { telecom: { label: '手动覆盖', updatedAt: new Date().toISOString() } } } } })
-      await api('/api/admin/theme/settings?theme=Enhanced', settings)
+      await api(`/api/admin/theme/settings?theme=${themeShort}`, settings)
       await page.reload()
       await expect(node.locator('[data-return-carrier="telecom"]')).toContainText('手动覆盖')
       await expect(node.locator('[data-return-carrier="unicom"]')).toContainText('9929')
@@ -233,7 +236,7 @@ async function main() {
     })
     await check('TTL expiration via browser clock; manual result does not expire', async () => {
       settings.returnRouteTtlHours = 1
-      await api('/api/admin/theme/settings?theme=Enhanced', settings)
+      await api(`/api/admin/theme/settings?theme=${themeShort}`, settings)
       await page.addInitScript(() => {
         const nativeNow = Date.now
         Date.now = () => nativeNow() + 2 * 3600000

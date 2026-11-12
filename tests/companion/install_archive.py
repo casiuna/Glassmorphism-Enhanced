@@ -7,8 +7,9 @@ import sys
 import tarfile
 from pathlib import Path
 
-ALLOWED = {'enhanced_route_helper.py', 'install.py', 'enhanced-route-helper.service', 'enhanced-route-helper.openrc', 'helper.example.json', 'README.md', 'LICENSE', 'BUILD.json'}
-PREFIX = 'enhanced-route-helper-0.1.0/'
+ALLOWED = {'enhanced_route_helper.py', 'install.py', 'helper-version.json', 'enhanced-route-helper.service', 'enhanced-route-helper.openrc', 'helper.example.json', 'README.md', 'LICENSE', 'BUILD.json'}
+VERSION = json.loads(Path(__file__).resolve().parents[2].joinpath('companion/helper/helper-version.json').read_text())['version']
+PREFIX = f'enhanced-route-helper-{VERSION}/'
 
 def main(archive, extraction, prefix):
     extraction = Path(extraction)
@@ -29,8 +30,8 @@ def main(archive, extraction, prefix):
                 raise ValueError('invalid package size')
             (extraction / member.name[len(PREFIX):]).write_bytes(content)
     build = json.loads((extraction / 'BUILD.json').read_text())
-    if build.get('kind') != 'local-trial-only':
-        raise ValueError('wrong trial package kind')
+    if build.get('kind') != 'stable-release' or build.get('channel') != 'stable':
+        raise ValueError('wrong stable package metadata')
     result = subprocess.run([sys.executable, str(extraction / 'install.py'), '--prefix', prefix], capture_output=True)
     if result.returncode:
         raise ValueError('file installation failed')

@@ -344,7 +344,7 @@ export class KomariApi {
   /**
    * 发送 POST 请求
    */
-  private async post<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  private async post<T>(path: string, body?: unknown, signal?: AbortSignal, voidAck = false): Promise<T> {
     const url = `${this.baseUrl}${path}`
 
     const controller = new AbortController()
@@ -372,6 +372,11 @@ export class KomariApi {
       if ('set-cookie' in result) {
         return result as T
       }
+
+      // 1.6.0 RespondSuccess(nil) omits data. Only the explicitly void
+      // managed-setting mutation accepts that ACK; queries remain strict.
+      if (voidAck && response.status === 200 && (result as Record<string, unknown>).status === 'success' && typeof (result as Record<string, unknown>).message === 'string' && !('data' in result))
+        return undefined as T
 
       // 检查 API 响应状态
       if (!isApiResponse<T>(result))
@@ -410,6 +415,16 @@ export class KomariApi {
    */
   async getPublicSettings(): Promise<PublicSettings> {
     return this.get<PublicSettings>('/public')
+  }
+
+  async getThemes(signal?: AbortSignal): Promise<Array<{ short: string, version: string }>> {
+    return this.get('/admin/theme/list', undefined, signal)
+  }
+
+  async updateThemeSettings(short: string, data: Record<string, unknown>, signal?: AbortSignal): Promise<void> {
+    if (short !== 'Enhanced')
+      throw new Error('集中管理只允许写入 Enhanced 主题')
+    await this.post<void>(`/admin/theme/settings?theme=${encodeURIComponent(short)}`, data, signal, true)
   }
 
   /**

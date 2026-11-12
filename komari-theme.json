@@ -2,7 +2,7 @@
   "name": "Glassmorphism Enhanced",
   "short": "Enhanced",
   "description": "Glassmorphism Enhanced with three-network latency/loss panels and automatic globe arcs",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "author": "casiuna",
   "url": "https://github.com/casiuna/Glassmorphism-Enhanced",
   "preview": "preview.png",
@@ -83,7 +83,7 @@
       { "name": "10 · 回程线路（独立于 Ping）", "type": "title" },
       { "key": "returnRoutesVisible", "name": "显示回程线路", "type": "switch", "default": false, "help": "在卡片及详情增加独立三网回程区域。无结果显示未检测；不从 Ping 延迟推断，不修改节点 tags。" },
       { "key": "returnRouteAutoEnabled", "name": "消费已采集的自动结果", "type": "switch", "default": false, "help": "默认关闭。消费手动导入或伴生插件的逐跳 ASN 证据，不从浏览器启动 traceroute、SSH 或远程 Shell。" },
-      { "key": "returnRouteCompanionEnabled", "name": "连接 Enhanced 回程伴生插件（管理员试用）", "type": "switch", "default": false, "help": "另需安装独立插件和节点助手，并在插件中按 UUID 明确启用及设置周期。默认关闭，仅登录管理员读结果，不向访客泄露私有节点。模拟数据标为模拟。详见 docs/companion-trial.md。" },
+      { "key": "returnRouteCompanionEnabled", "name": "连接 Enhanced 回程伴生插件（管理员）", "type": "switch", "default": false, "help": "另需安装独立插件和节点助手，并在插件中按 UUID 明确启用及设置周期。默认关闭，仅登录管理员读结果，不向访客泄露私有节点。模拟数据标为模拟。详见 docs/companion.md。" },
       { "key": "returnRouteTtlHours", "name": "自动结果有效期（小时）", "type": "number", "default": 24, "help": "1–168 小时，过期显示已过期，不以旧结果冒充当前线路。手动覆盖不参与自动 TTL。" },
       { "key": "returnRouteConfig", "name": "按节点 UUID 配置三网回程 JSON", "type": "richtext", "default": "{\"version\":1,\"nodes\":{}}", "help": "格式见仓库 docs/return-routes.md。nodes 的键必须为节点 UUID；manual.telecom/unicom/mobile 的值为 {label,updatedAt}。手动优先于自动，不随节点改名失效。此字段为公开显示数据，严禁写入任何 token/密码。" }
     ]

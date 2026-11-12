@@ -17,6 +17,8 @@ export default defineConfig({
     'node-display-tags.spec.ts',
     'return-routes.spec.ts',
     'route-probe.spec.ts',
+    'enhanced-management.spec.ts',
+    'api-theme-ack.spec.ts',
   ],
   tsconfig: '../tsconfig.app.json',
   outputDir: '../test-results/request-manager',

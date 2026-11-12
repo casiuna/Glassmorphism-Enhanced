@@ -59,6 +59,13 @@ function komariThemeZip(): Plugin {
   return {
     name: 'komari-theme-zip',
     apply: 'build',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'BUILD.json',
+        source: `${JSON.stringify({ schema: 1, product: 'Glassmorphism Enhanced', version: getThemeVersion(), commit: execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim(), dirty: Boolean(execSync('git status --porcelain=v1', { encoding: 'utf-8' }).trim()) }, null, 2)}\n`,
+      })
+    },
     closeBundle: async () => {
       const commitHash = getCommitHash()
       const zipFileName = `komari-theme-Glassmorphism-build-${commitHash}.zip`
@@ -92,7 +99,7 @@ function komariThemeZip(): Plugin {
 
         archive.pipe(output)
 
-        archive.file(themeJsonPath, { name: 'komari-theme.json' })
+        archive.append(`${JSON.stringify(themeManifest, null, 2)}\n`, { name: 'komari-theme.json' })
 
         if (existsSync(previewPath)) {
           archive.file(previewPath, { name: 'preview.png' })

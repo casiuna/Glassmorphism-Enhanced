@@ -1,18 +1,20 @@
-# Enhanced 回程采集 · 本地可安装试用候选
+# Enhanced 回程采集 · v1.2.0 稳定伴生模块
 
-适用：**隔离 Komari 1.6.0**、明确授权的 Linux 测试节点。不是正式 Release，不自动部署，不应直接覆盖生产。本地候选主题仍沿用 `Glassmorphism Enhanced / Enhanced / 1.1.1 / casiuna`，用构建文件名及报告中的 Git SHA 区分；已有正式 v1.1.1 Tag/Release 不变。
+> **统一入口为 [Enhanced Full v1.2.0](full.md)**：一个外层 `.tar.gz` Release asset，内含一个已校验的 Full ZIP；Theme / Plugin / Helper 是同一产品的内部模块。当前稳定主题身份为 `Enhanced` / `1.2.0`，模块为 0.2 系列；下文仅在涉及旧安装、升级或回滚时提及历史版本。
 
-## 三个独立交付物
+适用：**Komari 1.6.0**、明确授权的 Linux 节点。Komari 1.6.1 本轮未实测。Helper 不会被浏览器或安装器静默远程部署；真实公网 traceroute/ASN 尚未执行，不能把 fixture 或本地成功宣称为线上路径验收。
+
+## Full 内部模块（也可按需手动安装）
 
 - `komari-theme-Glassmorphism-build-<sha>.zip`：Komari 后台主题上传。根目录仍为 `komari-theme.json`、`preview.png`、`dist/`，没有 helper 二进制或运行时凭据。
-- `enhanced-route-probe-0.1.0.zip`：后台插件上传。根目录有 manifest、script/protocol/storage/limiter、MIT LICENSE 和 BUILD.json。只批准 node 兼容模块与 allowRoutes，没有 system RPC、exec、监听器、hooks 或 HTML 注入。
-- `enhanced-route-helper-0.1.0.tar.gz`：在选定测试节点解压。包含 Python 3.10+ 标准库助手、显式目录安装器、systemd/OpenRC 模板、默认禁用的示例配置及 README/MIT/BUILD；不上传进主题包，不替代 Komari Agent。
+- `enhanced-route-probe-0.2.0.zip`：后台插件上传。根目录有 manifest、script/protocol/storage/limiter、MIT LICENSE 和 BUILD.json。只批准 node 兼容模块与 allowRoutes，没有 system RPC、exec、监听器、hooks 或 HTML 注入。
+- `enhanced-route-helper-0.2.0.tar.gz`：在选定测试节点解压。包含 Python 3.10+ 标准库助手、显式目录安装器、systemd/OpenRC 模板、默认禁用的示例配置及 README/MIT/BUILD；不上传进主题包，不替代 Komari Agent。
 
-包校验值和构建提交见本地 `test-results/trial/artifacts.json`、`SHA256SUMS`，最终验收见 `test-results/trial/delivery-verification.json`。不要拿旧基线 SHA 的候选包当正式发行物。
+包校验值和构建提交见本地 `test-results/release/artifacts.json`、`SHA256SUMS`，最终验收见 `test-results/release/delivery-verification.json`。不要拿旧基线 SHA 的候选包当正式发行物。
 
-## 最小试用流程
+## 最小安装流程
 
-1. 给**隔离后端**备份当前主题 ZIP、整个 Enhanced 托管配置、已有插件 ZIP/私有 storage。上传候选主题并选择 Enhanced；保留旧主题和所有 tags/Ping 任务，不直接编辑数据库。
+1. 先备份当前主题 ZIP、整个 Enhanced 托管配置、已有插件 ZIP/私有 storage。上传稳定主题并选择 Enhanced；Enhanced 1.1.1 沿同一身份升级并保留设置，不修改 tags/Ping 任务或直接编辑数据库。
 2. 上传独立插件 ZIP，查看权限再批准并启用插件。插件内「允许已安装助手轮询采集」默认关闭；打开后，填写 UUID 策略：
 
    ```json
@@ -67,7 +69,7 @@
 
 ```sh
 npm run build
-python3 scripts/package-route-trial.py
+python3 scripts/package-route.py
 node --test tests/companion/protocol.test.cjs
 python3 tests/companion/test_helper.py
 node tests/companion/integration.mjs

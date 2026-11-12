@@ -6,6 +6,8 @@ export interface ProbeNode {
   enabled: boolean
   state: string
   seenAt: number | null
+  registeredAt?: number | null
+  helperVersion?: string | null
   auto: Partial<Record<'telecom' | 'unicom' | 'mobile', AutoReturnRoute>>
 }
 export interface ProbeSnapshot { nodes: Record<string, ProbeNode> }
@@ -15,7 +17,7 @@ export function parseProbeSnapshot(raw: unknown): ProbeSnapshot {
   if (!raw || typeof raw !== 'object')
     throw new Error('invalid companion snapshot')
   const data = raw as { schema?: unknown, nodes?: Record<string, Record<string, unknown>> }
-  if (data.schema !== 1 || !data.nodes || typeof data.nodes !== 'object' || Array.isArray(data.nodes) || Object.keys(data.nodes).length > 200)
+  if (data.schema !== 1 || !data.nodes || typeof data.nodes !== 'object' || Array.isArray(data.nodes) || Object.keys(data.nodes).length > 400)
     throw new Error('invalid companion protocol')
   const nodes: ProbeSnapshot['nodes'] = {}
   for (const [uuid, value] of Object.entries(data.nodes)) {
@@ -32,7 +34,7 @@ export function parseProbeSnapshot(raw: unknown): ProbeSnapshot {
         throw new Error('invalid companion route evidence')
       auto = parsed.document.nodes[uuid]!.auto
     }
-    nodes[uuid] = { enabled: value.enabled, state: value.state.slice(0, 40), seenAt: typeof value.seenAt === 'number' ? value.seenAt : null, auto }
+    nodes[uuid] = { enabled: value.enabled, state: value.state.slice(0, 40), seenAt: typeof value.seenAt === 'number' && Number.isFinite(value.seenAt) ? value.seenAt : null, registeredAt: typeof value.registeredAt === 'number' && Number.isFinite(value.registeredAt) ? value.registeredAt : null, helperVersion: typeof value.helperVersion === 'string' ? value.helperVersion.slice(0, 96) : null, auto }
   }
   return { nodes }
 }

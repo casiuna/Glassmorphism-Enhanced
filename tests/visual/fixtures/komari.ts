@@ -16,6 +16,7 @@ const REGION_FIXTURES = [
 ] as const
 
 export interface VisualFixtureOptions {
+  themeShort?: string
   userTags?: string
   firstNodeName?: string
   themeSettings?: Record<string, unknown>
@@ -561,7 +562,7 @@ export async function installKomariFixture(page: Page, options: VisualFixtureOpt
         record_preserve_time: 720,
         ping_record_preserve_time: 720,
         sitename: 'Komari Visual Lab',
-        theme: 'Glassmorphism',
+        theme: options.themeShort ?? 'Glassmorphism',
         theme_settings: { ...settings, ...options.themeSettings },
         visitor_audit_enabled: false,
       },

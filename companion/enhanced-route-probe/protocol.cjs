@@ -4,6 +4,7 @@
 // Full notice: LICENSE. No Transit tag transport, legacy GET tokens or remote exec.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const JOB_ID = /^[0-9a-f]{48}$/
+const HELPER_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Z.+-]{1,80})?$/i
 const CITIES = ['beijing', 'shanghai', 'guangzhou']
 const CARRIERS = ['telecom', 'unicom', 'mobile']
 const STATUSES = ['ok', 'unknown', 'timeout', 'permission-denied', 'no-traceroute', 'probe-failed', 'output-limit']
@@ -90,7 +91,18 @@ class Coordinator {
     return node.job
   }
 
-  poll(uuid, config) {
+  register(uuid, version) {
+    assert(typeof version === 'string' && HELPER_VERSION.test(version), 'invalid helper version')
+    const node = this.node(uuid)
+    node.registeredAt = node.registeredAt ?? this.now()
+    node.helperVersion = version
+    return { schema: 1, uuid, registered: true }
+  }
+
+  poll(uuid, config, version) {
+    if (version !== undefined)
+      this.register(uuid, version)
+    this.node(uuid).seenAt = this.now()
     const setting = config.nodes[uuid]
     if (!config.enabled || !setting || !setting.enabled) {
       const old = this.nodes[uuid]
@@ -142,11 +154,13 @@ class Coordinator {
 
   snapshot(config) {
     const nodes = {}
-    for (const uuid of Object.keys(config.nodes)) {
+    for (const uuid of new Set([...Object.keys(config.nodes), ...Object.keys(this.nodes)])) {
       const node = this.nodes[uuid]
       nodes[uuid] = {
-        enabled: config.enabled && config.nodes[uuid].enabled,
+        enabled: Boolean(config.enabled && config.nodes[uuid]?.enabled),
         seenAt: node ? node.seenAt : null,
+        registeredAt: node?.registeredAt ?? null,
+        helperVersion: node?.helperVersion || null,
         state: node && node.job ? (['queued', 'running'].includes(node.job.status) && node.job.expires <= this.now() ? 'expired' : node.job.status) : 'not-detected',
         latest: node ? node.latest : null,
       }
@@ -156,17 +170,32 @@ class Coordinator {
 
   exportState() { return { schema: 1, nodes: this.nodes } }
 
+  restoreNode(uuid, node, config) {
+    assert(config.enabled === false, 'disable collection before restoring')
+    this.importState({ schema: 1, nodes: { ...this.nodes, [uuid]: node } })
+    return { restored: true, uuid }
+  }
+
   importState(raw) {
     keys(raw, ['schema', 'nodes'])
     assert(raw.schema === 1 && Object.keys(raw.nodes).length <= 200, 'invalid stored state')
     for (const uuid of Object.keys(raw.nodes)) {
       assert(UUID.test(uuid), 'invalid stored UUID')
       const node = raw.nodes[uuid]
-      assert(node && typeof node.lastStarted === 'number', 'invalid stored node')
+      keys(node, ['seenAt', 'registeredAt', 'helperVersion', 'lastStarted', 'latest', 'job'])
+      assert(Number.isFinite(node.lastStarted) && node.lastStarted >= 0, 'invalid stored node')
+      assert(node.seenAt === null || (Number.isFinite(node.seenAt) && node.seenAt >= 0), 'invalid heartbeat')
+      assert(node.registeredAt === undefined || (Number.isFinite(node.registeredAt) && node.registeredAt >= 0), 'invalid registration time')
+      assert(node.helperVersion === undefined || (typeof node.helperVersion === 'string' && HELPER_VERSION.test(node.helperVersion)), 'invalid helper version')
       if (node.latest)
         normalizeResult(node.latest, uuid, node.latest.city, Date.parse(node.latest.collectedAt))
-      if (node.job)
+      if (node.job) {
+        keys(node.job, ['id', 'city', 'status', 'createdAt', 'expires', 'lease', 'leaseUntil'])
         assert(CITIES.includes(node.job.city) && JOB_ID.test(node.job.id), 'invalid stored job')
+        assert(['queued', 'running', 'completed', 'cancelled', 'expired'].includes(node.job.status), 'invalid job status')
+        assert([node.job.createdAt, node.job.expires, node.job.leaseUntil].every(n => Number.isFinite(n) && n >= 0), 'invalid job clock')
+        assert(node.job.lease === null || JOB_ID.test(node.job.lease), 'invalid lease')
+      }
     }
     this.nodes = raw.nodes
   }

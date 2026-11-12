@@ -2,10 +2,17 @@
 
 基于 [Komari](https://github.com/komari-monitor/komari) 的第三方监控主题。保留毛玻璃设计，重点展示节点状态、流量和中国联通／电信／移动三网延迟。
 
-[![Release](https://img.shields.io/badge/Release-v1.1.1-10b981)](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.1.1)
+[![Release](https://img.shields.io/badge/Release-v1.2.0-10b981)](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.2.0)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-已完成独立 Komari 1.6.0 / 1.5.1 兼容性回归；[测试范围与限制](docs/komari-1.6.0-compatibility.md) · [迁移与回退](docs/migration-v1.1.0.md)。
+> **v1.2.0 新增两项能力**：
+>
+> - **顶部自定义标签**：将 Komari 原生节点自定义标签移至卡片顶部，保留原始 tags 格式与拓扑元数据。
+> - **三网回程线路**：支持管理员导入/消费已采集的电信、联通、移动逐跳 ASN 结果，以及按 UUID 的手动覆盖；自动结果与伴生 Helper 默认关闭，访客不可见。
+>
+> 自动结果不会从浏览器启动 traceroute、SSH 或远程 Shell；本 Release 未执行真实公网 traceroute/ASN 验证。完整安装、升级、备份与回滚说明见 [Enhanced Full v1.2.0](docs/full.md)，安全边界见 [伴生模块说明](docs/companion.md)。
+>
+> v1.2.0 Full 支持已实测的 Komari 1.6.0，未实测 1.6.1；旧版主题兼容记录见 [测试范围与限制](docs/komari-1.6.0-compatibility.md)，迁移见 [迁移与回退](docs/migration-v1.1.0.md)。
 
 ![主题预览](docs/preview.png)
 
@@ -20,13 +27,13 @@
 
 ## 安装
 
-1. 打开 [Releases](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.1.1)，下载 **主题 ZIP 附件**（`komari-theme-Glassmorphism-build-*.zip`），不要下载 GitHub 自动生成的 Source code ZIP。
+1. 打开 [Releases](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.2.0)，下载 **主题 ZIP 附件**（`komari-theme-Glassmorphism-build-*.zip`）。Full `.tar.gz` 是完整安装/回滚包，不能直接上传到主题管理器；不要下载 GitHub 自动生成的 Source code ZIP。
 2. 在 Komari 后台的主题管理中上传、启用。
 3. 按需调整三网任务、主题外观和中转规则。
 
 不需要修改 Komari Server 或 Agent。
 
-本版主题标识为 `Enhanced`。旧 `Glassmorphism` 安装与配置会保留，迁移与回退见 [说明](docs/migration-v1.1.0.md)。
+本版主题标识为 `Enhanced` v1.2.0。旧 Enhanced 1.1.1 的托管配置、布局、三网 Ping、Relay、财务、SGD、GPU 与拓扑设置沿同一 short 升级并保留；迁移与回退见 [说明](docs/migration-v1.1.0.md)。
 
 ## 三网与中转
 
@@ -58,7 +65,7 @@ bun run build
 
 更新记录见 [CHANGELOG](CHANGELOG.md)，发布流程见 [docs/releasing.md](docs/releasing.md)。
 
-本地试用中的节点头部标签与手动回程设置见 [配置说明](docs/return-routes.md)，独立采集助手/插件见 [试用、卸载与回滚](docs/companion-trial.md)。自动结果仅管理员可见；尚未验证真实网络探测，不代表已发布功能。
+本地配置中的节点头部标签与三网回程设置见 [配置说明](docs/return-routes.md)，独立采集助手/插件见 [稳定版伴生模块说明](docs/companion.md)。自动结果仅管理员可见；真实网络 traceroute/ASN 尚未执行，不代表线上路径已验收。
 
 ## 来源与许可
 

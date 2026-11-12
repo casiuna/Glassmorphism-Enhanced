@@ -1,5 +1,27 @@
 # AI Cache / Agent Handoff Log
 
+## 当前授权与验收：v1.2.0 稳定发布（2026-11-12，M5 / M6）
+
+- 用户本次明确授权开发、测试、新 Commit、仅向 `casiuna/Glassmorphism-Enhanced` 快进 main、正式 v1.2.0 Release 及官方市场更新提交；下方旧 Session / 禁止发布 / Trial 身份要求均为历史，不再代表当前授权。
+- 保留原 worktree/branch，起点 HEAD `37092754388f04d44a3131a4f51130b8b6a1abae`，远端 main `c58cff54cfb4128e727c58cfb972e1e1b3254ff8`，未发现其他进程在本工作树写入。48 个改动/新增源文件已备份到当前 scratch `enhanced-v120-final/initial-worktree.tar.gz`，另存完整 binary diff；无 reset/clean/stash。
+- 审查已发现并修正：管理服务仍引用移除的 TRIAL_SHORT；稳定身份升级后的旧版 ZIP 路径/Full 集成假设；旧 0.1 插件回滚包 channel 校验不兼容。保留真实旧版迁移 fixture，不抹除历史版本。
+- GitHub HTTPS 没有凭据，但已配置 SSH 验证为 casiuna，向本仓库 main 的 dry-run 可 fast-forward；尚未实际 push/tag/Release/市场操作。固定 Bun 1.3.14 已仅安装到 scratch，准备冻结依赖和稳定版全量验收。
+- 阶段 1 / 2 完成：稳定身份、管理保存/鉴权、协议与模块版本、UUID、旧配置、安装/升级/回滚和发布工作流已审查。修复 Komari 为 v1.2.0 加入六项默认值导致误判升级/回滚冲突的问题；保留旧值，仅接受声明的默认新增项，真实管理员改动仍拒绝覆盖，失败时原生 API 恢复完整旧 map 并读回。另补 theme dist/BUILD.json 的完整 commit/dirty 标识与 Full 交叉校验。
+- 实际验收：固定 Bun 1.3.14 冻结安装无变更；Node 26.12.1 / Python 3.14.9 / Linux ARM64（发布 CI 固定 Node 24）。单元/组件 138/138、浏览器 107/107（集中管理 12/12）、Plugin 22/22、Helper 13/13、HTTP 8/8、Full 专项 32/32、独立伴生真实集成 19/19、Full 原生集成 28/28；全部零失败/跳过/flaky。lint/type-check/build/diff-check 已通过；文档最后修改后再做最终 lint。未更新快照或阈值。
+- 旧主题使用实际下载并验证 SHA 的官方 v1.1.1 包；旧 0.1 Plugin 为固定历史源码构建、明确标识的测试包，不冒充历史官方二进制。原生测试新建私有 loopback 后端/Agent/Helper，所有子进程已退出。Full 28 项包含真实失败后的恢复、卸载/回滚、后台重启和亮暗/手机管理界面。
+- 阶段 3 / 4：准备审查并提交完整源码/测试/文档，之后从 clean HEAD 重建生产原生 ZIP 和 Full tar.gz，重跑交付归档的 Full 原生集成并执行 tests/full/verify_delivery.py。已通过且源码未改的独立单元/浏览器等不无意义重跑。测试/运行缓存/DB/Token/ZIP 全部留在 ignored test-results 或 scratch，不进 Git。
+- 阶段 5 已获用户再次明确指示：现在直接发布到自有 GitHub Release；通过安全 FF 推送自有 main，由 Actions 创建 v1.2.0。必须读回 main / Actions / Tag，并下载验证 SHA、根 Manifest 与同一源码 commit。阶段 6 按最新用户要求暂停：等用户实际测试确认后再提交官方市场，本轮不再请求市场登录、触发官方更新、创建 PR 或写市场仓库。
+- 当前验收证据索引：`test-results/stable-{unit,browser}.json`、`stable-protocol.xml`、`helper-unit.json`、`companion-integration.json`、`full/{distribution-unit,transport-unit,native-integration}.json`；最终本地/远端下载核查另存 `test-results/release/`。自动探测默认关闭；真实公网 traceroute、生产节点、系统服务不触碰；只验收隔离 Komari 1.6.0，不宣称 1.6.1。
+
+## 当前续作：统一 Full 本地试用产品（M5 / M6）
+
+- 用户最新授权：固定 Session `20261019_060547_b240f6`，现有 worktree/branch，起点 `37092754388f04d44a3131a4f51130b8b6a1abae` clean。只做本地源码、fixture、隔离 1.6.0、额外本地提交；无 push/tag/Release/市场/生产/SSH/真实 traceroute，无人为 Session Job 截止时间。
+- 已只读核对原生 1.6.0 分块上传、主题列表/选择/整份设置保存、插件配置/审批/安装/删除协议。主题自身不能代装插件；节点身份没有受支持的短期 enrollment，不能凭浏览器装远端程序。官方插件重装保留独立 storage，原生删除则清除它。
+- 实施：一个 Full ZIP，内部仍是原生包；主题使用独立 EnhancedTrial 身份与 prerelease，正式 Enhanced v1.1.1 不覆盖。根主题 manifest 仍为产品版本源，Full manifest 汇总模块版本、commit、依赖、校验值与完整 notices。
+- 统一 Python 标准库 CLI：默认 dry-run，显式操作/权限审批，私有备份、前置版本检查、幂等升级、失败补偿/回滚及安全卸载。缺乏旧包/无法保护原配置时先拒绝，不调用全库恢复或绕过核心。所有 HTTP 凭据只用私有文件/隐藏交互与 body/header，禁 URL/argv/日志/发行包。
+- 管理入口遵守 Component → Composable → Service → RequestManager，管理员专用；合并 UUID 策略、Helper 注册/心跳/版本、时间/错误/手动优先与结果开关，显式确认后只改选定配置。Helper 接入只在被测节点经明确授权读取本机私有 Agent 配置，不修改 Agent，自动探测仍默认关闭。
+- 验收计划：保留既有全部行为回归；新增 bundle/CLI/安全边界/失败恢复、管理 UI 响应式、真实隔离原生 API 与 Helper fixture E2E。新报告单独写入 test-results/full/，不将旧轮次或 fixture 冒充真实公网验证。最终 clean commit 后重构建并核验 Full ZIP。
+
 ## 续作：可安装本地候选与受限采集链路
 
 - 当前唯一 Session `20261019_060547_b240f6`，既有 `tags-return-routes` / `feat/enhanced-tags-return-routes`，只读确认起点 `328a37100214c7d530fdc107ea9b936b396076b9` clean，父提交 `c58cff54cfb4128e727c58cfb972e1e1b3254ff8`。此前提交身份阻塞已用用户授权的命令级 casiuna/noreply 身份解决，下面关于“待身份”的条目仅为历史。

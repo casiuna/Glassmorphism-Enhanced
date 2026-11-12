@@ -1,16 +1,16 @@
-# Enhanced fixed-target helper · 0.1.0 local trial
+# Enhanced fixed-target helper · 0.2.0 stable companion
 
 This is a separately installed, outbound-only Linux helper, not a Komari Agent replacement. Requires Python >=3.10 and Linux `traceroute` supporting `-A` AS lookups. No root/raw-socket capability is requested: the collector uses UDP `traceroute -n -A -q 1 -w 1 -m 20` against nine compiled-in IPv4 targets. It never accepts a command, hostname, executable path, shell option or target from the panel.
 
-**Do not install this package on production as part of the development trial.** Only run it on an explicitly chosen isolated test node. Real-network reachability and ICMP/UDP filtering have not been verified during development; fixtures are visibly marked as `fixture`/模拟, not real probe results. Missing AS replies mean unknown, not inferred IP-prefix evidence or GIA certification.
+**This release does not silently install or enable a helper on any production node.** Installation remains an explicit, per-node administrator action. Real-network reachability and ICMP/UDP filtering have not been verified in this release; fixtures are visibly marked as `fixture`/模拟, not real probe results. Missing AS replies mean unknown, not inferred IP-prefix evidence or GIA certification.
 
 ## Install files, then explicitly enable
 
-1. Extract the archive into a private staging directory. Run `python3 install.py --prefix /opt/enhanced-route-helper/0.1.0`. This only copies enumerated files. It does not create users, change networking, install dependencies, install/initiate services or read credentials. An existing prefix is refused.
+1. Extract the archive into a private staging directory. Run `python3 install.py --prefix /opt/enhanced-route-helper/0.2.0`. This only copies enumerated files. It does not create users, change networking, install dependencies, install/initiate services or read credentials. An existing prefix is refused.
 2. On the **test node**, create an unprivileged `enhanced-route` service account using that OS's normal account-management tools. Keep installed code root-owned and not writable by this account. Point `/opt/enhanced-route-helper/current` at the installed version.
 3. Create `/etc/enhanced-route-helper/` owned by that service account, mode `0700`. Copy `helper.example.json` there as `helper.json`, mode `0600`, owned by the service account. Enter the exact UUID, HTTPS panel origin and absolute token-file path, then explicitly set `enabled: true`. No URL credentials/query/fragment/path are accepted. `allowLoopback` stays false outside a local isolated lab.
 4. Put this node's Agent token in the specified private file, mode `0600`, same service owner. Use an editor or private file transfer; **never put the token in argv, an environment variable, browser, systemd unit, URL or shell history**. The helper validates regular-file owner/mode and rejects symlinks. It sends the token only inside HTTPS JSON POST bodies using Komari 1.6.0 native Agent authentication, never as a query token or an admin API key.
-5. Upload `enhanced-route-probe-0.1.0.zip` in the isolated Komari 1.6.0 Plugins page; approve only `node` and `allowRoutes`. Enable its switch and add the UUID policy, e.g. `{"UUID":{"enabled":true,"city":"beijing","periodMinutes":360}}`. Default configuration dispatches nothing. Cities: beijing/shanghai/guangzhou; period 60–10080 minutes. No Agent remote-exec capability is needed.
+5. Upload `enhanced-route-probe-0.2.0.zip` in the isolated Komari 1.6.0 Plugins page; approve only `node` and `allowRoutes`. Enable its switch and add the UUID policy, e.g. `{"UUID":{"enabled":true,"city":"beijing","periodMinutes":360}}`. Default configuration dispatches nothing. Cities: beijing/shanghai/guangzhou; period 60–10080 minutes. No Agent remote-exec capability is needed.
 6. As the service user, run `python3 /opt/enhanced-route-helper/current/enhanced_route_helper.py --config /etc/enhanced-route-helper/helper.json --once`. Inspect the administrator-only plugin snapshot and theme, then install **one** service manager template if desired. A successful upload means `result-accepted`, not a promise that a commercial route was identified.
 
 ## systemd / OpenRC
@@ -29,7 +29,7 @@ The theme's automatic-result consumption and companion connection both default o
 
 ## Stop, uninstall, rollback
 
-Disable the UUID/plugin switch first, stop and disable the OS service, then remove its unit/init script and reload the service manager. Run `python3 install.py --prefix /opt/enhanced-route-helper/0.1.0 --uninstall` **from the extracted archive**. Only unchanged, installer-owned enumerated files are removed. Unknown operator files and `/etc/enhanced-route-helper` credentials/config are preserved; remove those only by a separate deliberate operator decision. No Komari Agent, node tags, Ping tasks, database or firewall is changed.
+Disable the UUID/plugin switch first, stop and disable the OS service, then remove its unit/init script and reload the service manager. Run `python3 install.py --prefix /opt/enhanced-route-helper/0.2.0 --uninstall` **from the extracted archive**. Only unchanged, installer-owned enumerated files are removed. Unknown operator files and `/etc/enhanced-route-helper` credentials/config are preserved; remove those only by a separate deliberate operator decision. No Komari Agent, node tags, Ping tasks, database or firewall is changed.
 
 For rollback, retain the old helper directory and plugin ZIP/state backup. Stop the helper, repoint `current` to the old version, restore the backed-up plugin/version if needed, then explicitly restart the chosen test service. Do not edit a live DB or downgrade blindly across incompatible state formats. Turning off theme companion consumption restores the manual-only behavior without deleting settings or the previous theme.
 

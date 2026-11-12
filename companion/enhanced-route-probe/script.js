@@ -6,6 +6,7 @@ const crypto = require('crypto')
 const fs = require('fs')
 const path = require('path')
 const server = require('server')
+const manifest = require('./komari-plugin.json')
 const { Coordinator, policy, keys, UUID } = require('./protocol.cjs')
 const { ClientRequestLimiter } = require('./request-limits.cjs')
 const { Store } = require('./storage.cjs')
@@ -68,7 +69,22 @@ function route(method, name, isAdmin, handler) {
 }
 function load() {
   route('GET', 'snapshot', true, (_req, _uuid, config) => coordinator.snapshot(config))
-  route('GET', 'health', true, () => ({ schema: 1, version: '0.1.0', storage: storage.healthy ? 'healthy' : 'unavailable', readAccess: 'admin-only' }))
+  route('GET', 'health', true, () => ({ schema: 1, version: manifest.version, storage: storage.healthy ? 'healthy' : 'unavailable', readAccess: 'admin-only' }))
+  // Private installer checkpoint: contains short-lived leases, never request it
+  // from the public theme or log it. Restore is bounded and requires policy OFF.
+  route('GET', 'checkpoint', true, () => coordinator.exportState())
+  route('POST', 'restore-node', true, (req, _uuid, config) => {
+    const data = body(req)
+    keys(data, ['uuid', 'node'])
+    if (typeof data.uuid !== 'string' || !UUID.test(data.uuid))
+      throw new TypeError('UUID required')
+    return coordinator.restoreNode(data.uuid, data.node, config)
+  })
+  route('POST', 'register', false, (req, uuid) => {
+    const data = body(req)
+    keys(data, ['token', 'helper_version'])
+    return coordinator.register(uuid, data.helper_version)
+  })
   route('POST', 'enqueue', true, (req, _uuid, config) => {
     const data = body(req)
     keys(data, ['uuid', 'city'])
@@ -76,8 +92,9 @@ function load() {
     return { queued: true, job_id: job.id }
   })
   route('POST', 'poll', false, (req, uuid, config) => {
-    keys(body(req), ['token'])
-    return coordinator.poll(uuid, config)
+    const data = body(req)
+    keys(data, ['token', 'helper_version'])
+    return coordinator.poll(uuid, config, data.helper_version)
   })
   route('POST', 'result', false, (req, uuid, config) => coordinator.submit(uuid, body(req), config))
 }

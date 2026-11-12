@@ -2,12 +2,19 @@
 
 All notable Glassmorphism Enhanced changes are documented here. Upstream history remains in the upstream repository and preserved Git history.
 
-## Unreleased — node labels and return-route display
+## 1.2.0 — Released
+
+- Publish one checksummed Full `.tar.gz` containing a validated inner Full ZIP, with native Theme / Plugin / Helper modules, a stable version matrix, complete notices, a default-dry-run administrator/node CLI, and centralized management. The inner Full ZIP remains an installation bundle, not a native theme upload.
+- Upgrade the existing `Enhanced` theme identity from v1.1.1 to stable v1.2.0 through the same managed-theme path, preserving existing configuration/layout, Ping, Relay, finance/SGD, GPU and topology settings. No parallel `EnhancedTrial` identity is shipped.
+- Keep explicit permission approval, private backup material, compensating rollback, checkpoint-backed scoped uninstall, UUID-bound policies, administrator-only automatic results, and default-off probing. No browser traceroute, SSH, system RPC, or invented enrollment credential is introduced.
+- Preserve the MIT Transit attribution and source notices. Komari 1.6.0 is the verified compatibility target; 1.6.1 was not tested. Real public traceroute/ASN and physical GPU telemetry remain unverified and are not claimed.
+
+### Node labels and return-route display
 
 - Move normal node tags to the header metadata row's right-hand pill area, with shared visibility and internal-tag filtering; retain raw tags and upstream topology metadata.
 - Add opt-in UUID-keyed manual return-route settings, strict versioned serialization/migration and TTL-aware automatic evidence display, separate from Ping/Transit RTT and user tags. No probe is executed in the browser.
-- Add separate opt-in route-only companion plugin and unprivileged fixed-argv Python helper, authenticated by native Komari 1.6.0 sessions/Agent identities. Validate real local plugin/theme installation, fixture collection, result consumption, manual overrides, persistence and uninstall. Automatic results are administrator-only; real network tracing and OS service-manager runtime remain untested.
-- Selectively reference MIT Transit route vocabulary with full packaged license; preserve current traffic, resource, finance/SGD, Ping and Relay behavior. No production installation or release is part of this development.
+- Add a separate opt-in route-only companion plugin and unprivileged fixed-argv Python helper, authenticated by native Komari 1.6.0 sessions/Agent identities. Validate local plugin/theme installation, fixture collection, result consumption, manual overrides, persistence and uninstall. Automatic results are administrator-only; real network tracing and OS service-manager runtime remain untested.
+- Selectively reference MIT Transit route vocabulary with full packaged license; preserve current traffic, resource, finance/SGD, Ping and Relay behavior. No silent remote Helper rollout is performed.
 
 ## 1.1.1 — Preview hotfix
 

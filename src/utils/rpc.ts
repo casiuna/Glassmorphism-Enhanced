@@ -490,7 +490,7 @@ export class RpcClient {
       return record as unknown as JsonRpcResponse
     // Official Komari 1.5.1/1.6.0 omit `result` for this void settings ACK.
     // Keep data-bearing methods strict; never turn a missing payload into data.
-    if (method === 'admin:editSettings' && record.id !== null)
+    if (method && ['admin:editSettings', 'admin:setPluginConfiguration', 'admin:setPluginEnabled'].includes(method) && record.id !== null)
       return record as unknown as JsonRpcSuccessResponse<void>
     return null
   }
