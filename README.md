@@ -11,7 +11,7 @@
 >
 > v1.2.0 引入的顶部自定义标签和三网回程继续保留。原生 tags、ASN/upstream 和拓扑元数据不改写；手动线路优先，自动探测默认关闭，自动详细结果仅管理员可见。浏览器不会执行 traceroute、SSH 或远程 Shell。
 >
-> 实测兼容目标为 Komari **1.6.0**；**1.6.1 未实测**。此前完成过单节点湖北 CDN 的六份真实 TCP/UDP 路径采集及隔离回放，但未获得 ASN 外部补全授权，均不足以确认商业线路。**v1.2.1 不宣称已完成可直接用于生产的自动回程探测或可靠线路类型识别**；实验性 Helper/Plugin 默认关闭，未完成产品实时采集到回传的真实公网闭环。部署见 [Enhanced Full](docs/full.md)，流量口径见 [独立流量周期](docs/traffic-cycles.md)，证据边界见 [CDN 回放验证](docs/cdn-replay-validation.md)。
+> 实测兼容目标为 Komari **1.6.0**；**1.6.1 未实测**。普通主题安装只需原生 ZIP，手动线路不需要 Plugin、Helper、Full 或远程执行。自动采集是默认关闭的实验性选项，**尚未完成生产实时探测及可靠商业线路识别验收**，不影响基础主题使用。
 
 ![主题预览](docs/preview.png)
 
@@ -25,16 +25,24 @@
 - **辅助工具**：节点对比、健康摘要、财务估算和 CSV／JSON 导出。
 - **财务与汇率**：支持 SGD（新加坡元）等 13 种币种的费用估算与换算，支持在线汇率、缓存及手动调整。
 
-## 安装
+## 普通主题安装（推荐）
 
-1. 从 [v1.2.1 正式 Release](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.2.1) 下载**原生主题 ZIP**（`komari-theme-Glassmorphism-build-*.zip`）。Full `.tar.gz` 是完整安装/回滚包，不能直接上传到主题管理器；不要下载 GitHub 自动生成的 Source code ZIP，也不要将预提交 dirty 验收包部署到生产。旧版 [v1.2.0](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.2.0) 继续保留。
-2. 在 Komari 后台上传、启用。主题标识保持 `Enhanced`，v1.2.0 / v1.1.1 的既有托管设置沿同一 short 保留。
+1. 下载 [v1.2.1 原生主题 ZIP](https://github.com/casiuna/Glassmorphism-Enhanced/releases/download/v1.2.1/komari-theme-Glassmorphism-build-0332d5f.zip)，不要下载 GitHub 的 Source code ZIP。
+2. 在 **Komari 1.6.0 后台 → 主题管理**上传 ZIP，启用 **Enhanced**，刷新主页即可。它是预构建静态主题，不需要额外运行 Node.js、Bun、Python 或开发服务器；监控与 Ping 仍使用你已有的 Komari / Agent。
 3. 管理员登录后，点击页头「Enhanced 管理 → 03 · 线路与延迟」，选择节点并填写联通／电信／移动三个名称；手动线路**无需 Plugin、Helper 或远控**。开关、TTL、三网 Ping 和 Transit 同属03；原JSON和可选采集诊断默认折叠，使用同一托管配置。主题自带兼容后台可桥接管理页，服务器内置 `/admin/theme_managed` 仍是原生编辑器，不由主题接管。依赖审计见 [后台与伴生组件说明](docs/settings-companion-audit.md)。
 4. 如需周期配额，在「节点与卡片 → 流量周期」为每台节点选择重置日并逐台保存，无需填写 JSON 或修改 Agent。
 
 五个一级分类为：**基础与首页、节点与卡片、线路与延迟、外观与背景、高级设置**。分类调整不删除原字段、默认值、未知设置或其他节点配置。
 
-原生主题 ZIP 即可使用手动线路、标签和流量周期。Helper/Plugin 的实验性采集链路另需明确授权、同构建组件和本地安全配置，不能在浏览器内执行；本版本不把它列为已验收的生产自动探测功能。不会自动部署至生产 Komari，也不修改 Komari Server / Agent 代码。
+### 从旧 Enhanced 升级
+
+先备份托管主题设置和旧 ZIP，再在主题管理器上传新 ZIP，保持 `short: Enhanced`，不要先删除旧主题。v1.2.0 / v1.1.1 的既有配置沿同一身份保留。v1.2.0 原 [Release](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.2.0) 保留用于历史下载和恢复。
+
+### 可选高级安装
+
+需要统一安装／备份／回滚工具的高级用户可阅读 [Enhanced Full](docs/full.md)。Full `.tar.gz` 不能作为原生主题 ZIP 上传，**不是普通用户的必装项**。Plugin / Helper 的实验采集需要另外明确授权，不要求所有 VPS 安装，不在浏览器内执行远程 Shell。详细说明见 [可选伴生组件](docs/companion.md)。
+
+本页为持续维护文档；v1.2.1 的历史 Tag 和已发布附件保持不变，其内部过时文档不会随此页更新。附件命名的后续兼容计划见 [发行附件说明](docs/release-assets.md)。
 
 ## 三网与中转
 

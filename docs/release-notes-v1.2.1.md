@@ -1,35 +1,43 @@
-# Glassmorphism Enhanced v1.2.1 — 节点标签、三等分线路摘要与独立流量周期
+# v1.2.1
 
-> v1.2.1 发行说明。正式附件必须来自已授权、干净的发行 commit，并通过发行门禁；预提交 dirty 验收包不是正式附件。实际发布成功以 GitHub Actions、Tag、Release 元数据和下载附件的交叉验证为准，不以本页标题为准。保留 v1.2.0 的原有 Tag 和 Release；本次不更新 Komari 主题市场，不部署生产。
+## 推荐安装：原生主题 ZIP
+
+普通用户只需下载 [komari-theme-Glassmorphism-build-0332d5f.zip](https://github.com/casiuna/Glassmorphism-Enhanced/releases/download/v1.2.1/komari-theme-Glassmorphism-build-0332d5f.zip)，在 **Komari 1.6.0 后台 → 主题管理**中上传并启用 **Enhanced**，然后刷新主页。
+
+- 主题身份保持 `Glassmorphism Enhanced` / `Enhanced` / `1.2.1`。
+- 标签、手动三网线路、已有三网 Ping、Transit、价格、流量及独立流量周期均属于主题基础功能，不需要 Enhanced Plugin、Helper 或 Full 安装器。
+- 原生 ZIP 包含 manifest、预览图和 `dist/`；使用预构建主题不需要另外运行 Node.js、Bun、Python 或开发服务器。监控与 Ping 仍使用已有 Komari / Agent 能力。
+- 管理员登录后，在主页「Enhanced 管理」选择节点、填写联通／电信／移动三个手动名称；线路开关、有效期及 Ping／Transit 同属「03 · 线路与延迟」。原始 JSON 是同一配置的高级编辑入口，不是第二套配置。
+- 从 v1.2.0 原位升级时保持 `short: Enhanced`，保留托管配置；升级前请备份主题设置及旧主题 ZIP，不要先删除主题或直接覆盖整份配置。
 
 ## 更新内容
 
-- 优化节点卡片顶部自定义标签的居中、尺寸和长标签呈现，保留原始 tags 及内部元数据过滤。
-- 线路摘要采用严格三列等宽布局：红、蓝、绿小圆点对应的完整名称各自在所属列居中。摘要不显示“回程”或运营商前缀，不使用省略号、line-clamp、胶囊背景或彩色边框。
-- 支持按 UUID 保存的手动线路配置；缺项不造假，未知、过期、失败、模拟及协议冲突不被显示为有效线路，私有逐跳证据仅管理员可见。
-- Enhanced 设置统一采用 manifest 的 01–05 自然顺序，回程开关、TTL、三输入框手动线路与 Ping/Transit 同归03。手动线路零额外软件依赖；原始JSON、Plugin/Helper采集诊断默认折叠，保留同一托管字段与旧JSON结构。主题自带兼容后台可进入同一管理界面；服务器内置 `/admin/theme_managed` 仍使用原生编辑器，不能由主题接管。原生Agent替代Helper仅完成审计，未接入新的远程执行/协议。
-- 新增逐节点独立流量重置日，按上海时区计算周期；短月回退到月末并在后续月份恢复原设定日。历史不足时显示数据不足，不以机器累计量冒充周期配额，不显示前台重置倒计时。
-- 保持三网 Ping、Transit、累计流量、财务/价格、历史记录及默认 compact 卡片行为。
-- 修复 Full 升级时将 Plugin 新增默认项误判为配置冲突的问题。仅接受归档 manifest 中的精确默认值并保留原有值；补偿回滚与管理员并发修改保护仍有效。
+- 顶部自定义标签保持居中、尺寸与长文本提示；不改写原始 tags 或内部拓扑元数据。
+- 节点线路摘要严格三等分：红／蓝／绿圆点与完整线路名在各自等宽列内居中，不添加运营商前缀，不省略截断。
+- 后台统一为 01–05 五个分类，线路显示、自动结果消费、有效期、手动线路与 Ping／Transit 统一归入 03；04 仅保留外观与背景，可选采集诊断默认折叠。
+- 手动线路提供节点选择和三个输入框；保留管理员校验、保存后读回、已检测冲突拒绝、旧 JSON 兼容及其他字段保留。未知、过期、失败、模拟和协议冲突不冒充有效线路，私有逐跳证据仅管理员可见。
+- 新增逐节点独立流量重置日，按上海时区计算周期；短月回退到月末，后续月份恢复原设定日期。历史不足时显示数据不足，不用机器累计量冒充周期配额，不在前台增加重置倒计时。
+- 保留原有 Ping、Transit、累计流量、价格、财务和历史记录。原生 API 没有跨请求事务／原子 CAS，冲突复核与读回校验不等于数据库级事务保证。
+- Full 升级仅接受新 Plugin manifest 的精确默认配置项，保留版本保护、真实加载失败后的补偿回滚及管理员并发修改拒绝。
 
-## 自动回程：未完成的发布能力，不宣称支持
+## 可选高级安装：Full 一体化包
 
-**本版不承诺可直接用于生产的自动回程探测，也不承诺可靠识别 CN2 GIA、9929、CMI 等商业线路。**
+[Glassmorphism-Enhanced-Full-0332d5f.tar.gz](https://github.com/casiuna/Glassmorphism-Enhanced/releases/download/v1.2.1/Glassmorphism-Enhanced-Full-0332d5f.tar.gz) 供需要统一安装、升级、备份与回滚工具的高级用户选择。它包含已校验的内层 Full ZIP、安装器及 Theme / Plugin / Helper，**不是 Komari 原生主题 ZIP，不能整体上传至主题管理器，也不是普通主题安装的前提**。
 
-已有实现包括默认关闭的 Helper/Plugin 框架、原生 UUID 认证、lease/TTL/限流、固定 argv、管理员白名单及 schema1/schema2/schema3 证据兼容。它们不等于自动探测的真实公网闭环已经完成验收。
+Theme / Full 为 `1.2.1`；Plugin / Helper 为 `0.3.0+git.0332d5f`。Plugin 每个 Komari 服务端一次；Helper 仅供明确授权参与源端探测的节点使用，不要求所有 VPS 安装，不自动开启远控、安装软件或启动系统服务。
 
-历史上从单节点采集了湖北 CDN `:80` 的六份真实 TCP/UDP 路径，并完成离线解析及隔离后端回放：电信、联通收到目标响应；移动在20跳内未确认到达。未授权 ASN 外部补全，六条均不足以确认商业线路。命令正常退出、目标到达、ASN证据与线路分类是不同结论；回放不冒充新的实时回传。
+## 自动探测：尚未完成生产验收
 
-尚未完成的是产品 Helper 实时采集 → Plugin 正常在线提交 → 可靠 ASN/线路分类的真实公网整链路验收及生产服务运行验证。本轮不扩大探测范围、不启用 Team Cymru、不通过 `traceroute -A` 绕过授权。
+**本版不承诺生产可用的实时自动回程探测，也不承诺可靠识别 CN2 GIA、9929、CMI 等商业线路。**
 
-## 兼容与安装
+现有 Helper / Plugin 实验链路默认关闭，具备 UUID 认证、租约、限流、私有存储和证据兼容。实时 Helper → Plugin → 可靠 ASN／商业线路分类的公网生产闭环仍未完成验收。历史路径采集、fixture 与 replay 不能代替它；缺少可信证据时保持未知。原生 Agent 替代 Helper 仅完成审计，本版没有通用远程执行桥接。
 
-- 主题名称：`Glassmorphism Enhanced`；标识：`Enhanced`；Theme/Full版本：`1.2.1`。
-- Plugin/Helper采用独立的 `0.3.0` 版本线及同构建 commit 后缀，不将其误改成主题版本。
-- 隔离集成目标为 Komari `1.6.0`；`1.6.1`、物理GPU和systemd/OpenRC实际服务运行未承诺。
-- 原生主题 ZIP 只包含 `komari-theme.json`、`preview.png`、`dist/`，用于 Komari 主题管理器。Full `.tar.gz` 包含安装/回滚模块，不能当作主题ZIP上传。
-- 沿用 `Enhanced`，保留既有设置。周期统计依赖足够的细粒度历史，不能恢复已删除历史，也不是服务商账单核对工具。
+## 兼容性与持续维护文档
 
-## 发布状态
+实测隔离目标为 Komari **1.6.0**；1.6.1、物理 GPU 遥测及 systemd / OpenRC 实际服务运行未承诺。独立流量周期不能恢复已删除的历史，也不是服务商账单核对工具。
 
-最终完整 Full 原生集成、故障确实触发的证据与并发修改保护见 `test-results/v121/full-blocker-closure/`。此后的后台设置归类、零依赖手动线路、配置兼容性、原生权限、截图及受影响回归，以更新的 `test-results/v121/settings-companion-review/` 为准；旧完整前端结果及失败历史保留在 `test-results/v121/release-final/`，不复用旧数量冒充新结果。Agent JSON / CLI 测试条件修正及 Companion 依赖结论见 `docs/settings-companion-audit.md`。功能验收、具备提交条件与正式 clean-source 发行门禁分别记录；源码尚未提交时，正式发行门禁应保持待提交状态。所有正式 GitHub 操作、市场更新和生产部署都需要后续单独授权。本页不证明已经发布。
+发行源码与附件固定在 `0332d5f7c73f7994ba21c01e4b739d04835120b1`。**历史 Tag 和附件内的文档不会随主分支文档修正而变化**；其中旧版 Full 安装说明的过时版本描述，请以以下维护文档为准。本次仅修正现有 Release 文本及后续源码文档／工作流，不替换附件，不移动 Tag。
+
+[普通主题安装与配置](https://github.com/casiuna/Glassmorphism-Enhanced/blob/main/README.md) · [可选 Full 安装、升级与回滚](https://github.com/casiuna/Glassmorphism-Enhanced/blob/main/docs/full.md) · [伴生组件依赖审计](https://github.com/casiuna/Glassmorphism-Enhanced/blob/main/docs/settings-companion-audit.md) · [验证范围](https://github.com/casiuna/Glassmorphism-Enhanced/blob/main/docs/full-validation.md)
+
+[完整变更：v1.2.0…v1.2.1](https://github.com/casiuna/Glassmorphism-Enhanced/compare/v1.2.0...v1.2.1)。v1.2.0 原 Tag、Release 和下载保留不变。本次不更新 Komari 官方主题市场，不部署或修改生产环境。

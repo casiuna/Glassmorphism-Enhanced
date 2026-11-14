@@ -1,18 +1,20 @@
-# Glassmorphism Enhanced Full · v1.2.0 稳定单包
+# Glassmorphism Enhanced Full · v1.2.1 可选高级安装
 
-> **v1.2.1 本地候选说明（尚未提交或发布）**：当前开发树的主题 manifest 为 `Enhanced` / `1.2.1`，Plugin / Helper 为 `0.3.0` 开发组件，新增独立流量周期和 TCP/UDP 证据。dirty 构建仅用于本地预检，必须标记 `DEVELOPMENT_ONLY`；不能把旧 HEAD 对应的本地产物当作正式 Release。获准提交后须重新构建并执行原有 clean-source 发行门禁。新功能与限制见包内 `docs/traffic-cycles.md`、`docs/tcpquality-adaptation.md`；本轮机器结果见 `test-results/v121/release-preflight/`。以下 v1.2.0 / 0.2 系列说明保留为已发布稳定版的历史安装/回滚参考，当前实际版本以包内 matrix 为准。
+> **当前正式版为 v1.2.1**，发行 Commit 为 `0332d5f7c73f7994ba21c01e4b739d04835120b1`。普通用户请先看 [原生主题 ZIP 安装](../README.md#普通主题安装推荐)：手动线路、标签、Ping、Transit、价格和流量周期不需要 Full、Plugin、Helper 或远程执行。以下只面向选择统一安装／备份／回滚工具的高级用户。
 
-这是一个产品、一个下载包，Theme / Plugin / Helper 是内部模块，不是三个独立产品。**Full 内层 ZIP 不是 Komari 原生主题 ZIP，不能整个上传到主题上传器；公开 Release 外层使用 `.tar.gz`，其中包含已验证的 Full ZIP。** 统一版本/依赖/commit/模块 SHA 见 `full-manifest.json`；每个文件见 `SHA256SUMS`。已验证范围为 Komari **1.6.0** / Linux 隔离测试节点；Komari 1.6.1 本轮未实测，真实公网 traceroute / ASN 未验证。
+可选下载：[Glassmorphism-Enhanced-Full-0332d5f.tar.gz](https://github.com/casiuna/Glassmorphism-Enhanced/releases/download/v1.2.1/Glassmorphism-Enhanced-Full-0332d5f.tar.gz)。Theme / Plugin / Helper 是 Full 内部模块；这不表示基础主题必须安装全部模块。**Full 内层 ZIP 不是 Komari 原生主题 ZIP，不能整体上传到主题管理器。** 统一版本／依赖／Commit／模块 SHA 见 `full-manifest.json`，文件校验见 `SHA256SUMS`。支持的隔离集成目标为 Komari **1.6.0**；1.6.1 和真实公网自动探测生产闭环未验收。
 
-正式主题使用 `Enhanced` / `1.2.0`，与旧 Enhanced 1.1.1 走同一托管主题升级路径并保留已有设置。Plugin / Helper 为稳定 0.2 系列；产品版本源仍是源码 `komari-theme.json.version`，打包时附上 commit；模块版本来自各自 manifest，由 Full matrix 一并校验。
+正式 Theme / Full 为 **1.2.1**，主题 `short` 为 **Enhanced**；Plugin / Helper 为 **0.3.0+git.0332d5f**。产品版本源仍是 `komari-theme.json.version`，组件版本来自各自 manifest，由 Full matrix 校验。历史 v1.2.0 使用 0.2 系列，仅在处理该旧版本升级／回滚时适用，不是当前版本。
 
-## 实际需要的操作
+**文档勘误边界**：本页是主分支持续维护的修订说明。v1.2.1 Tag 和发布包不会被改写，包内旧的「v1.2.0 稳定单包」「尚未发布」等文案仍属于发行时的历史文件；请使用本页，不要据此重新下载或替换正式资产。
+
+## 选择 Full 后才需要的操作
 
 下载并解压一次 Full 包后：
 
 1. **面板端一次 CLI 操作**：在管理员自己的电脑/测试机运行统一安装器，完成原生 Theme+Plugin 上传、明确的插件权限审批，可同时切换到 Enhanced。
-2. **每个探测节点一次本机接入操作**：同一个包/安装器读取操作者明确指定的本机私有 Agent 配置，完成 UUID 身份核对、Helper 代码/私有配置安装与登记。可同时以前台方式运行 Helper；它不会改/重启已有 Agent。
-3. **管理页一次确认**：选择节点，填写一次 UUID 对应的城市和周期，启用该节点/全局策略及主题结果显示。手动覆盖也在同一入口。其余节点不随之批量启用。
+2. **仅自愿参与自动探测的节点需要本机接入**：同一个安装器读取操作者明确指定的本机私有 Agent 配置，完成 UUID 身份核对、Helper 代码／私有配置安装与登记。不参与采集的 VPS 不安装 Helper，正常监控和手动线路不受影响；已有 Agent 不改、不重启。
+3. **仅可选采集需要管理页明确确认**：在 03 的折叠高级区域配置该节点城市／周期及采集策略，其余节点不批量启用。手动线路在默认三输入框中独立保存，不需要开启这些策略。
 
 前台验证可到此完成。若要无人值守，**每节点还需按该系统选择 systemd 或 OpenRC，配置专用用户/路径后启用服务**；这不是浏览器能代做的一步，本版本不会偷偷启用系统服务。安装前准备 Python、私有文件权限与专用用户也属于操作系统前置条件，不虚称所有环境都只需三次点击。
 
@@ -42,7 +44,7 @@ python3 manage.py install --panel https://TEST-PANEL --username ADMIN \
 
 ## 集中管理与节点接入
 
-管理员登录主题后，页头「Enhanced 管理」打开集中入口。它检测插件存在/运行/版本、存储健康、UUID Helper 登记/心跳/版本、最后结果、状态/错误、手动覆盖优先。未登记显示接入指引；心跳只表示进程最近轮询，**不表示真实线路已经验证**。
+管理员登录后，页头「Enhanced 管理」默认提供纯主题设置。只有主动展开 03 的可选伴生组件区域，才加载 Plugin / Helper 版本、存储、登记、心跳和采集诊断。未登记提示只适用于该可选区域，**不是主题安装失败，也不是要求所有节点安装 Helper**；心跳不表示真实线路已经验证。
 
 在每个明确授权的测试节点解压**同一个 Full 包**；以专用无特权用户运行，操作者先将该节点 Agent 私有配置的读取权限授予该用户（或提供该节点专用的 0600 私有配置副本），不能放宽成 world/group 可读。原 Agent 文件/进程不改。接入默认也只 dry-run：
 
@@ -60,7 +62,7 @@ python3 manage.py node --panel https://TEST-PANEL --uuid NODE-UUID \
 
 ## 升级、异常恢复、回滚
 
-同一 commit 重复安装是 no-op；模块以 `+git.<commit>` 绑定构建，不把不同 build 元数据虚构成 SemVer 先后顺序。1.1.1 → 1.2.0 按稳定版本升级。升级需提供与**已安装版本**匹配的旧原生包，先验证后才进行任何写入：
+同一 Commit 重复安装是 no-op；模块以 `+git.<commit>` 绑定构建，不把不同 build 元数据虚构成 SemVer 先后顺序。当前 v1.2.0 → v1.2.1 的 Theme 升级及 0.2 → 0.3 组件升级必须提供与**已安装版本**匹配的旧包，先校验再写入。历史 1.1.1 → 1.2.0 的恢复也遵从其当时匹配的包和备份，不能把新版包当旧版回滚材料：
 
 ```sh
 python3 manage.py install --panel https://TEST-PANEL --username ADMIN \

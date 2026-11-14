@@ -1,10 +1,29 @@
-# Enhanced Full v1.2.0 · 验证范围与复现
+# Enhanced v1.2.1 · 验证范围与复现
 
-> **历史与当前候选分开**：本页下方保留已发布 v1.2.0 的真实验收记录，不将旧测试数量冒充 v1.2.1 结果。v1.2.1 最新完整验收在 `test-results/v121/release-final/`；早期预检在 `release-preflight/`，TcpQuality 专项在 `tcpquality/`。当前源码未提交，dirty 验收包不是正式 Release；提交获准后仍须 clean-source 重建和原有正式发行校验。本轮不会改旧 v1.2.0 Tag/Release。v1.2.1 的生产自动探测闭环与可靠商业线路分类仍未验收，不列为本版已支持功能；历史六条 CDN 实测和隔离回放不能代替它。
+v1.2.1 已正式发布，Tag 固定在 `0332d5f7c73f7994ba21c01e4b739d04835120b1`。clean-source 发行门禁、三条 Actions、Tag／Commit、正式下载附件哈希和源码绑定均已验证。本页为主分支勘误；历史 Tag 和附件内旧文档不会随本页更新。
 
-本记录针对当前稳定身份 `Enhanced` / `1.2.0`，不是旧 Trial 的测试结论。实际机器报告、每个发行包 SHA-256、clean commit 和源码绑定校验由 `tests/full/verify_delivery.py` 生成，见本地 `test-results/release/delivery-verification.json`；GitHub 上以通过的发布 Actions、Tag 和实际下载的附件为准。本文件本身不证明远端已经发布或官方市场已经合并。
+## v1.2.1 正式发行验证
 
-## 当前稳定源码已执行
+实际执行：单元／组件 312、完整浏览器 211/211、Full 原生集成 38/38、Companion 原生集成 22/22、安装器 37/37、Helper／归档安全 45/45、协议 93、Transport 8/8、故障 fixture 4/4、候选归档 45/45，外加 ESLint、TypeScript、生产构建、diff-check 和原有完整 clean-source 门禁。浏览器零失败／跳过／重试。证据在本地 `test-results/v121/official-release/`；远端三条工作流和实际下载附件已交叉验证，未部署生产或更新主题市场。
+
+## 已发布原生 ZIP 的独立纯主题验收
+
+`tests/native-theme/` 直接下载并固定校验真实 v1.2.0 / v1.2.1 原生 ZIP，再在隔离 Komari 1.6.0 中执行全新安装、同 `Enhanced` 身份原位升级、配置保留、管理入口、手动线路保存／刷新、Ping、Transit、价格和周期设置。该测试不运行 Full 安装器，也不安装 Plugin / Helper。Ping 任务仅指向该隔离面板的 loopback TCP 端口；周期历史为明确标识、路径受限的合成 SQL fixture，HTTP／RPC 来自真实后端，不是 mock 或 Vue 开发页。
+
+开发测试前置条件是 `../tools/backends/komari-1.6.0`、`komari-agent-1.5.11`、Node / Python / Playwright Chromium 与系统库；这些不是普通主题用户的运行依赖。复现：
+
+```sh
+python3 tests/native-theme/download_assets.py
+node tests/native-theme/integration.mjs
+```
+
+本轮结果及截图保存在本地 `test-results/v121/release-quality-review/`，不得把测试数据库、凭据或报告放入发行包。自动公网采集闭环和可靠商业线路分类仍未通过生产验收。
+
+## 历史 v1.2.0 记录（以下仅适用于该旧版本）
+
+以下数字和旧版升级示例为 v1.2.0 历史原文，不是 v1.2.1 结果。其当时身份为 `Enhanced` / `1.2.0`、组件 0.2 系列；机器报告仍由原有校验器生成，不据此声称市场已更新。
+
+### v1.2.0 历史源码已执行
 
 - Bun **1.3.14**，`bun install --frozen-lockfile` 成功，锁文件和依赖未修改；本机 Node **26.12.1**、Python **3.14.9**、Linux ARM64。GitHub 发布仍使用固定 Bun 1.3.14 与 Node 24，不把本机环境差异藏起来。
 - 全项目非修复 ESLint `--max-warnings 0`、`bun run type-check`、`bun run build`、`git diff --check`。

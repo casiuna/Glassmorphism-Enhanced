@@ -1,8 +1,8 @@
-# Enhanced fixed-target helper · 0.3.0 development companion
+# Enhanced fixed-target helper · optional 0.3.0 companion
 
-This separately installed, outbound-only Linux helper is not a Komari Agent replacement. Requires Python >=3.10 and an administrator-provided Linux `traceroute`; it does not install dependencies. UDP remains available. TCP uses fixed port 443. Both use compiled-in IPv4 targets; IPv6 probes are rejected. No command, hostname, executable, port or target is accepted from the panel.
+This optional, separately installed Linux helper is not required for the native Enhanced theme, manual route labels, Ping, Transit or traffic cycles. Install it only on explicitly authorized source nodes participating in the experimental collection chain, not on every VPS. It is not a Komari Agent replacement. The helper itself requires Python >=3.10 and an administrator-provided Linux `traceroute`; it does not install dependencies. UDP remains available. TCP uses fixed port 443. Both use compiled-in IPv4 targets; IPv6 probes are rejected. No command, hostname, executable, port or target is accepted from the panel.
 
-**Automatic collection and external ASN queries default off. This development work does not install or enable anything on production nodes.** Fixtures are explicitly marked `fixture`/模拟. Real-network TCP/UDP behavior, Team Cymru availability, systemd/OpenRC runtime and IPv6 have not been validated by the offline tests.
+**Theme / Full 1.2.1 ships Plugin / Helper 0.3.0 with the release commit suffix. Automatic collection and external ASN queries default off; release does not imply production-network collection or reliable commercial-route classification has been validated.** Fixtures are explicitly marked `fixture`/模拟. Real-network production TCP/UDP behavior, Team Cymru availability, systemd/OpenRC runtime and IPv6 are not certified by offline tests. Historical release-tag and bundled documents are immutable; this main-branch guide is the maintained correction, not a replacement release asset.
 
 ## Installation and local choices
 
