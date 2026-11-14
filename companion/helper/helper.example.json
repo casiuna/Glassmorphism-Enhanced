@@ -3,5 +3,10 @@
   "uuid": "00000000-0000-4000-8000-000000000001",
   "tokenFile": "/etc/enhanced-route-helper/agent-token",
   "enabled": false,
-  "allowLoopback": false
+  "allowLoopback": false,
+  "probeProtocols": ["udp"],
+  "addressFamily": 4,
+  "cymruEnabled": false,
+  "cymruConsent": false,
+  "prefixHints": false
 }

@@ -1,5 +1,7 @@
 # Enhanced 回程采集 · v1.2.0 稳定伴生模块
 
+> **v1.2.1 开发树补充（尚未发布）**：当前 0.3.0 开发组件新增独立 TCP/UDP、显式 Team Cymru 同意与本地持久化限频，并移除隐式 `traceroute -A` 查询。新行为、升级顺序与安全边界见 [TCP/UDP 专项说明](tcpquality-adaptation.md)。下文 0.2 系列说明保留为已发布 v1.2.0 的历史安装/回滚参考，不应套用其 `-A` 参数到新 Helper。
+
 > **统一入口为 [Enhanced Full v1.2.0](full.md)**：一个外层 `.tar.gz` Release asset，内含一个已校验的 Full ZIP；Theme / Plugin / Helper 是同一产品的内部模块。当前稳定主题身份为 `Enhanced` / `1.2.0`，模块为 0.2 系列；下文仅在涉及旧安装、升级或回滚时提及历史版本。
 
 适用：**Komari 1.6.0**、明确授权的 Linux 节点。Komari 1.6.1 本轮未实测。Helper 不会被浏览器或安装器静默远程部署；真实公网 traceroute/ASN 尚未执行，不能把 fixture 或本地成功宣称为线上路径验收。

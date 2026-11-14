@@ -125,7 +125,7 @@ async function createRuntime(kind: 'card' | 'list', supported: boolean) {
 export function useNodePingDisplay(uuid, options) { globalThis.__nodeViewportTest.bind(uuid, options.enabled); return { latencyRenderBars: [], lossRenderBars: [] }; }`
         }
         if (id === `\0${virtual}store`)
-          return 'export const useAppStore = () => ({ isFavoriteNode: () => false });'
+          return 'export const useAppStore = () => ({ isFavoriteNode: () => false, trafficCycleConfig: { document: { nodes: {} }, error: null } });'
         if (id === `\0${virtual}ui`)
           return 'export const Icon = {}, Badge = {}, CardX = {}, DataTooltip = {}, ProgressThin = {};'
       },

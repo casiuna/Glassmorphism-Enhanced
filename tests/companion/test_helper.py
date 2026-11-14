@@ -29,6 +29,10 @@ class HelperTests(unittest.TestCase):
         with self.assertRaises(helper.HelperError):
             helper.collect('unused', 'beijing;never-execute')
 
+    def test_legacy_udp_unreachable_target_is_not_successful_reachability(self):
+        self.assertFalse(helper.parse_trace('1 219.141.140.10 [AS4134] !H', '219.141.140.10')[1])
+        self.assertFalse(helper.parse_trace('1 219.141.140.100 [AS4134]', '219.141.140.10')[1])
+
     def test_http_remote_redirect_or_credential_urls_rejected(self):
         for value in ['http://example.invalid', 'http://localhost', 'https://user:secret@example.invalid', 'https://example.invalid/?token=never', 'https://example.invalid/path']:
             with self.assertRaises(helper.HelperError):
@@ -55,7 +59,8 @@ class HelperTests(unittest.TestCase):
     def run_fixed_child(self, program, timeout: float = 25):
         real_spawn = subprocess.Popen
         def spawn(argv, **options):
-            self.assertEqual(argv, ['/usr/bin/traceroute', '-n', '-A', '-q', '1', '-w', '1', '-m', '20', '219.141.140.10'])
+            self.assertEqual(argv, ['/usr/bin/traceroute', '-4', '-n', '-q', '1', '-w', '1', '-m', '20', '219.141.140.10'])
+            self.assertNotIn('-A', argv)  # no unconsented native registry lookup
             self.assertFalse(options['shell'])
             self.assertNotIn('TOKEN', options['env'])
             return real_spawn([sys.executable, '-c', program], **options)
@@ -115,6 +120,8 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(config['Service']['User'], 'enhanced-route')
         self.assertEqual(config['Service']['CapabilityBoundingSet'], '')
         self.assertEqual(config['Service']['NoNewPrivileges'], 'true')
+        self.assertEqual(config['Service']['StateDirectory'], 'enhanced-route-helper')
+        self.assertEqual(config['Service']['StateDirectoryMode'], '0700')
         self.assertNotIn('--token', config['Service']['ExecStart'])
 
 if __name__ == '__main__':

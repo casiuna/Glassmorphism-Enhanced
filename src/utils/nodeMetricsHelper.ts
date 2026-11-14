@@ -1,5 +1,6 @@
 import type { NodeData } from '@/stores/nodes'
 import { getDaysUntilExpired } from '@/utils/tagHelper'
+import { trafficByMode } from '@/utils/trafficCycle'
 
 export interface TopNodeMetric {
   node: NodeData
@@ -20,14 +21,7 @@ export function hasTrafficLimit(node: Pick<NodeData, 'traffic_limit'>): boolean 
 export function getTrafficUsed(node: Pick<NodeData, 'net_total_up' | 'net_total_down' | 'traffic_limit_type'>): number {
   const { net_total_up = 0, net_total_down = 0, traffic_limit_type } = node
 
-  switch (traffic_limit_type) {
-    case 'up': return net_total_up
-    case 'down': return net_total_down
-    case 'min': return Math.min(net_total_up, net_total_down)
-    case 'max': return Math.max(net_total_up, net_total_down)
-    case 'sum':
-    default: return net_total_up + net_total_down
-  }
+  return trafficByMode(net_total_up, net_total_down, traffic_limit_type)
 }
 
 /** Machine-cumulative / quota reference ratio, not provider monthly usage. */

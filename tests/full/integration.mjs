@@ -1,25 +1,34 @@
 // REAL isolated Komari 1.6.0, real Full CLI/browser/Agent/helper processes.
 // All route collection is fixture-only. Previous theme identities and reload
 // faults are explicitly labelled test archives, not historical release binaries.
+// When ENHANCED_PREVIOUS_THEME_ZIP is set, its actual pinned release is tested.
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { chromium, expect } from '@playwright/test'
 
+const GIGABYTE_LABEL = /GB/
+const FORBIDDEN_CARD_RESET_INFO = /下次重置|距离重置|重置倒计时|距重置/
+const OPTIONAL_OR_EXEC_METHOD = /^(?:admin|agent)[:.].*(?:[Pp]lugin|[Tt]ask|[Ee]xec)/
+
 async function main() {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-  const out = join(root, 'test-results/full')
+  const out = resolve(process.env.ENHANCED_ACCEPTANCE_OUT || join(root, 'test-results/full'))
   mkdirSync(out, { recursive: true })
-  const state = mkdtempSync(join(out, 'native-lab-'))
+  const labs = join(root, 'test-results/full')
+  mkdirSync(labs, { recursive: true })
+  // Keep the SQL fixture's existing strict lab-path guard unchanged.
+  const state = mkdtempSync(join(labs, 'native-lab-'))
   chmodSync(state, 0o700)
   const children = []
   const checks = []
   let browser
+  let agent
   let server
   let cookie = ''
   let seq = 0
@@ -33,7 +42,7 @@ async function main() {
   const origin = `http://127.0.0.1:${port}`
   const endpoint = '/api/enhanced-route-probe/v1'
   const env = { PATH: process.env.PATH, HOME: state, TMPDIR: state, LANG: 'C.UTF-8', PYTHONDONTWRITEBYTECODE: '1' }
-  const artifacts = JSON.parse(readFileSync(join(root, 'test-results/release/artifacts.json'), 'utf8'))
+  const artifacts = JSON.parse(readFileSync(process.env.ENHANCED_ARTIFACTS_JSON || join(root, 'test-results/release/artifacts.json'), 'utf8'))
   const fullArchive = artifacts.artifacts.find(a => a.kind === 'full-tar-gz').path
   const full = join(state, 'Full')
   const extract = spawnSync('python3', [join(root, 'tests/full/extract_bundle.py'), fullArchive, full], { env, encoding: 'utf8' })
@@ -142,7 +151,10 @@ async function main() {
   let formalSettings
   let settingsBeforeUninstall
   let originalState
+  let trafficFixture
+  let trafficConfig
   const previousTheme = process.env.ENHANCED_PREVIOUS_THEME_ZIP || join(state, 'fixtures/formal-identity-fixture.zip')
+  const previousVersion = process.env.ENHANCED_PREVIOUS_THEME_VERSION || '1.1.1'
   let context
   let page
   const prefix = join(state, 'helper-versioned')
@@ -160,11 +172,14 @@ async function main() {
       writeFileSync(sessionFile, cookie, { mode: 0o600 })
       assert.equal((await rpc('public:getVersion')).version, '1.6.0')
     })
-    await check('prepare historical plugin source fixture and verify previous Enhanced 1.1.1 theme identity', async () => {
+    await check(`prepare historical plugin source fixture and verify previous Enhanced ${previousVersion} theme identity`, async () => {
       const result = await command('python3', [join(root, 'tests/full/fixture_archives.py'), '--bundle', full, '--output', join(state, 'fixtures')])
       assert.equal(result.code, 0, 'fixture archive preparation')
-      if (process.env.ENHANCED_PREVIOUS_THEME_ZIP)
-        assert.equal(createHash('sha256').update(readFileSync(previousTheme)).digest('hex'), 'ef9aec3d569fe4f9ab7f75393e8079649c17ab31fa53e68669f67fb5153fba68', 'pinned official v1.1.1 asset checksum')
+      if (process.env.ENHANCED_PREVIOUS_THEME_ZIP) {
+        const pinned = { '1.1.1': 'ef9aec3d569fe4f9ab7f75393e8079649c17ab31fa53e68669f67fb5153fba68', '1.2.0': 'bc2aeb1810b19800e4dcd9f40ae480021efe3ade16d5b9f752c5568a20e9602e' }
+        assert(pinned[previousVersion], 'only a known historical release may be used')
+        assert.equal(createHash('sha256').update(readFileSync(previousTheme)).digest('hex'), pinned[previousVersion], 'pinned historical native asset checksum')
+      }
       await upload('theme', previousTheme)
       await rpc('admin:editSettings', { theme: 'Enhanced' })
       await api('/api/admin/theme/settings?theme=Enhanced', { unknownFuture: { keep: true }, transitCarrierPingRules: 'PRESERVE_FORMAL', displayCurrency: 'SGD' })
@@ -188,7 +203,7 @@ async function main() {
       assert.deepEqual(await rpc('admin:listPlugins'), [])
       assert.equal(existsSync(join(state, 'must-not-exist')), false)
     })
-    await check('ONE CLI upgrades Enhanced 1.1.1 in place with preserved settings and installs default-off Plugin', async () => {
+    await check(`ONE CLI upgrades Enhanced ${previousVersion} in place with preserved settings and installs default-off Plugin`, async () => {
       const result = await cli('install', ['--apply', '--approve-route-plugin', '--activate', '--previous-theme', previousTheme, '--backup-dir', join(state, 'install-backup')])
       assert.equal(result.code, 0, `CLI apply failed: ${result.stderr}`)
       assert.equal(JSON.parse(result.stdout).status, 'completed-and-readback-verified')
@@ -215,7 +230,7 @@ async function main() {
       other = two.payload.data ?? two.payload
       assert(client.uuid && client.token && other.uuid && other.token)
       agentFile = join(state, 'authorized-node-agent.json')
-      writeFileSync(agentFile, JSON.stringify({ 'endpoint': origin, 'token': client.token, 'interval': 1, 'disable-auto-update': true, 'disable-web-ssh': true, 'get-ip-addr-from-nic': true, 'custom-ipv4': '192.0.2.10', 'custom-ipv6': '2001:db8::10' }), { mode: 0o600 })
+      writeFileSync(agentFile, JSON.stringify({ endpoint: origin, token: client.token, interval: 1, disable_auto_update: true, disable_web_ssh: true, get_ip_addr_from_nic: true, custom_ipv4: '192.0.2.10', custom_ipv6: '2001:db8::10' }), { mode: 0o600 })
     })
     const nodeArgs = () => ['--uuid', client.uuid, '--agent-config', agentFile, '--prefix', prefix, '--state-dir', helperState]
     await check('node dry-run never registers, creates code/state, changes Agent file or starts service', async () => {
@@ -254,7 +269,7 @@ async function main() {
     })
     await check('real local Agent metrics remain independent; no SSH, Ping task, updater or external-IP discovery', async () => {
       const log = openSync(join(state, 'agent-private.log'), 'a', 0o600)
-      const agent = spawn(resolve(root, '../tools/backends/komari-agent-1.5.11'), ['--config', agentFile], { cwd: state, env, stdio: ['ignore', log, log] })
+      agent = spawn(resolve(root, '../tools/backends/komari-agent-1.5.11'), ['--config', agentFile, '--disable-auto-update', '--disable-web-ssh', '--get-ip-addr-from-nic'], { cwd: state, env, stdio: ['ignore', log, log] })
       children.push(agent)
       for (let i = 0; i < 70; i++) {
         if ((await rpc('common:getNodesLatestStatus'))[client.uuid])
@@ -278,16 +293,195 @@ async function main() {
         console.error(`BROWSER_HTTP ${response.status()} ${new URL(response.url()).pathname}`)
     })
     await page.route(url => url.origin !== origin, route => route.abort())
+    await check('theme-only manual routes persist with Plugin REMOVED and native Agent remote execution disabled', async () => {
+      const original = (await rpc('public:getPublicSettings')).theme_settings
+      const policy = await config()
+      const privateState = (await request(`${endpoint}/checkpoint`)).payload
+      const agentBytes = readFileSync(agentFile)
+      assert.equal(JSON.parse(agentBytes.toString()).disable_web_ssh, true)
+      assert(!privateState.nodes[other.uuid]?.registeredAt, 'the manually edited UUID has no registered Helper')
+      await rpc('admin:setPluginEnabled', { short: policyShort, enabled: false })
+      await rpc('admin:deletePlugin', { short: policyShort, purge: false })
+      assert(!(await rpc('admin:listPlugins')).some(p => p.short === policyShort))
+      await api('/api/admin/theme/settings?theme=Enhanced', { ...original, hideEarth: true, visitorInfoEnabled: false, disablePageAnimation: true, returnRoutesVisible: true, returnRouteAutoEnabled: false, returnRouteCompanionEnabled: false })
+      let forbidden = 0
+      const audit = (r) => {
+        if (new URL(r.url()).pathname.startsWith(endpoint))
+          forbidden++
+        if (r.url().endsWith('/api/rpc2')) {
+          const body = r.postDataJSON()
+          if (OPTIONAL_OR_EXEC_METHOD.test(body?.method ?? ''))
+            forbidden++
+        }
+      }
+      page.on('request', audit)
+      await page.goto(origin)
+      await page.getByRole('button', { name: 'Enhanced 管理', exact: true }).click()
+      await page.getByRole('combobox', { name: '手动线路节点', exact: true }).selectOption(other.uuid)
+      for (const [carrier, label] of [['联通', '10099→9929'], ['电信', 'CN2GIA'], ['移动', 'CMIN2']])
+        await page.getByRole('textbox', { name: `${carrier}手动线路`, exact: true }).fill(label)
+      await page.getByRole('button', { name: '保存本节点手动线路', exact: true }).click()
+      await expect(page.locator('[data-manual-route-manager] [role=status]')).toContainText('已保存并读回')
+      const saved = (await rpc('public:getPublicSettings')).theme_settings
+      assert.equal(JSON.parse(saved.returnRouteConfig).nodes[other.uuid].manual.telecom.label, 'CN2GIA')
+      assert.equal(saved.returnRouteAutoEnabled, false)
+      assert.equal(saved.returnRouteCompanionEnabled, false)
+      for (const [width, mode] of [[1440, 'light'], [320, 'dark']]) {
+        await page.setViewportSize({ width, height: 1000 })
+        await api('/api/admin/theme/settings?theme=Enhanced', { ...saved, themeMode: mode })
+        await page.reload()
+        await page.getByRole('button', { name: 'Enhanced 管理', exact: true }).click()
+        await page.getByRole('combobox', { name: '手动线路节点', exact: true }).selectOption(other.uuid)
+        await expect(page.getByRole('textbox', { name: '电信手动线路', exact: true })).toHaveValue('CN2GIA')
+        assert(await page.getByRole('dialog').evaluate(el => el.scrollWidth <= el.clientWidth + 1))
+        await page.screenshot({ path: join(out, `native-settings-no-plugin-${width}-${mode}.png`), fullPage: true })
+        if (width === 1440) {
+          await page.getByRole('tab', { name: '外观与背景', exact: true }).click()
+          await expect(page.getByRole('checkbox', { name: '显示回程线路', exact: true })).toHaveCount(0)
+          await page.screenshot({ path: join(out, 'native-settings-appearance-1440-light.png'), fullPage: true })
+          await page.getByRole('tab', { name: '高级设置', exact: true }).click()
+          await page.screenshot({ path: join(out, 'native-settings-advanced-1440-light.png'), fullPage: true })
+        }
+      }
+      assert.equal(forbidden, 0, 'manual management must not read Plugin, dispatch tasks or execute commands')
+      assert((await rpc('common:getNodesLatestStatus'))[client.uuid], 'normal Agent monitoring remains independent')
+      assert.deepEqual(readFileSync(agentFile), agentBytes)
+      page.off('request', audit)
+      await api('/api/admin/theme/settings?theme=Enhanced', original)
+      await upload('plugin', join(full, manifest.modules.plugin.path))
+      await rpc('admin:setPluginConfiguration', { short: policyShort, data: policy })
+      await rpc('admin:setPluginEnabled', { short: policyShort, enabled: true, approved: true })
+      // Native deletePlugin removes its private directory, even with purge=false.
+      // Restore our explicit lab setup via the existing admin checkpoint API;
+      // this is not a claim that deletion itself preserved private plugin data.
+      assert.equal(policy.enabled, false)
+      for (const [uuid, node] of Object.entries(privateState.nodes)) {
+        const restored = await request(`${endpoint}/restore-node`, { uuid, node })
+        assert.equal(restored.response.status, 200)
+        assert.equal(restored.payload.restored, true)
+      }
+      assert.deepEqual((await request(`${endpoint}/checkpoint`)).payload, privateState)
+      await page.setViewportSize({ width: 1440, height: 1000 })
+    })
     await check('real installed administrator UI detects matching versions and registered-but-not-polling helper', async () => {
       const current = (await rpc('public:getPublicSettings')).theme_settings
       await api('/api/admin/theme/settings?theme=Enhanced', { ...current, hideEarth: true, visitorInfoEnabled: false, disablePageAnimation: true, dataUpdateInterval: 60, themeMode: 'light', unknownFuture: { keep: true }, transitCarrierPingRules: 'KEEP_NATIVE_RELAY', displayCurrency: 'SGD' })
       await page.goto(origin)
       await page.getByRole('button', { name: 'Enhanced 管理', exact: true }).click()
+      await page.locator('[data-optional-companion] > summary').click()
       await expect(page.getByRole('dialog')).toBeVisible({ timeout: 15000 })
       await expect(page.locator('[data-enhanced-versions]')).toContainText(manifest.modules.plugin.version)
       await page.getByRole('combobox', { name: '管理节点 UUID', exact: true }).selectOption(client.uuid)
       await expect(page.getByRole('combobox', { name: '管理节点 UUID', exact: true })).toHaveValue(client.uuid)
       await expect(page.locator('[data-helper-status]')).toContainText('已登记，尚未轮询')
+    })
+    await check('EXPLICIT synthetic metric history is inserted only into the isolated native lab; real RPC is not mocked', async () => {
+      await stop(agent)
+      // Latest-status delivery is not durable metric-store readiness. Native
+      // shutdown flushes its buffered Agent samples; restart the actual backend
+      // before reading/seeding its existing tables. Do not fabricate labels or
+      // relax seed_traffic_fixture.py's database path/schema prerequisites.
+      await stop(server)
+      start()
+      await ready()
+      const seeded = await command('python3', [join(root, 'tests/full/seed_traffic_fixture.py'), '--database', join(state, 'sqlite:/data/metrics.db'), '--node-a', client.uuid, '--node-b', other.uuid])
+      assert.equal(seeded.code, 0, seeded.stderr)
+      trafficFixture = JSON.parse(seeded.stdout)
+      assert.equal(trafficFixture.productionTouched, false)
+      assert.equal(trafficFixture.rawCountersCleared, false)
+      assert(trafficFixture.insertedRollupRows > 0)
+      writeFileSync(join(state, 'traffic-fixture-summary.json'), JSON.stringify(trafficFixture), { mode: 0o600 })
+      await rpc('admin:editClient', { uuid: client.uuid, traffic_limit: 1024 ** 4, traffic_limit_type: 'sum' })
+      await rpc('admin:editClient', { uuid: other.uuid, traffic_limit: 1024 ** 4, traffic_limit_type: 'sum' })
+    })
+    await check('five-category native administrator UI persists independent UUID billing days and reads real native traffic sums', async () => {
+      await page.getByRole('tab', { name: '节点与卡片', exact: true }).click()
+      await expect(page.getByRole('tablist', { name: 'Enhanced 主题设置分类' }).getByRole('tab')).toHaveCount(5)
+      for (const [node, day] of [[client, trafficFixture.nodeAResetDay], [other, trafficFixture.nodeBResetDay]]) {
+        const row = page.locator(`[data-traffic-cycle-node="${node.uuid}"]`)
+        await expect(row.locator('select')).toHaveValue('')
+        await expect(row.locator('[data-cycle-used]')).toHaveText('未设置')
+        await row.locator('select').selectOption(String(day))
+        await row.getByRole('button').click()
+        await expect(row.getByRole('status')).toContainText('已保存并读回')
+        try {
+          await expect(row.locator('[data-cycle-used]')).toHaveText(GIGABYTE_LABEL, { timeout: 15000 })
+        }
+        catch (error) {
+          console.error(`NATIVE_TRAFFIC_STATUS ${(await row.textContent()).slice(0, 1600)}`)
+          throw error
+        }
+      }
+      const current = (await rpc('public:getPublicSettings')).theme_settings
+      trafficConfig = JSON.parse(current.trafficCycleConfig)
+      assert.equal(trafficConfig.nodes[client.uuid].resetDay, trafficFixture.nodeAResetDay)
+      assert.equal(trafficConfig.nodes[other.uuid].resetDay, trafficFixture.nodeBResetDay)
+      assert.deepEqual(current.unknownFuture, { keep: true })
+      assert.equal(current.displayCurrency, 'SGD')
+      assert.equal(current.transitCarrierPingRules, 'KEEP_NATIVE_RELAY')
+    })
+    await check('changing A recalculates only A; B usage, UUID configuration and retained counter history remain unchanged', async () => {
+      const rowB = page.locator(`[data-traffic-cycle-node="${other.uuid}"]`)
+      const usedB = await rowB.locator('[data-cycle-used]').textContent()
+      const rowA = page.locator(`[data-traffic-cycle-node="${client.uuid}"]`)
+      await rowA.locator('select').selectOption(String(trafficFixture.changedNodeAResetDay))
+      await rowA.getByRole('button').click()
+      await expect(rowA.getByRole('status')).toContainText('已保存并读回')
+      await expect(rowA.locator('[data-cycle-used]')).toHaveText(GIGABYTE_LABEL)
+      await expect(rowB.locator('[data-cycle-used]')).toHaveText(usedB)
+      const current = (await rpc('public:getPublicSettings')).theme_settings
+      const next = JSON.parse(current.trafficCycleConfig)
+      assert.deepEqual(next.nodes[other.uuid], trafficConfig.nodes[other.uuid])
+      assert.equal(next.nodes[client.uuid].resetDay, trafficFixture.changedNodeAResetDay)
+      trafficConfig = next
+      const preserved = await command('python3', [join(root, 'tests/full/seed_traffic_fixture.py'), '--database', join(state, 'sqlite:/data/metrics.db'), '--node-a', client.uuid, '--node-b', other.uuid, '--verify', join(state, 'traffic-fixture-summary.json')])
+      assert.equal(preserved.code, 0, preserved.stderr)
+      assert.equal(JSON.parse(preserved.stdout).syntheticFixtureHistoryPreserved, true)
+    })
+    await check('node rename and browser reload preserve managed settings and UUID-linked cycle configuration', async () => {
+      await rpc('admin:editClient', { uuid: other.uuid, name: 'Renamed billing fixture B' })
+      await page.getByRole('button', { name: '关闭', exact: true }).click()
+      await page.reload()
+      await page.getByRole('button', { name: 'Enhanced 管理', exact: true }).click()
+      await page.locator('[data-optional-companion] > summary').click()
+      await page.getByRole('tab', { name: '节点与卡片', exact: true }).click()
+      const row = page.locator(`[data-traffic-cycle-node="${other.uuid}"]`)
+      await expect(row).toContainText('Renamed billing fixture B')
+      await expect(row.locator('select')).toHaveValue(String(trafficConfig.nodes[other.uuid].resetDay))
+      assert.deepEqual(JSON.parse((await rpc('public:getPublicSettings')).theme_settings.trafficCycleConfig), trafficConfig)
+    })
+    await check('server-native managed-settings editor remains available without changing saved configuration', async () => {
+      const before = (await rpc('public:getPublicSettings')).theme_settings
+      await page.goto(`${origin}/admin/theme_managed`)
+      await expect(page.getByText('启用公告', { exact: true })).toBeVisible({ timeout: 15000 })
+      const nativeText = await page.locator('body').textContent()
+      const titles = ['01 · 基础与首页', '02 · 节点与卡片', '03 · 线路与延迟', '04 · 外观与背景', '05 · 高级设置']
+      const positions = titles.map(t => nativeText.indexOf(t))
+      assert(positions.every((p, i) => p >= 0 && (i === 0 || p > positions[i - 1])))
+      await page.screenshot({ path: join(out, 'native-server-settings-ordered.png'), fullPage: true })
+      assert.equal(new URL(page.url()).pathname, '/admin/theme_managed')
+      assert.deepEqual((await rpc('public:getPublicSettings')).theme_settings, before)
+    })
+    await check('theme-bundled official compatibility entry bridges to the five tabs without a JSON task', async () => {
+      await page.goto(`${origin}/admin-app/index.html?__komari_route=%2Fadmin%2Ftheme_managed`)
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 15000 })
+      await expect(page.getByRole('tab', { name: '节点与卡片', exact: true })).toHaveAttribute('aria-selected', 'true')
+      await expect(page.locator(`[data-traffic-cycle-node="${client.uuid}"] select`)).toHaveValue(String(trafficConfig.nodes[client.uuid].resetDay))
+    })
+    await check('guest cards consume cycle usage without exposing reset dates, countdowns or administrator controls', async () => {
+      const guestContext = await browser.newContext()
+      const guest = await guestContext.newPage()
+      await guest.route(url => url.origin !== origin, route => route.abort())
+      await guest.goto(origin)
+      const card = guest.getByRole('button', { name: '查看节点 Full fixture Wendy 详情', exact: true })
+      await expect(card.locator('[data-machine-traffic]')).toContainText(GIGABYTE_LABEL)
+      await expect(card).not.toContainText(FORBIDDEN_CARD_RESET_INFO)
+      await expect(guest.getByRole('button', { name: 'Enhanced 管理', exact: true })).toHaveCount(0)
+      await guestContext.close()
+      await page.getByRole('tab', { name: '线路与延迟', exact: true }).click()
+      await page.locator('[data-optional-companion] > summary').click()
+      await expect(page.locator('[data-enhanced-versions]')).toBeVisible()
+      await page.getByRole('combobox', { name: '管理节点 UUID', exact: true }).selectOption(client.uuid)
     })
     await check('one central form writes selected UUID policy and manual override, preserving other configuration', async () => {
       await page.getByRole('checkbox', { name: '允许全局自动采集', exact: true }).check()
@@ -308,6 +502,48 @@ async function main() {
       assert.deepEqual(JSON.parse(policy.nodes)[client.uuid], { enabled: true, city: 'beijing', periodMinutes: 120 })
       assert.equal(JSON.parse(policy.nodes)[other.uuid], undefined)
       assert.equal(JSON.parse((await rpc('public:getPublicSettings')).theme_settings.returnRouteConfig).nodes[client.uuid].manual.telecom.label, '集中手动 & <保留>')
+    })
+    await check('native persisted tags, price and approved three-column routes render on desktop/mobile in both themes', async () => {
+      const saved = (await rpc('public:getPublicSettings')).theme_settings
+      const reply = (await request(`/api/admin/client/${client.uuid}`)).payload
+      const oldClient = reply.data ?? reply
+      await rpc('admin:editClient', { uuid: client.uuid, tags: 'RELEASE_NATIVE_TAG;upstream:HiddenMetadata', price: 9.9, currency: 'USD', billing_cycle: 30 })
+      const routes = JSON.parse(saved.returnRouteConfig)
+      routes.nodes[client.uuid].manual = Object.fromEntries(Object.entries({ unicom: '10099→9929', telecom: 'CN2GIA', mobile: 'CMIN2' }).map(([carrier, label]) => [carrier, { label, updatedAt: new Date().toISOString() }]))
+      await page.getByRole('button', { name: '关闭', exact: true }).click()
+      for (const [width, mode] of [[1440, 'light'], [1440, 'dark'], [320, 'light'], [320, 'dark']]) {
+        await api('/api/admin/theme/settings?theme=Enhanced', { ...saved, customTagsVisible: true, nodeCardSize: 'compact', themeMode: mode, returnRouteConfig: JSON.stringify(routes) })
+        assert.deepEqual(JSON.parse((await rpc('public:getPublicSettings')).theme_settings.returnRouteConfig), routes)
+        await page.setViewportSize({ width, height: 1000 })
+        await page.goto(origin)
+        const card = page.getByRole('button', { name: '查看节点 Full fixture Wendy 详情', exact: true })
+        await expect(card.locator('[data-node-user-tag]')).toHaveText('RELEASE_NATIVE_TAG')
+        await expect(card.locator('[data-node-header-meta]')).toContainText('9.9')
+        const line = card.locator('[data-route-summary]')
+        await expect(line.locator('[data-route-label]')).toHaveText(['10099→9929', 'CN2GIA', 'CMIN2'])
+        const layout = await line.evaluate((element) => {
+          const bounds = element.getBoundingClientRect()
+          const columns = Array.from(element.querySelectorAll('[data-return-carrier]'), (cell) => {
+            const box = cell.getBoundingClientRect()
+            const group = cell.querySelector('[data-route-group]').getBoundingClientRect()
+            return { width: box.width, centerError: Math.abs((box.left + box.right - group.left - group.right) / 2) }
+          })
+          return { display: getComputedStyle(element).display, width: bounds.width, height: bounds.height, columns, overflow: document.documentElement.scrollWidth > window.innerWidth }
+        })
+        assert.equal(layout.display, 'grid')
+        assert.equal(layout.columns.length, 3)
+        assert.equal(layout.height, 16)
+        assert.equal(layout.overflow, false)
+        assert(layout.columns.every(c => Math.abs(c.width - layout.width / 3) <= 0.1 && c.centerError <= 0.1))
+        await card.screenshot({ path: join(out, `native-card-${width}-${mode}.png`) })
+      }
+      await rpc('admin:editClient', { uuid: client.uuid, tags: oldClient.tags, price: oldClient.price, currency: oldClient.currency, billing_cycle: oldClient.billing_cycle })
+      await api('/api/admin/theme/settings?theme=Enhanced', saved)
+      assert.deepEqual((await rpc('public:getPublicSettings')).theme_settings, saved)
+      await page.goto(origin)
+      await page.getByRole('button', { name: 'Enhanced 管理', exact: true }).click()
+      await page.locator('[data-optional-companion] > summary').click()
+      await page.getByRole('combobox', { name: '管理节点 UUID', exact: true }).selectOption(client.uuid)
     })
     await check('same bootstrap can explicitly enable foreground Helper: REAL fixture process -> lease -> native authenticated result', async () => {
       const result = await cli('node', [...nodeArgs(), '--apply', '--enable-local', '--run', '--once', '--fixture-dir', fixtures])
@@ -358,6 +594,10 @@ async function main() {
       })
     }
     await check('anonymous and cross-site sessions cannot read snapshot/checkpoint or use the manager', async () => {
+      const beforeSettings = (await rpc('public:getPublicSettings')).theme_settings
+      const deniedWrite = await request('/api/admin/theme/settings?theme=Enhanced', beforeSettings, false)
+      assert([401, 403].includes(deniedWrite.response.status), 'native theme settings reject anonymous writes')
+      assert.deepEqual((await rpc('public:getPublicSettings')).theme_settings, beforeSettings)
       assert.equal((await request(`${endpoint}/checkpoint`, undefined, false)).response.status, 403)
       assert.equal((await request(`${endpoint}/snapshot`, undefined, true, { 'Sec-Fetch-Site': 'cross-site' })).response.status, 403)
       const guest = await browser.newPage()
@@ -368,7 +608,10 @@ async function main() {
       })
       await guest.goto(origin)
       await expect(guest.getByRole('button', { name: 'Enhanced 管理', exact: true })).toHaveCount(0)
-      await expect(guest.locator(`[data-route-node="${client.uuid}"]`)).toContainText('自动结果仅管理员可见')
+      const publicLine = guest.locator(`[data-route-node="${client.uuid}"]`)
+      await expect(publicLine.locator('[data-return-carrier="telecom"]')).toHaveText('集中手动 & <保留>')
+      await expect(publicLine.locator('[data-return-carrier]')).toHaveCount(1)
+      await expect(publicLine.locator('summary,pre,time,[data-route-details]')).toHaveCount(0)
       assert.equal(privateRequests, 0)
       await guest.close()
     })
@@ -405,9 +648,17 @@ async function main() {
       assert.equal(again.code, 0, again.stderr)
       assert.equal(JSON.parse(again.stdout).status, 'already-rolled-back')
     })
-    const previousPlugin = join(state, 'fixtures/legacy-plugin-source-fixture.zip')
-    await check('historical 0.1 plugin source and previous Enhanced 1.1.1 are detected without touching old state', async () => {
+    const previousPlugin = join(state, 'fixtures/v120-plugin-source-fixture.zip')
+    await check(`v1.2.0 tagged 0.2 plugin source and previous Enhanced ${previousVersion} are detected without touching old state`, async () => {
       await rpc('admin:setPluginEnabled', { short: policyShort, enabled: false })
+      const currentPolicy = await config()
+      assert(Object.keys(currentPolicy).every(k => ['enabled', 'nodes', 'cdnTargets'].includes(k)))
+      if (currentPolicy.cdnTargets !== undefined)
+        assert.deepEqual(typeof currentPolicy.cdnTargets === 'string' ? JSON.parse(currentPolicy.cdnTargets) : currentPolicy.cdnTargets, {})
+      // Prepare the genuine previous-version configuration alongside its
+      // archive. 0.2 must keep rejecting 0.3-only fields; no private state is
+      // rewritten and the earlier 0.1 source-upgrade scenario is retained.
+      await rpc('admin:setPluginConfiguration', { short: policyShort, data: { enabled: currentPolicy.enabled, nodes: currentPolicy.nodes } })
       await upload('plugin', previousPlugin)
       await rpc('admin:setPluginEnabled', { short: policyShort, enabled: true, approved: true })
       await upload('theme', previousTheme)
@@ -428,12 +679,57 @@ async function main() {
     })
     await check('native plugin reload failure after archive overwrite triggers verified version/config/state rollback', async () => {
       const savedPolicy = await config()
-      const result = await cli('install', ['--apply', '--approve-route-plugin', '--previous-plugin', join(full, manifest.modules.plugin.path), '--backup-dir', join(state, 'native-failure-backup')], join(state, 'fixtures/reload-fault-full'))
+      const savedSettings = await rpc('public:getPublicSettings')
+      const pluginStates = async () => (await rpc('admin:listPlugins')).map(({ short, version, enabled }) => ({ short, version, enabled }))
+      const savedPlugins = await pluginStates()
+      const code = join(state, 'data/plugin', policyShort)
+      const fileSnapshot = () => Object.fromEntries(readdirSync(code).sort().map((name) => {
+        const path = join(code, name)
+        assert(lstatSync(path).isFile(), 'plugin code contains only regular files')
+        return [name, { sha256: createHash('sha256').update(readFileSync(path)).digest('hex'), mode: statSync(path).mode & 0o777 }]
+      }))
+      const savedFiles = fileSnapshot()
+      const agentBytes = readFileSync(agentFile)
+      const marker = join(state, 'data/plugin-data', policyShort, 'enhanced-reload-fault-triggered.json')
+      assert.equal(existsSync(marker), false, 'a fresh lab cannot contain a stale fault marker')
+      const faultDirectory = join(state, 'fixtures/reload-fault-full')
+      const faultManifest = JSON.parse(readFileSync(join(faultDirectory, 'full-manifest.json'), 'utf8'))
+      const dryRun = await cli('install', [], faultDirectory)
+      assert.equal(dryRun.code, 0)
+      const pluginAction = JSON.parse(dryRun.stdout).actions.find(a => a.module === 'plugin')
+      assert.equal(pluginAction.action, 'replace-build; ordering-not-inferred')
+      const result = await cli('install', ['--apply', '--approve-route-plugin', '--previous-plugin', join(full, manifest.modules.plugin.path), '--backup-dir', join(state, 'native-failure-backup')], faultDirectory)
       assert.equal(result.code, 1)
+      assert.equal(existsSync(marker), true, 'actual native plugin script execution MUST precede rollback assertions')
+      assert.deepEqual(JSON.parse(readFileSync(marker, 'utf8')), { schema: 1, phase: 'native-plugin-script-load', version: faultManifest.modules.plugin.version, message: 'ENHANCED_FULL_RELOAD_FAULT_TRIGGERED' })
+      assert.equal(statSync(marker).mode & 0o777, 0o600)
+      assert(!result.stderr.includes('unverified-version-or-downgrade-blocked'))
       assert(result.stderr.includes('rolled-back-and-readback-verified'), result.stderr)
+      assert.equal(JSON.parse(readFileSync(join(state, 'native-failure-backup/journal.json'), 'utf8')).status, 'rolled-back')
       assert.equal((await request(`${endpoint}/health`)).payload.version, manifest.modules.plugin.version)
+      assert.deepEqual(await pluginStates(), savedPlugins, 'restore native plugin version AND enabled state')
+      assert.deepEqual(await rpc('public:getPublicSettings'), savedSettings)
       assert.deepEqual(await config(), savedPolicy)
       assert.deepEqual((await request(`${endpoint}/checkpoint`)).payload, originalState)
+      assert.deepEqual(JSON.parse(readFileSync(join(state, 'data/plugin-data', policyShort, 'state-v1.json'), 'utf8')).nodes, originalState.nodes)
+      assert.deepEqual(fileSnapshot(), savedFiles, 'restore every native plugin code/manifest/BUILD file and mode')
+      assert.deepEqual(readFileSync(agentFile), agentBytes)
+      writeFileSync(join(out, 'fault-proof.json'), `${JSON.stringify({ actualScriptLoadTriggered: true, rejectedByVersionGuard: false, faultVersion: faultManifest.modules.plugin.version, restoredVersion: manifest.modules.plugin.version, restoredCodeFiles: Object.keys(savedFiles), enabledStateRestored: true, configRestored: true, privateStateRestored: true, agentUnchanged: true }, null, 2)}\n`)
+    })
+    await check('native rollback detects and preserves a concurrent administrator policy change', async () => {
+      const savedPolicy = await config()
+      const nodes = JSON.parse(savedPolicy.nodes)
+      nodes[client.uuid].periodMinutes += 60
+      const concurrent = { ...savedPolicy, nodes: JSON.stringify(nodes) }
+      await rpc('admin:setPluginConfiguration', { short: policyShort, data: concurrent })
+      assert.deepEqual(await config(), concurrent)
+      const result = await cli('rollback', ['--apply', '--approve-route-plugin', '--backup-dir', join(state, 'native-failure-backup')], join(state, 'fixtures/reload-fault-full'))
+      assert.equal(result.code, 1)
+      assert(result.stderr.includes('rollback-configuration-conflict; no-overwrite'), result.stderr)
+      assert.deepEqual(await config(), concurrent, 'never overwrite the simulated administrator edit')
+      assert.deepEqual((await request(`${endpoint}/checkpoint`)).payload, originalState)
+      await rpc('admin:setPluginConfiguration', { short: policyShort, data: savedPolicy })
+      assert.deepEqual(await config(), savedPolicy, 'restore only our own explicitly injected lab edit')
     })
     await check('private checkpoint, configuration and version survive an actual backend restart', async () => {
       await page.close()

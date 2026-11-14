@@ -43,11 +43,13 @@ class FakeAPI:
         self.config = None
         self.state = {'schema': 1, 'nodes': {}}
         self.writes = []
-        self.fail = None
+        self.fail: str | None = None
         self.fail_always = False
         self.drift = False
         self.public_reads = 0
         self.unhealthy = False
+        self.emulate_native_plugin_defaults = False
+        self.plugin_defaults = {}
     def rpc(self, method, params=None):
         params = params or {}
         if method == 'public:getVersion':
@@ -79,6 +81,8 @@ class FakeAPI:
             return None
         raise AssertionError('unsupported fixture REST')
     def plugin_config(self):
+        if self.emulate_native_plugin_defaults:
+            return copy.deepcopy({**self.plugin_defaults, **(self.config or {})})
         return copy.deepcopy(self.config)
     def set_config(self, config):
         self.writes.append('config')
@@ -101,6 +105,7 @@ class FakeAPI:
         else:
             was = self.plugin['enabled'] if self.plugin else False
             self.plugin = {'short': SHORT, 'version': info['version'], 'enabled': was}
+            self.plugin_defaults = {f['key']: f['default'] for f in info['configuration']['data'] if f.get('key') and 'default' in f}
             if self.config is None:
                 self.config = {'enabled': False, 'nodes': '{}'}
         if self.fail == kind:
@@ -155,8 +160,10 @@ class DistributionTests(unittest.TestCase):
                     value = json.loads(content)
                     value['version'] = '1.1.1' if kind == 'theme' else '0.1.0'
                     if kind == 'theme':
-                        new_fields = {'customTagsVisible', 'returnRouteAutoEnabled', 'returnRouteCompanionEnabled', 'returnRouteConfig', 'returnRouteTtlHours', 'returnRoutesVisible'}
+                        new_fields = {'customTagsVisible', 'returnRouteAutoEnabled', 'returnRouteCompanionEnabled', 'returnRouteConfig', 'returnRouteTtlHours', 'returnRoutesVisible', 'trafficCycleConfig'}
                         value['configuration']['data'] = [f for f in value['configuration']['data'] if f.get('key') not in new_fields]
+                    else:
+                        value['configuration']['data'] = [f for f in value['configuration']['data'] if f.get('key') != 'cdnTargets']
                     content = json.dumps(value).encode()
                 target.writestr(item, content)
         path = self.directory / (kind + '-old-fixture.zip')
@@ -175,7 +182,7 @@ class DistributionTests(unittest.TestCase):
         self.assertEqual(members['LICENSE'], notice)
     def test_native_theme_is_not_full_archive_and_has_stable_identity(self):
         self.assertEqual(native_zip(self.bundle.artifact('theme'), 'theme')['short'], THEME)
-        self.assertEqual(native_zip(self.bundle.artifact('theme'), 'theme')['version'], '1.2.0')
+        self.assertEqual(native_zip(self.bundle.artifact('theme'), 'theme')['version'], self.bundle.manifest['version'])
     def test_dirty_package_rejected_without_explicit_development_test_mode(self):
         if self.bundle.manifest['dirty']:
             with self.assertRaises(Refused):
@@ -222,7 +229,7 @@ class DistributionTests(unittest.TestCase):
         self.assertIn('readback-verified', result['status'])
         self.assertEqual(self.api.active, THEME)
         self.assertEqual({k: self.api.settings[THEME][k] for k in old}, old)
-        self.assertEqual(self.api.themes['Enhanced']['version'], '1.2.0')
+        self.assertEqual(self.api.themes['Enhanced']['version'], self.bundle.manifest['version'])
         self.assertFalse(self.api.config['enabled'])
     def test_idempotent_install_does_not_upload_rewrite_or_create_a_backup(self):
         self.installed()
@@ -239,7 +246,7 @@ class DistributionTests(unittest.TestCase):
             self.apply(activate=True)
         self.assertEqual(self.api.writes, [])
         self.apply(previous={'theme': previous}, activate=True)
-        self.assertEqual(self.api.themes[THEME]['version'], '1.2.0')
+        self.assertEqual(self.api.themes[THEME]['version'], self.bundle.manifest['version'])
         current = snapshot(self.api)['activeThemeSettings']
         self.assertEqual({k: current[k] for k in before['activeThemeSettings']}, before['activeThemeSettings'])
         self.assertIs(current['returnRouteAutoEnabled'], False)
@@ -266,8 +273,51 @@ class DistributionTests(unittest.TestCase):
         before = copy.deepcopy((self.api.config, self.api.state))
         self.apply(previous={'plugin': old})
         self.assertEqual((self.api.config, self.api.state), before)
+        assert isinstance(self.api.plugin, dict)
         self.assertFalse(self.api.plugin['enabled'])
         self.assertEqual(self.api.plugin['version'], self.bundle.manifest['modules']['plugin']['version'])
+
+    def test_native_added_plugin_defaults_preserve_policy_and_allow_exact_rollback(self):
+        self.api.emulate_native_plugin_defaults = True
+        old = self.old_archive('plugin')
+        self.api.config = {'enabled': True, 'nodes': '{}'}
+        before = snapshot(self.api)
+        self.apply(previous={'plugin': old})
+        defaults = {f['key']: f['default'] for f in native_zip(self.bundle.artifact('plugin'), 'plugin')['configuration']['data'] if f.get('key') and 'default' in f}
+        self.assertEqual(self.api.plugin_config(), {**defaults, **before['config']})
+        directory, journal = load_journal(self.directory / 'backup', self.api)
+        restore(self.api, self.bundle, directory, journal)
+        self.assertEqual(snapshot(self.api), before)
+
+    def test_native_added_defaults_failure_after_upload_rolls_back_without_weakening_conflicts(self):
+        self.api.emulate_native_plugin_defaults = True
+        old = self.old_archive('plugin')
+        before = snapshot(self.api)
+        self.api.fail = 'plugin'
+        with self.assertRaisesRegex(Refused, 'rolled-back-and-readback-verified'):
+            self.apply(previous={'plugin': old})
+        self.assertEqual(snapshot(self.api), before)
+
+    def test_native_default_field_changed_by_another_admin_still_blocks_rollback(self):
+        self.api.emulate_native_plugin_defaults = True
+        old = self.old_archive('plugin')
+        self.apply(previous={'plugin': old})
+        directory, journal = load_journal(self.directory / 'backup', self.api)
+        assert isinstance(self.api.config, dict)
+        self.api.config['cdnTargets'] = '{"unreviewed":"not-the-default"}'
+        before_conflict = snapshot(self.api)
+        with self.assertRaisesRegex(Refused, 'rollback-configuration-conflict'):
+            restore(self.api, self.bundle, directory, journal)
+        self.assertEqual(snapshot(self.api), before_conflict)
+
+    def test_native_defaults_fresh_install_failure_still_removes_only_owned_modules(self):
+        self.api.emulate_native_plugin_defaults = True
+        before = snapshot(self.api)
+        self.api.fail = 'plugin'
+        with self.assertRaisesRegex(Refused, 'rolled-back-and-readback-verified'):
+            self.apply()
+        self.assertEqual(snapshot(self.api), before)
+
     def test_failure_after_committed_upload_compensates_and_verifies(self):
         old = self.old_archive('plugin')
         before = snapshot(self.api)
@@ -398,6 +448,30 @@ class DistributionTests(unittest.TestCase):
         self.assertTrue((prefix / 'operator-note.txt').exists())
         self.assertTrue((state / 'agent-token').is_file())
         self.assertFalse((prefix / 'enhanced_route_helper.py').exists())
+
+    def test_node_upgrade_preserves_local_protocol_and_external_query_consent(self):
+        agent_config = self.directory / 'agent.json'
+        save_private(agent_config, {'endpoint': self.api.panel, 'token': 'unit-only-private-node-credential', 'unknownAgentSetting': 'KEEP'})
+        original = agent_config.read_bytes()
+        prefix, state = self.directory / 'code', self.directory / 'state'
+        with patch('enhanced_full.node.API') as transport:
+            transport.return_value.json.return_value = {'registered': True, 'uuid': UUID}
+            enroll(self.bundle, self.api.panel, UUID, agent_config, prefix, state, apply=True, allow_loopback=True)
+        options = {'probeProtocols': ['tcp', 'udp'], 'addressFamily': 4, 'cymruEnabled': True, 'cymruConsent': True, 'prefixHints': True}
+        config = json.loads(private_bytes(state / 'helper.json')) | options
+        save_private(state / 'helper.json', config)
+        with patch('enhanced_full.node.API') as transport:
+            transport.return_value.json.return_value = {'registered': True, 'uuid': UUID}
+            enroll(self.bundle, self.api.panel, UUID, agent_config, self.directory / 'new-code', state, apply=True, allow_loopback=True)
+        self.assertEqual(json.loads(private_bytes(state / 'helper.json')), config)
+        self.assertEqual(agent_config.read_bytes(), original)
+        # Unknown options/commands still refuse before a registration or write.
+        save_private(state / 'helper.json', config | {'command': 'never-execute'})
+        before = (state / 'helper.json').read_bytes()
+        with patch('enhanced_full.node.API') as transport, self.assertRaises(Refused):
+            enroll(self.bundle, self.api.panel, UUID, agent_config, prefix, state, apply=True, allow_loopback=True)
+        transport.assert_not_called()
+        self.assertEqual((state / 'helper.json').read_bytes(), before)
 
     def test_same_version_unhealthy_plugin_is_not_reported_as_success(self):
         self.installed()

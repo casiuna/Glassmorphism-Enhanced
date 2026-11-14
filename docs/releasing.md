@@ -2,13 +2,13 @@
 
 Repository: https://github.com/casiuna/Glassmorphism-Enhanced
 
-**Current target: v1.2.0**, manifest `1.2.0`, identity `Enhanced`. The verified previous publication is [v1.1.1](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.1.1), at `c58cff54cfb4128e727c58cfb972e1e1b3254ff8`. Existing tags and Release assets remain intact. Current source and Full acceptance are in [full-validation.md](full-validation.md).
+**Release target: v1.2.1**, manifest `1.2.1`, identity `Enhanced`, name `Glassmorphism Enhanced`. The owner has authorized reviewed source commit, normal fast-forward push, tag and GitHub Release in this repository, conditional on all release gates passing. No market update or production deployment is authorized. The previous stable publication is [v1.2.0](https://github.com/casiuna/Glassmorphism-Enhanced/releases/tag/v1.2.0), at `f9cec36ca3d3373ba2e9edf2e0844d30dc66933d`, and must remain intact. Latest precommit evidence is in `test-results/v121/settings-companion-review/`; clean-commit release evidence is recorded separately in `test-results/v121/official-release/`. The approved equal-thirds layout is frozen.
 
-**Publication authority:** the owner explicitly authorized the v1.2.0 fork release and an update submission to the existing Komari market entry, not production deployment. A CHANGELOG heading or local commit is not publication: verify main, successful Actions, v1.2.0 tag, Release metadata and both downloaded assets. CI is the authoritative release build; never upload an old-HEAD validation ZIP.
+**Publication authority:** v1.2.1 has separate owner approval, not inherited authorization from v1.2.0. A CHANGELOG heading or local build is not publication. Verify clean committed source, main, successful Actions, the v1.2.1 tag, exact Release title `Glassmorphism Enhanced v1.2.1`, metadata and both downloaded assets before claiming success. CI is the authoritative release build; never upload a dirty old-HEAD validation ZIP or relax the clean-source verifier. Stop on any failed gate; do not force-push, move published tags or deploy to production.
 
 **Two public assets only:** one `komari-theme-Glassmorphism-build-<short-sha>.zip` (native root `komari-theme.json`, `preview.png`, `dist/`) and one `Glassmorphism-Enhanced-Full-<short-sha>.tar.gz` (one verified inner Full ZIP with installer/modules/docs/checksums/licenses). Do not attach the inner Full ZIP separately: the market updater relies on a single public ZIP. Theme `dist/BUILD.json`, module BUILD files and Full manifest must bind the same clean commit. After full local QA, run `python3 scripts/package-full.py` and `python3 tests/full/verify_delivery.py`; CI gates source/module safety, installer and `--packages-only` verification before publishing.
 
-**Existing market entry:** do not open another new-theme issue. After verifying the official v1.2.0 asset, use `komari-monitor/theme-market`'s updater/normal PR flow to update `v1.json` for short `Enhanced`; recalculate SHA from the downloaded native ZIP. A scheduled or submitted PR is not a merged market update. Never force-write the official market main.
+**Existing market entry:** do not open another new-theme issue. Any later market update requires separate authorization, an officially downloaded and verified asset, and the updater/normal PR flow for short `Enhanced`; never force-write the official market main. No market update is authorized in this acceptance stage.
 
 **Historical scope:** the monthly-window compatibility discussion and v1.0.2/v1.0.3 incident notes below describe v1.0.6 and earlier releases, not the current implementation. That frontend monthly implementation was withdrawn in v1.0.7; current machine-cumulative traffic semantics are in the [README](../README.md#流量说明). Existing release policies and historical records remain intact.
 
@@ -18,7 +18,7 @@ All repository changes must target **`casiuna/Glassmorphism-Enhanced`** only. Up
 
 ## Independent version policy
 
-The independent version line began at **1.0.0**, released as Git tag / GitHub Release **v1.0.0**. The current release target is **1.2.0**; previous published versions remain preserved. `komari-theme.json.version` is the sole version source; do not add `package.json.version`. Remote publication status must be verified independently.
+The independent version line began at **1.0.0**, released as Git tag / GitHub Release **v1.0.0**. The current release target is **1.2.1**; previous published versions remain preserved. `komari-theme.json.version` is the sole version source; do not add `package.json.version`. Theme and Full versions match; Plugin/Helper use their independent 0.3.0 version line plus the build commit suffix.
 
 - Bugfix: `1.0.1`, `1.0.2`, `1.0.3`, …
 - Compatible feature: `1.1.0`, `1.2.0`, …
@@ -75,7 +75,7 @@ bun run build
 git diff --check
 ```
 
-For v1.1.0, inspect the ZIP, not just `dist/`: top level must be exactly `komari-theme.json`, `preview.png`, `dist/`. Require `short: Enhanced`, `name: Glassmorphism Enhanced`, `version: 1.1.0`, `author: casiuna`; retain `komari-theme-Glassmorphism-build-<short-sha>.zip`. Build from that version's final release commit in a clean checkout with Bun 1.3.14 and the frozen lockfile, then verify required HTML/assets, preview, commit identity and SHA-256. Preserve the MIT license and THIRD_PARTY attributions. Old `Glassmorphism` installations/settings remain separate; do not delete them or directly edit the database to migrate.
+For v1.2.1, inspect the ZIP, not just `dist/`: top level must be exactly `komari-theme.json`, `preview.png`, `dist/`. Require `short: Enhanced`, `name: Glassmorphism Enhanced`, `version: 1.2.1`, `author: casiuna`; retain `komari-theme-Glassmorphism-build-<short-sha>.zip`. Build from that version's final release commit in clean source with Bun 1.3.14 and the frozen lockfile, then verify required HTML/assets, preview, commit identity and SHA-256. Before commit authorization, only dirty local validation packages may exist; the old baseline short SHA is not the future release identity. Preserve MIT/THIRD_PARTY notices and existing settings. Do not migrate by direct database edits.
 
 After an authorized push, read the exact branch/main ref back from this fork. For a new version, verify Actions, tag target, Release metadata and the downloaded asset digest; a local ZIP alone is not proof of publication. For unchanged-version documentation-only main updates, verify that publication steps are skipped and all previously published tags, Releases and assets remain unchanged. Do not manually recreate an existing release.
 

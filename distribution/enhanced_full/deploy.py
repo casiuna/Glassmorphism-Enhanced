@@ -33,6 +33,13 @@ def upgraded_theme_settings(bundle, previous):
     return {**defaults, **previous}
 
 
+def upgraded_plugin_config(bundle, previous):
+    """Permit only candidate-manifest defaults; existing/unknown values win."""
+    manifest = native_zip(bundle.artifact('plugin'), 'plugin')
+    defaults = {field['key']: field['default'] for field in manifest['configuration']['data'] if field.get('key') and 'default' in field}
+    return {**defaults, **previous}
+
+
 def version_key(value):
     match = re.fullmatch(r'(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-trial\.(0|[1-9]\d*))?(?:\+[0-9A-Za-z.-]+)?', value) if isinstance(value, str) and len(value) <= 160 else None
     if not match:
@@ -122,9 +129,12 @@ def restore(api, bundle, directory, journal):
         allowed = {None, bundle.manifest['modules'][kind]['version'], before[kind]['version'] if before[kind] else None}
         if current[kind] and current[kind]['version'] not in allowed:
             raise Refused('rollback-conflict; preserve-private-backup-for-review')
-    allowed_configs = [before['config'], {'enabled': False, 'nodes': '{}'}]
+    disabled_defaults = {'enabled': False, 'nodes': '{}'}
+    allowed_configs = [before['config'], disabled_defaults, upgraded_plugin_config(bundle, disabled_defaults)]
     if before['config'] is not None:
         allowed_configs.append({**before['config'], 'enabled': False})
+        upgraded = upgraded_plugin_config(bundle, before['config'])
+        allowed_configs.extend([upgraded, {**upgraded, 'enabled': False}])
     if current['plugin'] and current['config'] not in allowed_configs:
         raise Refused('rollback-configuration-conflict; no-overwrite')
     if current['active'] not in {before['active'], THEME, journal.get('fallback', 'default')}:
@@ -211,7 +221,7 @@ def deploy(api, bundle, operation='install', apply=False, approve=False, backup_
                     if not installed or installed['version'] != bundle.manifest['modules'][action['module']]['version']:
                         raise Refused('installed-module-readback-mismatch')
             if before['plugin']:
-                if api.plugin_config() != before['config']:
+                if api.plugin_config() not in (before['config'], upgraded_plugin_config(bundle, before['config'])):
                     raise Refused('upgrade-changed-existing-plugin-configuration')
                 api.enabled(before['plugin']['enabled'], approved=True)
             else:

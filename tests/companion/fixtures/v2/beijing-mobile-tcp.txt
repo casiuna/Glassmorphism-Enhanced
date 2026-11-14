@@ -1,0 +1,4 @@
+Offline synthetic TCP fixture; not a real network measurement.
+1 223.120.3.1 1 ms
+2 * * *
+3 221.179.155.161 3 ms

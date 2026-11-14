@@ -9,6 +9,7 @@ const sourceRoot = resolve(process.argv[2] || process.env.KOMARI_WEB_DIR || reso
 const sourceDist = resolve(sourceRoot, 'dist')
 const targetDir = resolve(projectRoot, 'public', 'admin-app')
 const overrideCss = resolve(projectRoot, 'scripts', 'assets', 'glass-admin.css')
+const enhancedBridge = resolve(projectRoot, 'scripts', 'assets', 'enhanced-settings-bridge.js')
 const charsetMarker = '<meta charset="UTF-8" />'
 const pwaRegisterPattern = /<script[^>]+id="vite-plugin-pwa:register-sw"[^>]*><\/script>/g
 const workboxFilenamePattern = /^workbox-[\w-]+\.js$/
@@ -130,6 +131,7 @@ if (!html.includes(charsetMarker))
 
 const bridge = `<script>;(()=>{let t='';try{t=sessionStorage.getItem('komariOfficialAppRoute')||'';if(t)sessionStorage.removeItem('komariOfficialAppRoute')}catch(e){console.warn('[Glassmorphism] Session storage is unavailable.',e)}if(!t){try{t=new URL(location.href).searchParams.get('__komari_route')||''}catch{}}if(t==='/'||t&&/^\\/(admin|terminal|manage)(\\/|\\?|#|$)/.test(t))history.replaceState(null,'',t)})();</script><link rel="stylesheet" href="/admin-app/glass-admin.css?v=${adminCssVersion}">`
 html = html.replace(charsetMarker, `${charsetMarker}${bridge}`)
+html = html.replace('</head>', '<script src="/admin-app/enhanced-settings-bridge.js"></script></head>')
 
 // Keep install metadata, but remove the service worker: it only controls /admin-app/
 // and can serve stale admin assets after the bridge restores /admin or /terminal.
@@ -144,6 +146,7 @@ if (!html.includes(`/admin-app/glass-admin.css?v=${adminCssVersion}`) || !html.i
 
 writeFileSync(indexPath, `${html.replace(/\r\n?/g, '\n').replace(/[ \t]+$/gm, '').trimEnd()}\n`)
 cpSync(overrideCss, resolve(targetDir, 'glass-admin.css'))
+cpSync(enhancedBridge, resolve(targetDir, 'enhanced-settings-bridge.js'))
 
 let commit = 'unknown'
 try {

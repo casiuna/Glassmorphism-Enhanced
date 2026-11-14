@@ -3,7 +3,7 @@
   "short": "enhanced-route-probe",
   "description": "Opt-in UUID-bound fixed-target collector relay; administrator-only results, no shell or system RPC",
   "author": "casiuna; Transit reference: yyy622hhh and Tony Liu (MIT)",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "channel": "stable",
   "komari": "1.6.0",
   "entry": "script.js",
@@ -13,7 +13,8 @@
     "name": "受限回程采集",
     "data": [
       { "key": "enabled", "name": "允许已安装助手轮询采集", "type": "switch", "default": false, "help": "默认关闭。必须另行在对应测试节点安装并启用助手；不会远程安装或执行 Shell。" },
-      { "key": "nodes", "name": "按节点 UUID 的采集策略 JSON", "type": "richtext", "default": "{}", "help": "例如 {\"节点UUID\":{\"enabled\":true,\"city\":\"beijing\",\"periodMinutes\":360}}。city 只支持 beijing/shanghai/guangzhou，周期至少 60 分钟。结果仅管理员可读，访客沿用手动主题设置。" }
+      { "key": "nodes", "name": "按节点 UUID 的采集策略 JSON", "type": "richtext", "default": "{}", "help": "city 支持 beijing/shanghai/guangzhou/hubei，或经双端白名单授权的 hubei-cdn；周期至少60分钟。默认不探测。" },
+      { "key": "cdnTargets", "name": "管理员审核的 CDN 目标白名单 JSON", "type": "richtext", "default": "{}", "help": "只接受 hubei-cdn 审核目录的三个湖北域名与80/443端口；必须与Helper私有本地配置完全一致。留空对象禁用CDN。不接受任意IP、URL、域名或Shell。" }
     ]
   }
 }

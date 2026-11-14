@@ -523,13 +523,21 @@ export async function installKomariFixture(page: Page, options: VisualFixtureOpt
   if (options.useNativeClock) {
     await page.addInitScript(() => {
       localStorage.clear()
+      // The real /admin -> /admin-app document bridge consumes this once.
+      // Clearing it between documents would fabricate a native-admin 404.
+      const officialRoute = sessionStorage.getItem('komariOfficialAppRoute')
       sessionStorage.clear()
+      if (officialRoute)
+        sessionStorage.setItem('komariOfficialAppRoute', officialRoute)
     })
   }
   else {
     await page.addInitScript(({ fixedNow }) => {
       localStorage.clear()
+      const officialRoute = sessionStorage.getItem('komariOfficialAppRoute')
       sessionStorage.clear()
+      if (officialRoute)
+        sessionStorage.setItem('komariOfficialAppRoute', officialRoute)
       const NativeDate = Date
       class FixedDate extends NativeDate {
         constructor(...args: ConstructorParameters<typeof Date>) {
@@ -576,7 +584,21 @@ export async function installKomariFixture(page: Page, options: VisualFixtureOpt
     contentType: 'application/json',
     body: JSON.stringify({ status: 'success', message: 'ok', data: { version: '1.2.6-visual', hash: 'visual' } }),
   }))
-  await page.route('**/rpc2', route => handleRpc(route, clientFixtures, options))
+  await page.route('**/rpc2', (route) => {
+    const payload = route.request().postDataJSON()
+    if (payload.method === 'public:getPublicSettings') {
+      return route.fulfill({ json: jsonRpcResult(payload.id, {
+        theme: options.themeShort ?? 'Glassmorphism',
+        theme_settings: { ...settings, ...options.themeSettings },
+        sitename: 'Komari Visual Lab',
+        description: '固定虚构节点视觉回归环境',
+        private_site: false,
+        custom_head: '',
+        custom_body: '',
+      }) })
+    }
+    return handleRpc(route, clientFixtures, options)
+  })
   await page.route('https://ipwho.is/', route => route.fulfill({
     contentType: 'application/json',
     body: JSON.stringify({ success: true, ip: '2001:db8::25', city: 'Tokyo', region: 'Tokyo', country: 'Japan', connection: { org: 'Example Networks' } }),

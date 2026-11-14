@@ -9,11 +9,11 @@ from pathlib import Path, PurePosixPath
 from .safety import Refused
 
 PLUGIN_FILES = {'komari-plugin.json', 'script.js', 'protocol.cjs', 'storage.cjs', 'request-limits.cjs', 'LICENSE', 'BUILD.json'}
-HELPER_FILES = {'enhanced_route_helper.py', 'install.py', 'helper-version.json', 'enhanced-route-helper.service', 'enhanced-route-helper.openrc', 'helper.example.json', 'README.md', 'LICENSE', 'BUILD.json'}
+HELPER_FILES = {'enhanced_route_helper.py', 'enhanced_probe_v2.py', 'install.py', 'helper-version.json', 'enhanced-route-helper.service', 'enhanced-route-helper.openrc', 'helper.example.json', 'README.md', 'LICENSE', 'BUILD.json'}
 PERMISSIONS = {'node': True, 'allowRoutes': True, 'maxHTTPBodyBytes': 16384, 'timeout': 10}
 THEME_SHORT = 'Enhanced'
 RELEASE_CHANNEL = 'stable'
-RELEASE_VERSION = '1.2.0'
+
 
 
 def digest(data):
@@ -90,7 +90,7 @@ class Bundle:
             info = native_zip(self.artifact(kind), kind)
             if info['version'] != m['modules'][kind]['version'] or info['short'] != m['modules'][kind]['short']:
                 raise Refused('module-version-matrix-mismatch')
-        if m['modules']['theme']['short'] != THEME_SHORT or m['modules']['theme']['version'] != RELEASE_VERSION or m['version'] != RELEASE_VERSION:
+        if m['modules']['theme']['short'] != THEME_SHORT or m['modules']['theme']['version'] != m['version'] or not isinstance(m['version'], str) or not re.fullmatch(r'(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)', m['version']):
             raise Refused('stable-theme-identity-mismatch')
         with zipfile.ZipFile(io.BytesIO(self.artifact('theme'))) as archive:
             build = json.loads(archive.read('dist/BUILD.json'))

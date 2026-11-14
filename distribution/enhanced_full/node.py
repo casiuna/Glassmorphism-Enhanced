@@ -50,6 +50,10 @@ def enroll(bundle, panel, uuid, agent_config, prefix, state_dir, apply=False, al
     if state.exists() or state.is_symlink():
         private_directory(state)
         old = json.loads(private_bytes(state / 'helper.json', 16384))
+        # Protocol selection / external-query consent remain local to this UUID.
+        for key in ('probeProtocols', 'addressFamily', 'cymruEnabled', 'cymruConsent', 'prefixHints'):
+            if key in old:
+                config[key] = old[key]
         if {k: v for k, v in old.items() if k != 'enabled'} != {k: v for k, v in config.items() if k != 'enabled'} or private_bytes(state / 'agent-token', 4096).decode() != token:
             raise Refused('existing-node-registration-conflict; preserve-private-state')
         config['enabled'] = old['enabled'] or enable_local

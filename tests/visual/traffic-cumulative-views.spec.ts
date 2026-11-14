@@ -22,7 +22,9 @@ function watchTrafficQueries(page: Page) {
     if (!request.url().endsWith('/rpc2'))
       return
     const payload = request.postDataJSON() as { method?: string, params?: { aggregation?: string, metric_keys?: string[] } }
-    if (payload.method === 'public:queryMetrics' && payload.params?.aggregation === 'sum' && payload.params.metric_keys?.some(key => key === 'traffic.up' || key === 'traffic.down'))
+    // Catch both legacy aggregation and the native aggregation_by_metric form;
+    // an unset cycle must not start either kind of billing-history query.
+    if (payload.method === 'public:queryMetrics' && payload.params?.metric_keys?.some(key => key === 'traffic.up' || key === 'traffic.down'))
       calls.push(payload)
   })
   return calls

@@ -1,5 +1,7 @@
 # Glassmorphism Enhanced Full · v1.2.0 稳定单包
 
+> **v1.2.1 本地候选说明（尚未提交或发布）**：当前开发树的主题 manifest 为 `Enhanced` / `1.2.1`，Plugin / Helper 为 `0.3.0` 开发组件，新增独立流量周期和 TCP/UDP 证据。dirty 构建仅用于本地预检，必须标记 `DEVELOPMENT_ONLY`；不能把旧 HEAD 对应的本地产物当作正式 Release。获准提交后须重新构建并执行原有 clean-source 发行门禁。新功能与限制见包内 `docs/traffic-cycles.md`、`docs/tcpquality-adaptation.md`；本轮机器结果见 `test-results/v121/release-preflight/`。以下 v1.2.0 / 0.2 系列说明保留为已发布稳定版的历史安装/回滚参考，当前实际版本以包内 matrix 为准。
+
 这是一个产品、一个下载包，Theme / Plugin / Helper 是内部模块，不是三个独立产品。**Full 内层 ZIP 不是 Komari 原生主题 ZIP，不能整个上传到主题上传器；公开 Release 外层使用 `.tar.gz`，其中包含已验证的 Full ZIP。** 统一版本/依赖/commit/模块 SHA 见 `full-manifest.json`；每个文件见 `SHA256SUMS`。已验证范围为 Komari **1.6.0** / Linux 隔离测试节点；Komari 1.6.1 本轮未实测，真实公网 traceroute / ASN 未验证。
 
 正式主题使用 `Enhanced` / `1.2.0`，与旧 Enhanced 1.1.1 走同一托管主题升级路径并保留已有设置。Plugin / Helper 为稳定 0.2 系列；产品版本源仍是源码 `komari-theme.json.version`，打包时附上 commit；模块版本来自各自 manifest，由 Full matrix 一并校验。

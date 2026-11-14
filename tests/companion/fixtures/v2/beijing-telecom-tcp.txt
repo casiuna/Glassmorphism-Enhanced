@@ -1,0 +1,3 @@
+Offline synthetic TCP fixture; not a real network measurement.
+1 59.43.2.1 [AS4809] 1 ms
+2 219.141.140.10 [AS4809] 2 ms

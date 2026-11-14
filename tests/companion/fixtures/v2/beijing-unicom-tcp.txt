@@ -1,0 +1,3 @@
+Offline synthetic TCP fixture; not a real network measurement.
+1 162.245.124.1 [AS10099] 1 ms
+2 202.106.195.68 [AS4837] 2 ms

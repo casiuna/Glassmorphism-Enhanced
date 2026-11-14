@@ -22,7 +22,7 @@ from enhanced_full.bundle import Bundle, digest, helper_members, native_zip
 
 
 RELEASE_CHANNEL = 'stable'
-THEME_VERSION = '1.2.0'
+THEME_VERSION = json.loads((ROOT / 'komari-theme.json').read_text())['version']
 
 
 def git(*args):
@@ -103,6 +103,11 @@ def main():
         'docs/return-routes.md': 'docs/return-routes.md',
         'docs/full.md': 'docs/full.md',
         'docs/companion.md': 'docs/companion.md',
+        'docs/tcpquality-adaptation.md': 'docs/tcpquality-adaptation.md',
+        'docs/traffic-cycles.md': 'docs/traffic-cycles.md',
+        'docs/cdn-replay-validation.md': 'docs/cdn-replay-validation.md',
+        'docs/release-notes-v1.2.1.md': 'docs/release-notes-v1.2.1.md',
+        'docs/single-node-route-trial.md': 'docs/single-node-route-trial.md',
         'docs/companion-validation.md': 'docs/companion-validation.md',
         'docs/helper.md': 'companion/helper/README.md',
         'companion/helper/README.md': 'companion/helper/README.md',
@@ -121,7 +126,7 @@ def main():
         'supportedKomari': ['1.6.0'],
         'dependencies': {
             'installer': 'Python >=3.10,<4 on POSIX',
-            'helper': 'Linux; Python >=3.10,<4; traceroute -n -A for LIVE mode only',
+            'helper': 'Linux; Python >=3.10,<4; IPv4 UDP/TCP traceroute; TCP permission is host-dependent; no implicit -A queries',
             'liveNetwork': 'NOT VALIDATED; fixtures only',
             'serviceManagers': 'systemd/OpenRC templates; not started on development host',
         },

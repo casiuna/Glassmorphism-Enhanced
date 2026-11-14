@@ -1,13 +1,14 @@
 import type { Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { expect, test } from '@playwright/test'
+import helperManifest from '../../companion/helper/helper-version.json' with { type: 'json' }
 import { installKomariFixture } from './fixtures/komari'
 
 const UUID = '00000000-0000-4000-8000-000000000001'
 const OTHER = '00000000-0000-4000-8000-000000000002'
 const NOW = Date.parse('2026-07-25T12:00:00.000Z')
 const HASH = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim()
-const VERSION = `0.2.0+git.${HASH}`
+const VERSION = `${helperManifest.version}+git.${HASH}`
 
 async function fixture(page: Page, options: { installed?: boolean, loggedIn?: boolean, dark?: boolean, offline?: boolean, legacy?: boolean, corrupt?: boolean, corruptManual?: boolean } = {}) {
   const state = {
@@ -71,6 +72,7 @@ async function fixture(page: Page, options: { installed?: boolean, loggedIn?: bo
 async function open(page: Page) {
   await page.goto('/')
   await page.getByRole('button', { name: 'Enhanced 管理', exact: true }).click()
+  await page.locator('[data-optional-companion] > summary').click()
   await expect(page.locator('[data-enhanced-versions]')).toBeVisible()
 }
 
@@ -84,7 +86,7 @@ test('guest has no manager entry and never requests private plugin data', async 
 test('missing plugin offers the unified CLI, never an automatic install or privilege request', async ({ page }) => {
   const state = await fixture(page, { installed: false })
   await open(page)
-  await expect(page.getByRole('dialog')).toContainText('插件未安装')
+  await expect(page.getByRole('dialog')).toContainText('可选 Plugin 未安装')
   await expect(page.getByRole('dialog')).toContainText('python3 manage.py install')
   expect(state.writes).toEqual([])
 })
@@ -100,7 +102,7 @@ for (const scenario of [
     await open(page)
     const dialog = page.getByRole('dialog')
     await expect(dialog).toContainText('已登记，尚未轮询')
-    await dialog.locator('summary').click()
+    await dialog.getByText('安装 / 重新接入指引（必须在该测试节点执行）', { exact: true }).click()
     const command = page.locator('[data-node-bootstrap]')
     await expect(command).toContainText(UUID)
     await expect(command).not.toContainText('--token')
@@ -125,12 +127,19 @@ test('central form preserves another UUID, Relay/SGD/unknown fields and requires
   await page.getByRole('checkbox', { name: '允许全局自动采集', exact: true }).check()
   await page.getByRole('checkbox', { name: '授权当前节点采集', exact: true }).check()
   await page.getByRole('textbox', { name: '电信手动覆盖', exact: true }).fill('<真实用户文本> & manual')
+  await page.getByRole('checkbox', { name: '显示并消费回程结果', exact: true }).check()
   await page.getByRole('checkbox', { name: '确认当前管理操作', exact: true }).check()
   await save.click()
   await expect(page.getByRole('status')).toContainText('已保存并读取确认')
   expect(JSON.parse(state.config.nodes)[OTHER]).toEqual(other)
   expect(state.settings).toMatchObject({ transitCarrierPingRules: 'KEEP_RELAY', displayCurrency: 'SGD', unknownFuture: { preserve: true } })
   expect(JSON.parse(state.settings.returnRouteConfig as string).nodes[UUID].manual.telecom.label).toBe('<真实用户文本> & manual')
+  await page.getByRole('button', { name: '关闭', exact: true }).click()
+  await page.reload()
+  await expect(page.locator(`[data-route-node="${UUID}"] [data-return-carrier="telecom"]`)).toContainText('<真实用户文本> & manual')
+  await page.getByRole('button', { name: 'Enhanced 管理', exact: true }).click()
+  await page.locator('[data-optional-companion] > summary').click()
+  await expect(page.getByRole('textbox', { name: '电信手动覆盖', exact: true })).toHaveValue('<真实用户文本> & manual')
 })
 test('detected concurrent policy change stops the form save before any write', async ({ page }) => {
   const state = await fixture(page)
@@ -167,9 +176,10 @@ test('invalid existing plugin policy disables writes without deleting the source
 test('invalid manual document refuses a save instead of replacing it with an empty document', async ({ page }) => {
   const state = await fixture(page, { corruptManual: true })
   await open(page)
+  await expect(page.locator('[data-enhanced-management] [data-route-config-error]')).toContainText('回程配置无效')
   await page.getByRole('checkbox', { name: '确认当前管理操作', exact: true }).check()
   await page.getByRole('button', { name: '保存当前节点及显示设置', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('不会覆盖')
+  await expect(page.getByRole('alert').filter({ hasText: '不会覆盖' })).toContainText('不会覆盖')
   expect(state.settings.returnRouteConfig).toBe('{broken')
   expect(state.writes).toEqual([])
 })

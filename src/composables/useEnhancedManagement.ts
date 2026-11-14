@@ -1,12 +1,13 @@
+import type { MaybeRefOrGetter } from 'vue'
 import type { EnhancedManagementState } from '@/services/enhancedManagement.service'
 import type { ManagementDraft } from '@/utils/enhancedManagement'
-import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, onScopeDispose, ref, shallowRef, toValue, watch } from 'vue'
 import { enableEnhancedPlugin, loadEnhancedManagement, saveEnhancedManagement } from '@/services/enhancedManagement.service'
 import { useAppStore } from '@/stores/app'
 import { useNodesStore } from '@/stores/nodes'
 import { helperPresence, nodeBootstrapCommand } from '@/utils/enhancedManagement'
 
-export function useEnhancedManagement() {
+export function useEnhancedManagement(active: MaybeRefOrGetter<boolean> = true) {
   const app = useAppStore()
   const nodes = useNodesStore()
   const state = shallowRef<EnhancedManagementState | null>(null)
@@ -60,7 +61,7 @@ export function useEnhancedManagement() {
     hydrate()
   }
   async function refresh() {
-    if (busy.value)
+    if (busy.value || !toValue(active))
       return
     busy.value = true
     error.value = ''
@@ -109,6 +110,10 @@ export function useEnhancedManagement() {
     }
   }
   watch(selected, hydrate)
+  watch(() => toValue(active), (enabled) => {
+    if (enabled)
+      void refresh()
+  })
   watch(draft, () => {
     if (!hydrating) {
       dirty.value = true

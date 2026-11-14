@@ -7,7 +7,7 @@ import sys
 import tarfile
 from pathlib import Path
 
-ALLOWED = {'enhanced_route_helper.py', 'install.py', 'helper-version.json', 'enhanced-route-helper.service', 'enhanced-route-helper.openrc', 'helper.example.json', 'README.md', 'LICENSE', 'BUILD.json'}
+ALLOWED = {'enhanced_route_helper.py', 'enhanced_probe_v2.py', 'install.py', 'helper-version.json', 'enhanced-route-helper.service', 'enhanced-route-helper.openrc', 'helper.example.json', 'README.md', 'LICENSE', 'BUILD.json'}
 VERSION = json.loads(Path(__file__).resolve().parents[2].joinpath('companion/helper/helper-version.json').read_text())['version']
 PREFIX = f'enhanced-route-helper-{VERSION}/'
 
@@ -35,7 +35,7 @@ def main(archive, extraction, prefix):
     result = subprocess.run([sys.executable, str(extraction / 'install.py'), '--prefix', prefix], capture_output=True)
     if result.returncode:
         raise ValueError('file installation failed')
-    if not Path(prefix, 'enhanced_route_helper.py').is_file():
+    if not Path(prefix, 'enhanced_route_helper.py').is_file() or not Path(prefix, 'enhanced_probe_v2.py').is_file():
         raise ValueError('installed helper missing')
     print('archive-validated-and-file-installed; no service enabled')
 

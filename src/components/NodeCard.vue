@@ -11,9 +11,10 @@ import { DataTooltip } from '@/components/ui/data-tooltip'
 import { ProgressThin } from '@/components/ui/progress-thin'
 
 import { useNodeCarrierPingSource } from '@/composables/useNodeCarrierPingSource'
+import { useNodeTraffic } from '@/composables/useNodeTraffic'
 import { useAppStore } from '@/stores/app'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, getStatus, getUptimeDays } from '@/utils/helper'
-import { getDiskPercentage, getMemoryPercentage, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
+import { getDiskPercentage, getMemoryPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
 import { formatCurrencyValue, formatPriceWithCycle, getDaysUntilExpired, getExpireStatus, getRemainingValue, isFreePrice } from '@/utils/tagHelper'
@@ -108,8 +109,10 @@ const { carrierDisplays, isTransit } = useNodeCarrierPingSource(
   () => props.pingEnabled && (!isSupported.value || pingVisible.value),
 )
 
-const trafficUsed = computed(() => getTrafficUsed(props.node))
-const trafficUsedPercentage = computed(() => getTrafficUsedPercentage(props.node))
+const { used: trafficUsed, percentage, remaining: trafficRemaining, label: trafficLabel, up: trafficUp, down: trafficDown, available: trafficReady, basis: trafficBasis } = useNodeTraffic(() => props.node)
+const trafficUsedPercentage = computed(() => percentage.value ?? 0)
+const trafficPercentageText = computed(() => !trafficReady.value ? '—' : hasTrafficLimit(props.node) ? `${trafficUsedPercentage.value.toFixed(1)}%` : '∞')
+const trafficTooltip = computed(() => trafficBasis.value === 'machine-cumulative' ? '未设置流量周期；比例仅为累计参考，不是周期配额，不计算周期剩余额度' : !trafficReady.value ? '周期历史数据不足，未估算剩余额度' : trafficRemaining.value === null ? '本周期用量；未设置流量上限' : `本周期剩余 ${formatBytes(trafficRemaining.value)}`)
 
 const nodeMessage = computed(() => props.node.message?.trim() ?? '')
 const nodeMessageTooltip = computed(() => {
@@ -326,15 +329,15 @@ function hasRegion(region: string | null | undefined): boolean {
             <div class="flex justify-between text-xs">
               <span class="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
                 <Icon :icon="NODE_METRIC_ICONS.traffic" data-node-metric-icon="traffic" width="12" height="12" class="shrink-0 text-violet-500" aria-hidden="true" />
-                <span class="truncate">流量</span>
+                <span class="truncate" :title="trafficTooltip">{{ trafficLabel }}</span>
               </span>
               <span class="tabular-nums font-medium" :class="trafficPercentageClass">
-                {{ hasTrafficLimit(props.node) ? `${trafficUsedPercentage.toFixed(1)}%` : '∞' }}
+                {{ trafficPercentageText }}
               </span>
             </div>
-            <ProgressThin v-if="hasTrafficLimit(props.node)" :percentage="trafficUsedPercentage" :status="trafficStatus" :height="4" />
-            <div class="text-[11px] truncate" data-machine-traffic :class="trafficUsedPercentage >= 95 ? 'text-destructive' : 'text-muted-foreground'">
-              {{ formatBytes(trafficUsed) }}
+            <ProgressThin v-if="hasTrafficLimit(props.node)" :percentage="trafficUsedPercentage" :status="trafficStatus" :height="4" :class="!trafficReady && 'opacity-30'" :aria-hidden="!trafficReady || undefined" />
+            <div class="text-[11px] truncate" data-machine-traffic :data-traffic-basis="trafficBasis" :data-traffic-used="trafficUsed" :data-traffic-percentage="percentage" :data-traffic-remaining="trafficRemaining" :title="trafficTooltip" :class="trafficUsedPercentage >= 95 ? 'text-destructive' : 'text-muted-foreground'">
+              {{ trafficUsed === null ? trafficLabel : formatBytes(trafficUsed) }}
               <template v-if="hasTrafficLimit(props.node)">
                 / {{ formatBytes(props.node.traffic_limit) }}
               </template>
@@ -396,15 +399,15 @@ function hasRegion(region: string | null | undefined): boolean {
             <div class="flex justify-between text-xs">
               <span class="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
                 <Icon :icon="NODE_METRIC_ICONS.traffic" data-node-metric-icon="traffic" width="13" height="13" class="shrink-0 text-violet-500" aria-hidden="true" />
-                <span class="truncate">流量</span>
+                <span class="truncate" :title="trafficTooltip">{{ trafficLabel }}</span>
               </span>
               <span class="tabular-nums font-medium" :class="trafficPercentageClass">
-                {{ hasTrafficLimit(props.node) ? `${trafficUsedPercentage.toFixed(1)}%` : '∞' }}
+                {{ trafficPercentageText }}
               </span>
             </div>
-            <ProgressThin v-if="hasTrafficLimit(props.node)" :percentage="trafficUsedPercentage" :status="trafficStatus" :height="4" />
-            <div class="text-[11px] truncate" data-machine-traffic :class="trafficUsedPercentage >= 95 ? 'text-destructive' : 'text-muted-foreground'">
-              {{ formatBytes(trafficUsed) }}
+            <ProgressThin v-if="hasTrafficLimit(props.node)" :percentage="trafficUsedPercentage" :status="trafficStatus" :height="4" :class="!trafficReady && 'opacity-30'" :aria-hidden="!trafficReady || undefined" />
+            <div class="text-[11px] truncate" data-machine-traffic :data-traffic-basis="trafficBasis" :data-traffic-used="trafficUsed" :data-traffic-percentage="percentage" :data-traffic-remaining="trafficRemaining" :title="trafficTooltip" :class="trafficUsedPercentage >= 95 ? 'text-destructive' : 'text-muted-foreground'">
+              {{ trafficUsed === null ? trafficLabel : formatBytes(trafficUsed) }}
               <template v-if="hasTrafficLimit(props.node)">
                 / {{ formatBytes(props.node.traffic_limit) }}
               </template>
@@ -433,11 +436,11 @@ function hasRegion(region: string | null | undefined): boolean {
           <div class="flex flex-col gap-0.5 rounded-lg bg-slate-500/5 min-w-0 overflow-hidden" :class="nodeCardMetricBoxClass">
             <div class="text-[11px] text-muted-foreground flex items-center gap-1" data-machine-direction="up">
               <Icon icon="tabler:upload" width="11" height="11" />
-              <span class="truncate min-w-0 overflow-hidden">{{ formatBytes(props.node.net_total_up ?? 0) }}</span>
+              <span class="truncate min-w-0 overflow-hidden">{{ trafficUp === null ? '—' : formatBytes(trafficUp ?? 0) }}</span>
             </div>
             <div class="text-[11px] text-muted-foreground flex items-center gap-1" data-machine-direction="down">
               <Icon icon="tabler:download" width="11" height="11" />
-              <span class="truncate min-w-0 overflow-hidden">{{ formatBytes(props.node.net_total_down ?? 0) }}</span>
+              <span class="truncate min-w-0 overflow-hidden">{{ trafficDown === null ? '—' : formatBytes(trafficDown ?? 0) }}</span>
             </div>
           </div>
 

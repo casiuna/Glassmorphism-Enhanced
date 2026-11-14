@@ -5,10 +5,11 @@ import { useStorageAsync } from '@vueuse/core'
 import { computed, ref, watch } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useNodeTraffic } from '@/composables/useNodeTraffic'
 
 import { useAppStore } from '@/stores/app'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatUptimeWithFormat } from '@/utils/helper'
-import { getDiskPercentage, getMemoryPercentage, getTotalTraffic, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
+import { getDiskPercentage, getMemoryPercentage, getTotalTraffic, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { isNodeMatchSearch } from '@/utils/nodeSearch'
 import { formatPriceWithCycle, isFreePrice } from '@/utils/tagHelper'
 
@@ -42,6 +43,10 @@ const selectedNodes = computed(() => normalizedSelectedIds.value
   .map(uuid => props.nodes.find(node => node.uuid === uuid))
   .filter((node): node is NodeData => Boolean(node)))
 
+// Fixed setup scopes share UUID subscriptions with cards, detail and admin.
+const selectedTraffic = Array.from({ length: MAX_COMPARE_NODES }, (_, index) => useNodeTraffic(() => selectedNodes.value[index]))
+const trafficByUUID = computed(() => new Map(selectedNodes.value.map((node, index) => [node.uuid, selectedTraffic[index]!])))
+
 const comparisonGridStyle = computed(() => ({
   gridTemplateColumns: `7.5rem repeat(${Math.max(1, selectedNodes.value.length)}, minmax(11rem, 1fr))`,
 }))
@@ -59,7 +64,10 @@ function formatMachineTotal(node: NodeData): string {
 }
 
 function formatMachineQuota(node: NodeData): string {
-  return `${formatBytes(getTrafficUsed(node))} / ${hasTrafficLimit(node) ? formatBytes(node.traffic_limit) : '∞（无限）'}`
+  const traffic = trafficByUUID.value.get(node.uuid)!
+  const scope = traffic.basis.value === 'machine-cumulative' ? '累计参考' : traffic.label.value
+  const used = traffic.used.value === null ? traffic.label.value : formatBytes(traffic.used.value)
+  return `${scope} ${used} / ${hasTrafficLimit(node) ? formatBytes(node.traffic_limit) : '∞（无限）'}${traffic.remaining.value === null ? '' : ` · 剩余 ${formatBytes(traffic.remaining.value)}`}`
 }
 
 function clampPercentage(value: number): number {
@@ -81,7 +89,7 @@ const compareMetrics = computed<CompareMetric[]>(() => {
       key: 'trafficQuota',
       label: '流量配额',
       value: formatMachineQuota,
-      percentage: node => hasTrafficLimit(node) ? getTrafficUsedPercentage(node) : null,
+      percentage: node => trafficByUUID.value.get(node.uuid)?.percentage.value ?? null,
     },
     { key: 'uptime', label: '运行时间', value: node => formatUptimeWithFormat(node.uptime || 0, 'day') },
   ]
@@ -171,7 +179,7 @@ watch(() => props.nodes.map(node => node.uuid), (uuids) => {
           <div class="bg-background/45 px-3 py-2 text-xs font-medium text-muted-foreground">
             {{ metric.label }}
           </div>
-          <div v-for="node in selectedNodes" :key="`${metric.key}-${node.uuid}`" class="min-w-0 bg-background/45 px-3 py-2" :data-compare-metric="metric.key" :data-node-uuid="node.uuid">
+          <div v-for="node in selectedNodes" :key="`${metric.key}-${node.uuid}`" class="min-w-0 bg-background/45 px-3 py-2" :data-compare-metric="metric.key" :data-node-uuid="node.uuid" :data-traffic-basis="metric.key === 'trafficQuota' ? trafficByUUID.get(node.uuid)?.basis.value : undefined" :data-traffic-used="metric.key === 'trafficQuota' ? trafficByUUID.get(node.uuid)?.used.value : undefined" :data-traffic-percentage="metric.key === 'trafficQuota' ? trafficByUUID.get(node.uuid)?.percentage.value : undefined" :data-traffic-remaining="metric.key === 'trafficQuota' ? trafficByUUID.get(node.uuid)?.remaining.value : undefined">
             <div class="break-words text-xs tabular-nums" :title="metric.value(node)">
               {{ metric.value(node) }}
             </div>

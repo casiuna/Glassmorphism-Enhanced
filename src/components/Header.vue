@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { SettingsGroup } from '@/utils/themeSettings'
 import { Icon } from '@iconify/vue'
 import { computed, defineAsyncComponent, inject, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -16,6 +17,17 @@ const { openAdmin, navigating } = useAdminNavigation()
 const { record: recordVisitorEvent } = useVisitorAudit()
 const EnhancedManagementDialog = defineAsyncComponent(() => import('@/components/EnhancedManagementDialog.vue'))
 const managementOpen = ref(false)
+const settingsQuery = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('enhanced_settings') : null
+const initialManagementGroup: SettingsGroup = settingsQuery && ['home', 'nodes', 'routes', 'appearance', 'advanced'].includes(settingsQuery) ? settingsQuery as SettingsGroup : 'routes'
+let settingsQueryHandled = false
+watch([() => appStore.privateFeaturesAllowed, () => appStore.publicSettings?.theme], ([allowed, theme]) => {
+  if (allowed && theme === 'Enhanced' && settingsQuery && !settingsQueryHandled) {
+    settingsQueryHandled = true
+    void appStore.requireLoginPermission('advancedTools', { force: true }).then((granted) => {
+      managementOpen.value = granted
+    })
+  }
+}, { immediate: true })
 watch(() => appStore.privateFeaturesAllowed, (allowed) => {
   if (!allowed)
     managementOpen.value = false
@@ -107,7 +119,7 @@ const sitename = computed(() => appStore.publicSettings?.sitename || 'Komari Mon
 <template>
   <!-- 访客 IP 组件，全局悬浮 -->
   <VisitorInfo v-if="!appStore.loading && appStore.visitorInfoEnabled" />
-  <EnhancedManagementDialog v-if="managementOpen" :open="managementOpen" @update:open="managementOpen = $event" />
+  <EnhancedManagementDialog v-if="managementOpen" :open="managementOpen" :initial-group="initialManagementGroup" @update:open="managementOpen = $event" />
 
   <div
     class="site-header transition-all duration-200 top-0 sticky z-10 border-b border-transparent"

@@ -11,8 +11,8 @@ const TAGS = `用户A<jade>;${LONG};${SPECIAL};upstream:RelayNode;route:internal
 function card(page: Page) {
   return page.getByRole('button', { name: '查看节点 主控-洛杉矶 详情', exact: true })
 }
-function manualConfig(label = '管理员指定 & <线路>') {
-  return JSON.stringify({ version: 1, nodes: { [UUID]: { manual: { telecom: { label, updatedAt: AT } } } } })
+function manualConfig(label = '管理员指定 & <线路>', withAuto = false) {
+  return JSON.stringify({ version: 1, nodes: { [UUID]: { manual: { telecom: { label, updatedAt: AT } }, ...(withAuto ? { auto: { telecom: { direction: 'node-to-cn', target: 'beijing-telecom', collectedAt: AT, reachedTarget: true, hops: [{ ttl: 1, asns: [4134] }, { ttl: 2, asns: [4134] }] } } } : {}) } } })
 }
 
 for (const scenario of [
@@ -50,7 +50,10 @@ for (const scenario of [
     await expect(node.getByRole('button', { name: '收藏 主控-洛杉矶', exact: true })).toBeVisible()
     await expect(node.locator('img[alt="美国"]')).toBeVisible()
     await expect(node.locator('[data-return-carrier="telecom"]')).toContainText('管理员指定 & <线路>')
-    await expect(node.locator('[data-return-carrier="unicom"]')).toContainText('未检测')
+    // New inline contract omits unmeasured carriers instead of placeholder pills.
+    await expect(node.locator('[data-return-carrier="unicom"]')).toHaveCount(0)
+    await expect(node.locator('[data-return-carrier="mobile"]')).toHaveCount(0)
+    expect(await node.locator('[data-return-carrier]').evaluateAll(els => els.map(el => el.getAttribute('data-return-carrier')))).toEqual(['telecom'])
     for (const carrier of ['telecom', 'unicom', 'mobile']) {
       await expect(node.locator(`[data-carrier-ping="${carrier}-latency"]`)).toBeVisible()
       await expect(node.locator(`[data-carrier-ping="${carrier}-loss"]`)).toBeVisible()
@@ -102,13 +105,18 @@ test('list-specific visibility still overrides the global tags switch', async ({
 test('manual UUID configuration survives reload and a node rename', async ({ page }) => {
   await installKomariFixture(page, {
     hideEarth: true,
+    loggedIn: true,
     firstNodeName: 'Renamed Wendy',
-    themeSettings: { returnRoutesVisible: true, returnRouteConfig: manualConfig('唯一手动线路') },
+    themeSettings: { returnRoutesVisible: true, returnRouteAutoEnabled: true, returnRouteConfig: manualConfig('唯一手动线路', true) },
   })
   await page.goto('/')
   const route = page.locator(`[data-route-node="${UUID}"]`)
   await expect(route).toContainText('唯一手动线路')
   await expect(route).toContainText('手动 · 2026-07-25 11:00 UTC')
+  await route.locator('summary').click()
+  await expect(route.locator('[data-route-details]')).toBeVisible()
+  await expect(route.locator('time[datetime]')).toHaveCount(1)
+  await expect(route.locator('time[datetime]')).toHaveAttribute('datetime', new Date(AT).toISOString())
   await expect(page.getByRole('button', { name: '查看节点 Renamed Wendy 详情', exact: true })).toBeVisible()
   await page.reload()
   await expect(route).toContainText('唯一手动线路')
@@ -131,7 +139,7 @@ test('fresh, unknown and expired evidence display separately without starting co
     unicom: make('beijing-unicom', collected, [64500, 64500]),
     mobile: make('beijing-mobile', '2026-07-23T01:00:00Z', [9808, 9808]),
   } } } }
-  await installKomariFixture(page, { hideEarth: true, themeSettings: {
+  await installKomariFixture(page, { hideEarth: true, loggedIn: true, themeSettings: {
     returnRoutesVisible: true,
     returnRouteAutoEnabled: true,
     returnRouteConfig: JSON.stringify(document),
@@ -146,8 +154,11 @@ test('fresh, unknown and expired evidence display separately without starting co
   const route = card(page).locator('[data-return-routes]')
   await expect(route.locator('[data-return-carrier="telecom"]')).toHaveAttribute('data-route-status', 'fresh-auto')
   await expect(route.locator('[data-return-carrier="telecom"]')).toContainText('163')
-  await expect(route.locator('[data-return-carrier="unicom"]')).toContainText('未知')
-  await expect(route.locator('[data-return-carrier="mobile"]')).toContainText('已过期')
+  await expect(route.locator('[data-return-carrier="unicom"]')).toHaveCount(0)
+  await expect(route.locator('[data-return-carrier="mobile"]')).toHaveCount(0)
+  await route.locator('summary').click()
+  await expect(route.locator('[data-route-details]')).toBeVisible()
+  await expect(route.locator('[data-route-details]')).toContainText('已过期')
   await expect(route).toContainText('自动 · 2026-07-25 11:00 UTC')
   expect(dangerous).toEqual([])
 })
@@ -172,7 +183,7 @@ test('native theme-settings save contract round-trips a UUID override (mock only
     await route.fulfill({ json: { status: 'success', data: null } })
   })
   await page.goto('/')
-  await expect(card(page).locator('[data-return-carrier="telecom"]')).toContainText('未检测')
+  await expect(card(page).locator('[data-return-routes]')).toHaveCount(0)
   const normalized = serializeReturnRoutes(parseReturnRouteConfig(manualConfig('保存后的手动线路')).document)
   const payload = { ...settings, returnRouteConfig: normalized }
   const status = await page.evaluate(async (body) => {
@@ -191,8 +202,10 @@ test('native theme-settings save contract round-trips a UUID override (mock only
 })
 
 test('invalid route JSON is visible as a configuration error, not a fabricated route', async ({ page }) => {
-  await installKomariFixture(page, { hideEarth: true, themeSettings: { returnRoutesVisible: true, returnRouteConfig: '{broken' } })
+  await installKomariFixture(page, { hideEarth: true, themeShort: 'Enhanced', loggedIn: true, themeSettings: { returnRoutesVisible: true, returnRouteConfig: '{broken' } })
   await page.goto('/')
-  await expect(card(page).locator('[data-return-routes]')).toContainText('回程配置无效')
-  await expect(card(page).locator('[data-return-carrier="telecom"]')).toContainText('未检测')
+  await expect(card(page).locator('[data-return-routes]')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Enhanced 管理', exact: true }).click()
+  await expect(page.getByRole('dialog').locator('[data-route-config-error]')).toContainText('回程配置无效')
+  await expect(page.getByRole('dialog').locator('[data-route-config-error]')).toHaveAttribute('role', 'alert')
 })

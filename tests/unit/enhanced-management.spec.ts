@@ -56,6 +56,7 @@ test('bootstrap instructions contain no credentials or remote install and refuse
   expect(command).toContain('--uuid')
   expect(command).toContain('--agent-config')
   expect(command).not.toMatch(/ssh |curl |--token|--password|session_token/)
+  expect(command).not.toMatch(/--apply|--enable-local|--run/)
   expect(nodeBootstrapCommand('http://panel.example', UUID)).toContain('拒绝')
   expect(nodeBootstrapCommand('http://127.0.0.1:1234', UUID)).toContain('--allow-loopback-http')
   expect(nodeBootstrapCommand('https://panel.example', 'not-a-uuid')).toBe('')

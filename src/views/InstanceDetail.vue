@@ -13,6 +13,7 @@ import { Empty } from '@/components/ui/empty'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import { useNodeProviderMetadata } from '@/composables/useNodeProviderMetadata'
+import { useNodeTraffic } from '@/composables/useNodeTraffic'
 import { LOAD_RECORD_MAX_COUNT } from '@/constants/load'
 import { loadNodeLoadRecords } from '@/services/history.service'
 import { useAppStore } from '@/stores/app'
@@ -22,7 +23,7 @@ import { getCpuBenchmarkRating, getPassMarkCpuLookupUrl } from '@/utils/cpuBench
 import * as financeHelper from '@/utils/financeHelper'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatUptimeWithFormat } from '@/utils/helper'
 import { parseNodeDisplayTags } from '@/utils/nodeDisplayTags'
-import { getTrafficUsed, getTrafficUsedPercentage } from '@/utils/nodeMetricsHelper'
+
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
 
@@ -308,13 +309,13 @@ function splitMeasurement(value: string): { value: string, unit?: string } {
 const trafficUp = computed(() => data.value?.net_total_up ?? 0)
 const trafficDown = computed(() => data.value?.net_total_down ?? 0)
 const trafficTotal = computed(() => trafficUp.value + trafficDown.value)
-const trafficUsed = computed(() => data.value ? getTrafficUsed(data.value) : 0)
+const { used: trafficUsed, percentage: trafficUsedPercentage, remaining: trafficRemaining, label: trafficLabel, basis: trafficBasis, up: cycleUp, down: cycleDown, configured: cycleConfigured } = useNodeTraffic(data)
 const hasTrafficLimit = computed(() => (data.value?.traffic_limit ?? 0) > 0)
-const trafficUsedPercentage = computed(() => data.value ? getTrafficUsedPercentage(data.value) : 0)
 const trafficUsageText = computed(() => {
-  const usedText = formatBytes(trafficUsed.value)
+  const usedText = trafficUsed.value === null ? trafficLabel.value : formatBytes(trafficUsed.value)
   const quota = hasTrafficLimit.value ? formatBytes(data.value?.traffic_limit ?? 0) : '∞（无限流量）'
-  return `${usedText} / ${quota}`
+  const scope = trafficBasis.value === 'machine-cumulative' ? '累计参考' : trafficLabel.value
+  return `${scope} ${usedText} / ${quota}${trafficRemaining.value === null ? '' : ` · 剩余 ${formatBytes(trafficRemaining.value)}`}`
 })
 
 function getDetailMetricCard(key: DetailMetricCardKey): MetricCard {
@@ -382,9 +383,9 @@ function getDetailMetricCard(key: DetailMetricCardKey): MetricCard {
     case 'trafficQuota':
       return {
         key,
-        label: '流量配额',
-        value: nodeHasTrafficLimit ? nodeTrafficPercentage.toFixed(1) : '∞',
-        unit: nodeHasTrafficLimit ? '%' : undefined,
+        label: trafficBasis.value === 'machine-cumulative' ? '累计参考配额' : '本周期配额',
+        value: trafficUsed.value === null ? trafficLabel.value : nodeHasTrafficLimit && nodeTrafficPercentage !== null ? nodeTrafficPercentage.toFixed(1) : '∞',
+        unit: nodeHasTrafficLimit && nodeTrafficPercentage !== null ? '%' : undefined,
         icon: 'tabler:gauge',
         tooltip: `${trafficUsageText.value}`,
       }
@@ -433,7 +434,7 @@ const storageInfo = computed<InfoItem[]>(() => [
 ])
 
 const trafficProgressStyle = computed(() => ({
-  width: `${trafficUsedPercentage.value}%`,
+  width: `${trafficUsedPercentage.value ?? 0}%`,
 }))
 
 // 总流量进度条按使用率分级着色：≥80% 红、60-80% 琥珀、<60% 绿
@@ -694,7 +695,7 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
           <div class="gap-3 grid grid-cols-2">
             <div class="relative min-w-0 overflow-hidden rounded-sm bg-slate-500/5 p-2">
               <div
-                v-if="hasTrafficLimit"
+                v-if="hasTrafficLimit && trafficUsedPercentage !== null"
                 data-machine-progress
                 class="absolute inset-y-0 left-0 rounded-sm pointer-events-none transition-[width,background-color] duration-300 ease-out"
                 :class="trafficProgressClass"
@@ -703,7 +704,7 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
               <div class="relative flex flex-col gap-1.5">
                 <div class="flex gap-1 items-center text-muted-foreground">
                   <Icon icon="icon-park-outline:transfer-data" :width="14" :height="14" />
-                  <span class="text-xs sm:text-sm">总流量</span>
+                  <span class="text-xs sm:text-sm">{{ trafficLabel }}</span>
                   <Badge
                     v-for="proto in ipSupport" :key="proto" variant="outline"
                     class="!text-[10px] rounded text-emerald-600 border-emerald-600/25 px-1 py-0 leading-none"
@@ -715,10 +716,14 @@ const metricCards = computed<MetricCard[]>(() => appStore.detailMetricCardOrder.
                     上行 / 下行：{{ formatBytes(trafficUp) }} / {{ formatBytes(trafficDown) }}
                   </span>
                 </div>
-                <span class="text-xs sm:text-sm break-all" data-machine-traffic>{{ trafficUsageText }}</span>
+                <span class="text-xs sm:text-sm break-all" data-machine-traffic :data-traffic-basis="trafficBasis" :data-traffic-used="trafficUsed" :data-traffic-percentage="trafficUsedPercentage" :data-traffic-remaining="trafficRemaining">{{ trafficUsageText }}</span>
+                <div v-if="cycleConfigured" class="flex flex-wrap gap-x-3 text-[10px] text-muted-foreground">
+                  <span data-cycle-direction="up">周期上行 {{ cycleUp === null ? '—' : formatBytes(cycleUp) }}</span>
+                  <span data-cycle-direction="down">周期下行 {{ cycleDown === null ? '—' : formatBytes(cycleDown) }}</span>
+                </div>
                 <div class="flex flex-wrap gap-x-3 text-[10px] text-muted-foreground">
-                  <span data-machine-direction="up">上行 {{ formatBytes(trafficUp) }}</span>
-                  <span data-machine-direction="down">下行 {{ formatBytes(trafficDown) }}</span>
+                  <span data-machine-direction="up">累计上行 {{ formatBytes(trafficUp) }}</span>
+                  <span data-machine-direction="down">累计下行 {{ formatBytes(trafficDown) }}</span>
                 </div>
                 <span v-if="hasPeak" class="text-[10px] text-muted-foreground/80 flex items-center gap-2 leading-none">
                   <span>近一天峰值</span>

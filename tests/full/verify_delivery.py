@@ -40,6 +40,7 @@ def main():
     args = parser.parse_args()
     assert git('status', '--porcelain=v1') == '', 'delivery requires clean committed source'
     commit, short = git('rev-parse', 'HEAD'), git('rev-parse', '--short', 'HEAD')
+    version = report('komari-theme.json')['version']
     artifacts = report('test-results/release/artifacts.json')
     assert artifacts['commit'] == commit and artifacts['dirty'] is False and artifacts['channel'] == 'stable'
     records = {item['kind']: item for item in artifacts['artifacts']}
@@ -56,14 +57,14 @@ def main():
     with zipfile.ZipFile(native) as archive:
         manifest = json.loads(archive.read('komari-theme.json'))
         assert {k: manifest[k] for k in ('name', 'short', 'version', 'author')} == {
-            'name': 'Glassmorphism Enhanced', 'short': 'Enhanced', 'version': '1.2.0', 'author': 'casiuna'}
+            'name': 'Glassmorphism Enhanced', 'short': 'Enhanced', 'version': version, 'author': 'casiuna'}
         assert archive.read('preview.png') == (ROOT / 'docs/preview.png').read_bytes()
         assert archive.read('dist/licenses/transit-MIT.txt') == transit
         expected_dist = {p.relative_to(ROOT).as_posix(): p.read_bytes() for p in (ROOT / 'dist').rglob('*') if p.is_file()}
         assert {n for n in archive.namelist() if n.startswith('dist/') and not n.endswith('/')} == set(expected_dist)
         assert all(archive.read(n) == data for n, data in expected_dist.items())
         build = json.loads(archive.read('dist/BUILD.json'))
-        assert build['commit'] == commit and build['dirty'] is False and build['version'] == '1.2.0'
+        assert build['commit'] == commit and build['dirty'] is False and build['version'] == version
         fields = {field.get('key'): field for field in manifest['configuration']['data']}
         assert all(fields[key]['default'] is False for key in ('returnRoutesVisible', 'returnRouteAutoEnabled', 'returnRouteCompanionEnabled'))
     full_path = Path(records['full-tar-gz']['path'])
@@ -72,7 +73,7 @@ def main():
         directory = extract(full_path, Path(temporary) / 'Full')
         bundle = Bundle(directory)
         assert bundle.manifest['commit'] == commit and bundle.manifest['dirty'] is False
-        assert bundle.manifest['version'] == '1.2.0' and bundle.manifest['supportedKomari'] == ['1.6.0']
+        assert bundle.manifest['version'] == version and bundle.manifest['supportedKomari'] == ['1.6.0']
         assert bundle.manifest['automaticProbeDefault'] is False and bundle.manifest['automaticResultsAccess'] == 'administrator-only'
         for kind in ('theme', 'plugin', 'helper'):
             assert bundle.artifact(kind) == Path(records[kind]['path']).read_bytes()

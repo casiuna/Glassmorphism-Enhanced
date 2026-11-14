@@ -151,19 +151,29 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.release_tag }}
-          name: ${{ steps.version.outputs.release_tag }}
+          name: Glassmorphism Enhanced ${{ steps.version.outputs.release_tag }}
           target_commitish: ${{ github.sha }}
           draft: false
           prerelease: false
           make_latest: true
           body: |
+            ## Glassmorphism Enhanced v1.2.1
+
+            - 节点线路摘要保持已验收的严格三等分：红／蓝／绿圆点与完整名称组内居中，不省略、不添加运营商前缀。
+            - 后台统一为 01–05 五个分类。线路显示、自动结果消费、有效期、手动线路与 Ping／Transit 同归「03 · 线路与延迟」；外观与背景独立，可选采集诊断默认折叠。
+            - 手动线路支持节点选择及联通／电信／移动三个输入框，与高级 JSON 共用原有主题配置。无需 Plugin、Helper 或 Agent 远程执行；保留管理员校验、配置读回与冲突检查。
+            - 新增逐节点独立流量重置日与保守的历史覆盖判断，保留累计计数、Ping、Transit、价格和历史数据；不在前台增加重置倒计时。
+            - 修复 Full 升级对新增 Plugin 默认配置项的误判，保留版本保护、真实加载故障补偿回滚和并发修改拒绝。
+
             **下载与安装**
             - `komari-theme-Glassmorphism-build-*.zip`：Komari 原生主题包，上传至主题管理器。
             - `Glassmorphism-Enhanced-Full-*.tar.gz`：一体化安装、升级与回滚包，包含已校验的内层 Full ZIP、安装器及 Theme / Plugin / Helper。不能直接上传至主题管理器。
 
-            Helper 必须在实际被测节点运行，不由浏览器执行远程 Shell。自动探测默认关闭，自动详细结果仅管理员可见；真实公网三网 traceroute / ASN 尚未验证，不能把模拟结果当作真实线路验收。
+            **自动探测限制**：手动显示零额外依赖。Plugin／Helper 仅是默认关闭的可选实验链路；Plugin 每个 Komari 服务端一次，Helper 仅供明确授权参与探测的来源节点使用，不要求所有 VPS 安装。原生 Agent 替代 Helper 仅完成审计，本版没有远程执行桥接或静默安装。实时 Helper → Plugin → 可靠 ASN／商业线路分类的公网生产闭环尚未完成验收，不承诺生产自动探测或可靠识别 CN2、9929、CMI 等线路。历史探测与 fixture／replay 不等于生产验证。
 
-            [部署、升级和回滚](https://github.com/casiuna/Glassmorphism-Enhanced/blob/${{ github.sha }}/docs/full.md) · [测试范围和限制](https://github.com/casiuna/Glassmorphism-Enhanced/blob/${{ github.sha }}/docs/full-validation.md)
+            实测隔离集成目标：Komari 1.6.0。Theme／Full：1.2.1；Plugin／Helper：0.3.0 加同一源码 commit 构建后缀。只有本 Release 的正式附件用于发行，不使用 DEVELOPMENT_ONLY 候选包。
+
+            [完整发行说明](https://github.com/casiuna/Glassmorphism-Enhanced/blob/${{ github.sha }}/docs/release-notes-v1.2.1.md) · [部署、升级和回滚](https://github.com/casiuna/Glassmorphism-Enhanced/blob/${{ github.sha }}/docs/full.md) · [依赖审计](https://github.com/casiuna/Glassmorphism-Enhanced/blob/${{ github.sha }}/docs/settings-companion-audit.md)
           generate_release_notes: true
           overwrite_files: true
           fail_on_unmatched_files: true

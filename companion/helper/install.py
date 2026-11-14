@@ -8,7 +8,7 @@ import json
 import shutil
 from pathlib import Path
 
-FILES = ['enhanced_route_helper.py', 'helper-version.json', 'enhanced-route-helper.service', 'enhanced-route-helper.openrc', 'helper.example.json', 'LICENSE', 'README.md']
+FILES = ['enhanced_route_helper.py', 'enhanced_probe_v2.py', 'helper-version.json', 'enhanced-route-helper.service', 'enhanced-route-helper.openrc', 'helper.example.json', 'LICENSE', 'README.md']
 MARKER = '.enhanced-route-install.json'
 
 def digest(path):

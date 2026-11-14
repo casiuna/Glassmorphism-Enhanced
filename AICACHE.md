@@ -1,5 +1,150 @@
 # AI Cache / Agent Handoff Log
 
+## 当前执行：v1.2.1 后台归类与伴生依赖简化（M4/M6，保持鉴权，禁止提交发布）
+
+- 仅后台设置与手动编辑体验；基线 1064 个文件和源码备份在 settings-companion-review/before*。前台卡片、Ping/Transit/流量算法、Full 安装器及降级保护不改。
+- manifest五分类顺序修正为01/02/03/04/05；returnRoute全部放03，外观字段04。主题集中入口分组从同一manifest派生，不另建分类源。手动JSON保留同一key和默认结构。
+- 新增主题独立手动节点选择+3输入框，服务层复用鉴权/并发保护/读回合并；不依赖Plugin，不改变自动开关；原JSON与可选伴生状态默认折叠。旧自动策略测试明确展开高级区，不删除安全断言。
+- 原生Agent审计已固定Komari1.6.0/Agent1.5.11源码SHA：Native exec是通用Shell且服从DisableWebSsh；没有直接安全替换现有受限Helper的适配。本轮不接入新远程执行/调度/采集协议，不开远控、不安装服务，结论见docs/settings-companion-audit.md。
+- 需复跑全单元/组件、后台浏览器和等分冻结回归、真实Komari整套（新增卸除Plugin后手动保存/刷新/截图、监控独立与禁远控不改），TS/ESLint/build/package/diff。完整截图/证据独立保存，不覆盖此前发布阻塞闭环。
+
+## 当前执行：v1.2.1 最后 Full 发布阻塞闭环（M6，冻结全部 UI，禁止提交发布）
+
+- 最新授权仅修复 Full 故障注入与必要安装器/测试；原 HEAD/分支不变。基线 103 个 dirty 文件、1063 个源码哈希和完整源码备份在 test-results/v121/full-blocker-closure/before*，不覆盖 release-final/r6 等失败证据。
+- 版本保护保持原样：SemVer build metadata 等优先级允许 replace-build，低版本仍拒绝。夹具版本从真实 0.3.0 基础动态派生 +git.reload-fault-fixture，同步内层 manifest/BUILD 与 Full 模块矩阵/hash。
+- 实际 sandbox 加载先写仅实验私有目录的0600故障标记，再 throw；原生套件必须先确认触发，再断言版本、启用状态、配置、私有 checkpoint 和代码文件恢复。补充实际管理员并发修改拒绝与归档一致性/降级保护单测。
+- 验收已完成：两个独立私有实验目录中完整 Full 原生套件各37/37、0失败/跳过/重试；最终包的SHA与原生报告精确绑定。真实加载写0600标记后throw，再验证回滚；7个代码/BUILD/manifest文件及mode、配置/启用状态/checkpoint/Agent字节全部符合断言；原生并发修改拒绝亦通过。
+- 本轮复跑fixture4/4、安装器37/37、Helper/归档45/45、Transport8/8及单元组件exit0；TS/ESLint/生产构建/diff-check全部exit0，最终归档45/45。完整Git清单104项（55 tracked modified+49 untracked），全量含未跟踪diff已留档；927个受保护文件、所有UI/安装器/版本保护hash不变。本轮仅本日志、发布说明证据引用、两份Full测试及新增fixture测试5文件。
+- 最终候选在 full-blocker-closure/candidate-final/；所有SHA重新计算，严禁直接当正式附件。功能验收PASS、具备提交源码条件YES；正式clean-source门禁真实exit1仅因源码未提交，保持PENDING_COMMIT。本轮没有commit/push/tag/Release/生产操作，自动公网探测仍未生产验收。完成后停止等待授权。
+
+## 当前执行：v1.2.1 Release 前最终验收（M6，视觉已通过，冻结布局，不提交发布）
+
+- 最新用户已确认三等分视觉，不再改布局；本轮做完整单元/组件/浏览器、静态/构建、归档及真实隔离Komari1.6.0验收。原工作树/分支/HEAD保持，起点97条dirty、1062源码指纹与五个视觉关键文件hash、源码tar和旧全局报告保存在 release-final/before*，不覆盖历史。
+- 核查发现README仍有过时省略/短名描述、CHANGELOG缺1.2.1、发布指南目标仍1.2.0、manifest两处help仍说无效占位。仅修正文档/提示，不改配置keys/defaults和已验收运行时布局。新增1.2.1未发布说明并加入Full文档映射，不宣称自动探测生产可用。
+- 原生集成脚本仍要求fixture/过期/协议冲突占据前台摘要，和已批准的有效值规则冲突；更新这些过时断言为摘要隐藏+管理员诊断可见，并强化匿名仅见手动、零私有请求。新增可指定验收输出与固定生产ZIP输入，避免覆盖旧报告或误用visual-test包。所有原生场景保留，后端安全断言不放宽。
+- 已通过GitHub公开只读下载并验证官方v1.2.0原生包，SHA bc2aeb1810b19800e4dcd9f40ae480021efe3ade16d5b9f752c5568a20e9602e，用于1.6.0同short真实升级验证。只复用既有六条CDN历史数据，不新SSH/DNS/探测/ASN，不操作生产。
+- 正式clean-source门禁保持不变。当前禁止commit，故即使本地验收全过也只能生成dirty隔离验收包；不能将旧f9cec36文件名与dirty=true伪装成正式Release。最终明确区分功能验收完成与正式发行待授权commit/clean重建。
+
+## 当前执行：严格三等分线路 UI（M4/M6，上一版视觉未通过，禁止提交发布）
+
+- 沿用当前 Session / 原工作树 / feat/enhanced-tags-return-routes / f9cec36；1061源码指纹、96条dirty及原预览完整备份至 final-route-grid/baseline* 和 previous-preview-preserved.html，保留旧截图/报告/失败记录。
+- 仅改 ReturnRouteSummary.vue 布局及必要测试：固定三等宽grid列，红/蓝/绿按carrier各占1/3，每列将圆点和名称作为一组居中；缺项保留对应列位置但不造占位。无背景边框装饰，不改数据/识别/API/Ping/Transit/流量/权限。
+- 预览仅保留两项场景：9929 / CN2 / CMI，以及10099→9929 / CN2GIA / CMIN2。旧极端/缺项/异常测试不删，旧换行断言调整为固定列内换行，不能要求grid项目跨行。
+- 验收已实际完成：定向组件29/29、浏览器63/63（含新等分/缺项布局18项），0失败/0跳过/0flaky/0重试；ESLint/type-check/production build/visual build/diff-check全部exit0。原异常、长输入、权限测试保留并通过，仅旧跨项换行断言改为列内文本换行。
+- 截图32/32：两个指定场景 × 1440/320 × 四尺寸 × 亮暗；典型名称均单行、摘要16px，逐字裁切0、越界0、重叠0、不覆盖Ping；三fr列最大栅格取整差0.015625px，组中心偏差最大0.0078125px，圆点与名称3px。
+- final-route-grid/final-ui-preview.html仅两个场景、32种尺寸/主题组合切换全部通过、预览外部请求0，320页无溢出。已同步更新此前final-route-ui/final-ui-preview.html（旧内容有完整备份），侧栏打开最新三等分预览。
+- 本轮仅一个运行时文件ReturnRouteSummary.vue变动，另为本日志、必要旧布局断言/共享审计、新等分测试；1057个其他既有源码文件指纹不变，HEAD/分支/index不变，无删除、无新增依赖或新功能。本轮无探测、commit/push/tag/Release/生产部署，停止等待用户视觉确认。
+
+## 当前执行：最终点色线路 UI（M4/M6，用户已选A，不提交发布）
+
+- 最新用户明确以A为基础，不再A/B。线路摘要只显示红/蓝/绿小圆点+完整原始名称，固定联通/电信/移动顺序；可见文字无“回程”和运营商名，不再调用compact缩写。
+- 禁止ellipsis/line-clamp/裁切；先缩间距，窄容器字体最低10px，再按项和项内换行，允许必要高度。不改Ping、价格、流量、计费或后台证据。
+- 基线原HEAD/分支不变，1059源码指纹和94条dirty记录已存final-route-ui/baseline*，不覆盖之前成果和历史探测。只做本地UI/截图/定向测试，不SSH、不DNS、不新探测、不启用ASN。
+- 移除NodeCard中B预览选择与辅助挂载，旧B草稿文件及历史证据保留但不再生效；最终预览不做A/B。未知/过期/失败/fixture/协议分歧继续隐藏，补充英文状态占位过滤。
+- 截图已完成：102/102场景通过，100个管理员手动有标签场景 + 2个原CDN未知隐藏场景；1440/390/320、四尺寸、亮暗，短/完整/两项/长换行/连续长token。每个非空白字符Range边界检查裁切0，全部摘要后代无ellipsis；短名区域16px，长名按宽度自动两/三行（34/52px），字体实测11px。正向名称均手动布局样例，非CDN识别，真实六条仍未知并隐藏。
+- 验收完成：browser 67/67、unit303/303，均0失败/0跳过/0flaky/exit0，retries0；截图102/102与自包含预览切换102/102通过、0外部请求。typecheck/production build/visual build exit0。首轮lint6处测试格式问题独立log保留，修复后lint-r1/r2均exit0，最终文档收尾已复核通过。
+- 最终版预览 final-route-ui/final-ui-preview.html 已在侧栏打开，旧AB预览tab已关闭而历史文件保留。新预览只提供场景/宽度/尺寸/亮暗选择，不做AB。桌面主图1440-compact-dark-full-names.png，窄屏主图320-mini-dark-long-wrap.png，全部实际节点卡片和线路裁剪图保留。
+- 后台/Helper/Plugin/探测/ASN/流量价格计费逻辑未改，不提交、不发布；当前停止在最终UI效果待用户确认。
+
+## 当前执行：湖北 CDN 接入与 A/B 验收（M5/M3/M4/M6，不发布）
+
+- 沿用原分支/HEAD/工作树；基线1054个源码文件、89个dirty项保存在 test-results/v121/cdn-adaptation/baseline*，不覆盖任何历史证据。
+- 严格不再 SSH、解析公网 DNS、探测或查询 ASN；只重放 hubei-cdn-v1 六份实际 :80 原文。双授权仍关闭。
+- 计划采用向后兼容 schema3：经审查的湖北三域名目录 + Plugin 管理员策略和 Helper 私有本地白名单双重授权；端口受限且绑定，job只给ID/绑定而非任意命令/地址。DNS仅公共IPv4且固定一组，两协议不重解析。保留旧schema1/2、认证/lease/TTL/限流与超时。
+- 历史采集时间不能改成现在。真实旧数据输出标记 replay，通过现有管理员、停采条件下的历史 restore-node 接收；正常Agent submit的五分钟新鲜度与lease不放宽，单独测试拒绝旧数据。最终报告明确这是历史实测回放E2E而非新VPS实时探测。
+- UI两个方案均仅visual-test可选、未定稿；实际CDN未知结果应完全隐藏。为比较位置，可另列明确标注“管理员手动布局示例”的中性文字，不使用9929/CN2/CMI等模拟识别。实际截图矩阵与辅助样例分开。
+- 实现已完成：schema3 + 编译审核目录(三湖北域名/80或443) + Plugin管理员与Helper本地双白名单；job绑定不可传任意地址/端口/Shell。源端DNS一次固定公共IPv4，重放严格owner-only且无符号链接；旧schema1/2、UUID/lease/TTL/限流保持。未修改生产，未SSH/探测/ASN查询。
+- 实际 CDN 历史回放 E2E：native-cdn-r5 / Komari1.6.0 / 11/11 PASS，Helper CLI读取hubei-cdn-v1原文、Plugin停采管理员restore接收、Theme管理员显示6条:80/DNS/hash/原时间；原始UUID/实验ID进captureOrigin，本地测试UUID映射显式记录。保留源时间，正常Agent仍拒绝历史replay；匿名、跨站、手动覆盖、TTL浏览器时钟、真实后端重启缓存全部通过。此结果不借用静态DNS12/12，也不冒充新实时探测。
+- UI：真实组件浏览器截图88/88 PASS（实际未知/明确中性手动示例分开），宽1440/390/320，四卡片尺寸与亮暗；A/B真实CDN均无占位，B不增加底行。A/B除线路区域外文本/Ping完全一致，B在手动布局场景比A低24/28/32px（按尺寸）。自包含预览 test-results/v121/cdn-adaptation/ui-ab-preview.html，保留历史胶囊截图但明确旧手动fixture非CDN；两套仅visual-test切换，尚未选择。
+- 相关浏览器：targeted-browser 63/63 PASS，0跳过/0重试/exit0，非全量175重跑；B访客额外2/2 PASS、预览控件6/6 PASS且自包含0外部请求。单元/组件293/293、Helper安全45/45、CJS协议87/87；生产build与visual build通过。最终lint/typecheck均exit0（r3），production/visual build均exit0；diff-check与原始6份hash复验通过。预览已在桌面侧栏打开，停止开发等待选择。
+- 失败留存：初次lint格式与来源枚举漏项、archive测试错误依赖不存在的kind字段、Helper停用配置离线模式拦截、unit新用例调用签名错误；Native初次响应解包与400/409测试预期错误。均有独立失败log/JSON，修正依据现有TypeError→400契约而非放宽状态断言，原始证据未覆盖。首次unit292PASS/1FAIL，复验293PASS。
+- 未解决/非本轮范围：实际ASN仍0，六条未知；未来须单独本地双授权，最多8次/每次2秒既有公网IP补全，不需再探测VPS。实时CDN新分支仅无网络安全测试，本轮按要求不做新的实时网络试验。禁止commit/push/tag/Release/市场；完成预览后停下等待用户A/B选择。
+
+## 最新目标修正：湖北 TcpQuality CDN :80（M6，采集与离线验证完成，不发布）
+
+- 用户最新明确提供 `hb-ct-v4.ip.zstaticcdn.com:80` / `hb-cu-v4.ip.zstaticcdn.com:80` / `hb-cm-v4.ip.zstaticcdn.com:80`。本次只在原授权 nerwen 上解析这三个名称并记录当时 IPv4，再锁定同一 IPv4 各测 UDP/TCP :80 一次，20跳/25秒/共6条，禁止 DNS 漂移污染两协议比较。
+- 此前北京批次，以及湖北 DNS 服务器地址的批次均保留，但不作为本次 CDN :80 结果。湖北 DNS 批次有真实原始记录、离线解析和 loopback Komari 12/12 验证，不能把它的回传结果移植为 CDN 验证结论。
+- CDN 探测仅使用私有 scratch 单次脚本和内存中当前 collector；不改生产 Helper 的 TCP443 默认、不扩宽生产固定地址协议、不安装任何组件。动态 CDN 结果使用独立试验目标 ID，不冒充原静态目标；若协议不接受，明确记录尚未回传而非绕过白名单。
+- Team Cymru 双授权仍未取得，查询数必须为0，不使用 -A，不通过IP前缀伪造ASN。原始路径仅私有目录 `test-results/v121/nerwen-real-trial/hubei-cdn-v1/`，不进入 public/匿名接口；不改 VPS 的 Agent、服务、权限、系统配置，不 commit/push/tag/Release/市场。
+- 四路径实检已确认 /usr/bin/traceroute 可用；旧“可能缺 /usr/sbin 支持”只是待查疑问，现已排除，不需要修改系统路径。
+- 结果：2026-11-13 03:07:42–03:08:52 UTC，源 VPS 解析并固定电信111.172.211.216、联通220.202.13.144、移动111.48.110.49，UDP/TCP均目的80，共6条/exit0。电信TTL16/18到达，联通TTL20/15到达，移动两协议20跳内未到达。六份SHA与当前parser重新解析全部匹配，0条output-limit，实际ASN为0，当前TS分类器六条未知，Cymru查询0。
+- 新 CDN 批次没有进入 Komari：独立试验 `hubei-cdn-trial` 在当前 protocol.cjs 原始时刻离线校验得到预期 `result binding mismatch`（未注册城市/目标），不能把动态IP重标为静态 hubei-*，也不能用之前静态目标12/12冒充本次CDN E2E。真实采集、离线解析、当前协议不兼容分别记录于新批次 REPORT.md / verification.json / classification-and-compatibility.json。
+- A/B 预览仍未交付；最新增加的 Ping 辅助组件与 visual-test-only 开关属于尚未验收的草稿，用户修正目标后暂停 UI 工作，不把旧175项报告当成对这些新改动的验证。
+
+## 当前任务：nerwen 单节点真实探测 / A-B 视觉重新评估（M3 / M4 / M6，进行中，禁止提交发布）
+
+- 最新授权明确允许 `ssh nerwen` 现有 root/密码权限，仅一台新购 HK VPS 做北京三网 UDP/TCP443 各一次；每条20跳/25秒，绝不改 Agent/DB/路由/防火墙/sysctl/SSH/服务，不装依赖/能力/守护程序，不接 dirty Full 到公网。Team Cymru 仍未获得本地双授权，明确禁用，不使用 -A。不得把密码或凭据写入缓存/证据/命令参数。
+- 原 worktree / branch / HEAD 继续不变；起点87条dirty、1052文件已备份到 scratch `enhanced-v121-nerwen-trial/baseline-source.tar.gz`，新私有证据 `test-results/v121/nerwen-real-trial/`，不覆盖前轮175/287报告。
+- 已只读核查SSH主机列表，仅选择用户指定nerwen，严格校验已存主机密钥，无SSH配置变更。首个key登录exit255后以交互TTY密码登录成功，密码未持久化。主机host6998906253，Linux6.1.0-10-amd64，Python3.11.2，traceroute2.1.2，IPv4路由可用。
+- 真实探测任务 `proc_7802a530ec35`：当前v2 collector源代码通过SSH stdin仅在远端内存执行，6条固定轨迹，输出真实argv/开始结束时间/退出码/原始文本/hash，Cymru及prefixHints关闭，无面板连接/Helper安装/远端文件写入。raw证据保持私有，不进入public目录或匿名接口；测量UUID仅本地回放身份，不冒充生产UUID。
+- 先取得实际原始记录，再用当前解析与分类函数本地验证，优先启动本地isolated Komari进行真实采集回放/鉴权/后台显示/手动覆盖/TTL验证。严格区分远端采集、离线解析、loopback真实回传和生产部署。当前Helper可能不识别/usr/sbin/traceroute，须以环境四路径检查结果核实，只允许本地最小兼容修复，不改VPS路径。
+- UI只提供A纯文字单行 / B集成Ping辅助信息两套真实组件预览，不擅自定稿；实际无可靠线路则两套都不得显示假标签。任何正向布局样例须显式标为非实测，不能作为线路证据。维持匿名权限和价格/流量/计费/Ping数据口径；不立即重跑完整175项。
+
+## 当前任务：v1.2.1 单行回程 UI / 单节点真实探测试用准备（M3 / M4 / M6，本地验收完成，禁止提交发布与生产）
+
+- 最新授权：继续当前 worktree / branch，只做本地 UI、测试和试用文档；不 commit/push/tag/Release，不连接生产 VPS，不安装 Helper，不开持续探测，不改 VPS 权限。前轮 READY 只适用于旧 UI，本轮变更必须重新验证。
+- 起点 HEAD `f9cec36ca3d3373ba2e9edf2e0844d30dc66933d`，81 条 dirty、1048 文件指纹已备份在 scratch `enhanced-v121-inline-trial/baseline-source.tar.gz` 和新证据 `test-results/v121/inline-route-trial/before.json`；不覆盖既有改动/历史失败。
+- 只读核对 Theme1.2.1 / Plugin0.3.0 / Helper0.3.0，外层 schema1 + 结果 schema1/2；dirty Full 只允许明确 loopback 开发模式，真实 VPS 试用须另行授权并使用来源可核验的干净同构建组件，不绕过门禁。
+- M4：三网彩色胶囊改单行中性文字+微型红蓝绿标识，无有效结果完全隐藏；未知/过期/失败/fixture/协议分歧不充当有效当前线路。M3：原始逐跳和自动线路仅管理员，不设计匿名自动结果发布；手动 UUID 标注保留。
+- M6：先实拍改动前 24 个桌面/移动/320px、四尺寸、亮暗组合，再拍新版；定向 UI+隐私测试后 lint/typecheck/build/相关单元，再一次完整回归，核对原 142 名称全部保留，截图基准/重试策略不变。新数据仅为标明 UI 样本，绝不是公网测量。
+- 单节点说明将区分只读准备、另行授权后的临时单次 UDP/TCP（--once）、本地 Cymru 双授权、证据判读和停用/匹配版本回滚；不启用守护进程、不自动提权，不把 ASN 缺失/隐藏/失败说成已识别。
+- 已完成：前后 24 场景真实截图和自包含 `ui-preview.html`，逻辑行高 24→16；预览 24 组图片/控件真实浏览器验证通过，零外部请求。试用手册 `docs/single-node-route-trial.md` 已交付源码并入未来 Full 文档映射；14 个配置/dirty gate 本地检查通过，无任何公网/WHOIS/VPS 操作。
+- 首轮定向 53 PASS / 2 FAIL：Enhanced 主题身份/RPC mock 与宽泛告警选择器问题；补齐后对关联 9 项复验通过，去重 55 项覆盖。新单行 24 场景原本全通过。初次 lint13 格式错误和预览 checker 把 CSS16 当 PNG16（实际栅格17）已分别修正；原始结果保留 `first-failures/`，从不把初次 exit1 当成功。
+- 第一次完整回归为 **158 PASS / 17 FAIL / exit1**，完整 `full-browser.json/log/artifacts` 保留：16 项流量/UI 组合仍要求彩色文字/24px 胶囊，另1管理页告警 strict locator。只更新两份测试的过期视觉契约为微型标识/中性无背景/严格16px，精确定位拒绝保存错误并增加配置错误可见断言。所有流量数值/原始计数器/保存读回/日期断言均保留；`scope_audit.py` 已逐删行验证，`task-only.patch` 相对本轮81条 dirty 起点生成。
+- 17 项跨功能复验全过；post-repair lint/diff exit0。app/Helper/Plugin/单元测试源码相对第一次完整运行未变，复用 typecheck/production build/287 unit/61 CJS 结果。`proc_17b93edf9e91` 完整复验已实际 exit0：**175 PASS / 0 FAIL / 0 SKIP / 0 FLAKY**，原 142 名称全部保留并通过，新 33 全过，retries0。最终报告 `full-browser-final.json`，scratch `final_gate.py` 已执行通过，源指纹/7张基准/HEAD/index/范围门禁通过。
+- 本轮最终相对原 dirty 起点仅 19 个文件变化（15 修改/4 新增），工作树共87条未提交，未删旧文件；完整 `final-report.md`、`final-verification.json`、`task-only.patch`、`source-scope-audit.json` 在独立证据目录。试用准备完成但真实网络仍未执行；dirty Full 不能上公网，须另行授权并取得来源固定的干净匹配产物。
+- 最终聚合 checker 初次只接受 TAP # 前缀，而实际 Node 报告用 ℹ，导致 KeyError；仅修复 scratch 解析器，保留 `first-failures/final-aggregator-error.txt`，未改协议结果或重跑测试。所有早期失败均留档，不以当轮成功覆盖历史 exit1。当前未 commit/push/tag/Release/生产操作。
+
+## 当前任务：v1.2.1 最终回归与发布前验收（M6，本轮仍禁止提交发布）
+
+- 继续原 Session / 原工作树。最新授权仅源码/测试修改、本地隔离验证与本地候选产物；禁止 commit/push/tag/Release、生产 Komari/Agent/数据库或真实 VPS Helper 安装。不删除历史失败证据。
+- 开始只读核查：branch `feat/enhanced-tags-return-routes`，HEAD `f9cec36ca3d3373ba2e9edf2e0844d30dc66933d`，78 个未提交文件（逐文件展开）；无正在运行的同类测试。当前 1046 个源码指纹与上轮最终 142/142 完整结果一致。原 119/exit1 的 15 个失败名称/断言/根因已提取，逐一确认已被后续完整结果覆盖；不重做已修复的归档白名单问题。
+- 本轮证据新建在 `test-results/v121/release-preflight/`，不覆盖旧报告。`before.json` 保存初始工作区/源码指纹，`historical-failures.md/json` 明确列出 15 项历史失败及根因；原图、trace 不删除。驱动仅在 scratch `enhanced-v121-release-preflight/qa.py`。
+- 顺序：只跑原 15 失败 UI/五种流量用例 → 非自动修复 lint/type-check/production build/diff/unit/Helper 协议与负向归档 → 一次完整 Playwright → 生产构建/本地 DEVELOPMENT_ONLY 候选包完整性、哈希、安装回滚预检。22/22 Komari 1.6.0 原生集成按未变的源码/脚本指纹复用，不重复启动。
+- 本轮已补 `tests/companion/test_archive_safety.py`，直接约束两层 Helper 归档校验：明确必需枚举、缺少 `enhanced_probe_v2.py` / 任一必需文件、未知文件、重复/非普通/穿越/超大项均拒绝，拒绝前不执行安装器、不写解包目录。另仅给 Full README/VALIDATION 加 v1.2.1 本地候选/历史记录区分说明，保留旧稳定版内容。产品源码/协议/白名单校验器未改动，22 原生集成仍可复用。
+- 第一步已完成：精确匹配原 15 个失败名称，仅执行该 15 项，15 PASS / 0 FAIL / 0 SKIP，exit0。定向报告 `release-preflight/targeted.json`；所有原断言保留，未改截图或重试策略。进入第二步静态及相关单元/协议/归档负向验证。
+- 包内容只读核查额外发现：旧本地 Full 归档含 TCP/UDP 文档，但没有 `docs/traffic-cycles.md`。本轮仅在 Full 打包文件映射中补入该文档的明确路径，不改 Helper/Plugin 白名单；候选包阶段将重新实际构建并核对该文件。README 的本地候选说明使用包内路径，避免同源 README 同时复制到根目录与 docs/ 时产生相对链接歧义。此打包文档修补不涉及 22 项 Companion 原生集成的运行时代码。
+- 本轮最终结果（`release-preflight/final-verification.json` / `final-report.md`）：原 15 个失败定向 15/15；单元/组件 268；CJS 协议 61；Helper 含归档直接负向 40；管理/回滚协议 6；完整浏览器 **142 PASS / 0 FAIL / 0 SKIP / 0 FLAKY，exit0**，仅运行一次，retries0。流量周期专项 UI 27 / unit 73，五模式累计与周期各 5 项均过；前台无倒计时。
+- 第四步完成：浏览器之后重新生产构建，实际重打本地 dirty 候选（Theme1.2.1，Plugin/Helper0.3.0+git.f9cec36，Full1.2.1）；33 安装/升级/回滚、40 Helper、43 逐项包检查全过。Full 内嵌原生三个组件与单独归档字节一致，新增 v2 文件及流量/探测文档齐全，版本/权限/默认关闭/MIT 署名/生产 dist/原 v1.2.0 Tag 皆核验。普通安装器仍拒绝 dirty 开发包。
+- 包 checker 初次 exit1 是 scratch 假设所有 manifest 行都有 key，实际 5 个 `type=title` 无 key；修正 checker 的结构读取后 43/43 过，不改产品配置或字段断言。首次 traceback 保存在 `release-preflight/precheck-failures/first-verifier-error.txt`，没有删除失败。
+- 最终工作区 81 条未提交记录；本轮 5 个变更：本文件、两份 Full 文档、Full 打包映射单行补文档、新归档安全测试。其他运行时与所有旧测试/基准均保持本轮初始指纹，无删除，HEAD/分支/index 未变。真实公网 TCP/UDP、Cymru、IPv6、Komari1.6.1/系统服务常驻仍未测；不得据 fixtures 宣称商业线路认证或生产上线完成。
+- 最终已验证 `READY_FOR_RELEASE=YES`，只表示用户要求的本地预检完成，等待授权进入提交/干净源码重建/正式发布阶段；本轮不满足也不弱化正式发行 verifier 的 clean-source 门槛，不把旧 HEAD 的 dirty 包冒充 Release。未执行 commit/push/tag/Release/生产修改。
+- 第二步完成：非修复 ESLint、type-check、production build、diff-check、单元组件及协议/Helper/Full 测试均 exit0；Helper 合计 40 PASS（含新增归档负向），Full 33 PASS。本轮只改文档与一条打包文档映射，不改运行时与既有测试。第三步已经只启动一次 full-browser；其开始前逐文件核对所有运行时/既有测试指纹不变，新增归档测试与实跑指纹相同。证据 `pre-full-source-binding.json` / `before-full-hashes.json`，无 skip/fixme/only、无截图更新或重试增加。
+
+## 当前任务：TcpQuality 方法参考 / 独立 TCP-UDP 证据增强（M5 / M6，隔离验收完成，禁止提交发布）
+
+- 最新授权只在现有工作树改代码、fixture 和隔离验收；禁止 commit/push/tag/Release、生产部署、Agent/生产库改动。本轮以已验证 211 单元 / 134 浏览器全绿为基线，不再把旧 119/exit1 当作验收结果。
+- HEAD/branch 未变，工作树无其他写入 Agent。全部 1032 个现有源码文件已备份到 scratch `enhanced-tcpquality/baseline-source.tar.gz`，另存 hashes/binary diff，禁止覆盖既有 v1.2.1 工作。
+- 参考仓库固定 commit `d0877381351257111c3c65e6fd8278e7f9f6c270`，README 第 65 行明确 GPL-3.0-only；参考源只留在项目外 scratch/reference，不执行、不复制、不打包 GPL 程序。新适配代码独立采用本项目 MIT；保留原 Transit MIT 署名。不宣称法律层面的 clean-room 认证。
+- 设计：保留 schema1 / legacy UDP；显式本地 probeProtocols 选择启用 schema2 的 tcp/udp/both，固定 IPv4 三城九目标、固定 TCP 443、无远端任意命令/地址。单协议路径分开存储，分歧不合并认证。Cymru 默认关闭且需本地 consent，短时限/预算/私有缓存/失败回退；前缀仅低置信度提示，绝不注入真实 ASN。IPv6 暂不启用。
+- 验收计划：跨 Helper/Plugin/前端协议 fixtures 与攻击输入、顺序/回返/隐藏跳分类、Cymru 拒绝/缓存/超时，真实 loopback Komari 1.6.0 承载 fixture 结果，随后全项目 lint/type-check/build 和流量/标签/回程 UI 回归。真实公网探测不执行。
+- 实现已接入：`enhanced_probe_v2.py`、原 Helper/Plugin 协议、安装包枚举、独立 per-protocol 前端记录与 `ProtocolRouteEvidence.vue`；本地选择 udp/tcp/both，v1 缓存兼容。组件版本为未发布的 0.3.0。移除 `traceroute -A` 隐式外查；Cymru 必须双本地 opt-in；systemd 仅新增 0700 StateDirectory，仍无 capability，不自动授予 TCP raw 权限。
+- 当前实跑：Playwright 单元/组件 268 PASS；CJS 协议 61 PASS；旧 Helper 14 / 新 Helper 19 PASS；Full 安装/升级/回滚 33 PASS；lint/type-check/production build 均 exit0。开发 Full 包明确 dirty / DEVELOPMENT_ONLY / published:false，没有 Release。
+- 定向验收与集成已完成：69 项定向浏览器首轮为 68 PASS / 1 fixture FAIL（管理 fixture 漏 native theme-list，非产品错误）；补齐明确 mock 后，新 8 项逐项复验 8 PASS / 0 FAIL。原生集成先在严格 archive 枚举漏新增模块处停止，补其为必需项后，真实隔离 Komari 1.6.0 为 22 PASS / 0 FAIL，包含 schema1→schema2、原生 UUID/lease、后台/前台、TTL、隐私及重启持久化。原失败痕迹保留。
+- 唯一一次最终全量浏览器已完成：142 PASS / 0 FAIL / 0 SKIP / 0 FLAKY，真实命令 exit0；机器验证原有 134 个用例名称全部保留，新 8 项均通过。48 个受保护源码/测试/元数据（含流量、标签、Ping/中转、7 张截图基准、Playwright 策略与依赖锁）与任务开始快照完全一致，无 test.skip/fixme/only，无删除旧文件。相对任务开始快照共 42 个文件：27 修改、15 新增；未覆盖先前 v1.2.1 成果。
+- 最终机器门禁和完整报告：`test-results/v121/tcpquality/final-verification.json` / `final-report.md`；独立 diff 为同目录 `specialist.patch`，原 134 项证据未改写。QA/最终门禁脚本仅在 scratch `enhanced-tcpquality/`。当前状态 ready-for-review-not-submitted-or-released，HEAD/branch/暂存区未变，绝无 commit/push/tag/Release 或生产部署。真实公网 TCP/UDP、真实 Cymru、IPv6、Komari 1.6.1 和系统服务启动均未实测；TCP 主机权限可能不足，不自动升权，不把离线 fixture 说成线路认证。
+
+## 当前任务：v1.2.1 浏览器回归失败专项修复（M4 / M6，禁止提交与发布）
+
+- 最新用户限定本轮仅编辑、隔离/mock 测试；禁止 commit/push/tag/Release、生产 Komari/Agent/数据库操作及重置/清理工作树。下方旧发布授权不是本轮授权。
+- 起点仍为 `feat/enhanced-tags-return-routes` / `f9cec36ca3d3373ba2e9edf2e0844d30dc66933d`，保留全部 v1.2.1 未提交修改；未发现其他修改该工作树的 Agent。本轮开始的文件指纹与 binary diff 已留在 ignored `test-results/v121/browser-regression/`。
+- 完整上一轮 JSON、全部 15 个失败断言和 trace 已读取，截图解码并归档：119 PASS / 15 FAIL / 0 SKIP。按 trace 分类：6 个任意手动线路被去空格；1 个 UTC 时间显示改成 ISO；3 个短状态文案的旧契约；5 个无周期节点列表累计参考比例与其他视图不一致。失败前均无主题保存调用，不能将其误报为持久化失败；累计值本身正确，无历史查询/时区/数学定义错误证据。
+- 修复采用已知线路名白名单缩写、保留自定义文本；原状态码及展开详情加强验证。统一 trafficByMode + trafficAccounting + useNodeTraffic，区分 machine-cumulative / billing-cycle / unavailable；累计仅参考比例，绝不生成周期剩余。详情与对比共享周期订阅，原始累计/导出/图表不改。
+- 已完成最小集合覆盖 15/15（首批 14/15，新增 time[datetime] 断言改为匹配配置解析器规范 UTC 字符串后，仅复验该 1 项通过）；相关单元/组件 211/211、浏览器专项 42/42，均零失败/跳过/flaky。五种模式跨卡片/列表/详情/后台/对比严格核对周期用量/余额/比例，累计 100/200 TiB 保留；管理 UI 保存后刷新恢复亦通过。
+- 全项目非修复 lint、type-check、生产 build、git diff --check 全通过；本轮精确范围 17 个文件（包括此日志），无原文件删除。134 个原浏览器用例名称、7 张基准图和 Playwright 策略均未改变，无 skip/fixme/only。证据 `diff-audit.json` / `tested-code-hashes.json`。
+- 本轮唯一一次全量 Playwright 已结束：134 PASS / 0 FAIL / 0 SKIP / 0 FLAKY，命令 exit 0（包含 visual-test 构建约 731.94 秒）。原来的 15 项在完整结果中全部通过，原用例名称、基准和阈值保留。
+- scratch `enhanced-v121/verify_regression.py` 已实际执行并通过：精确读回报告、核对 17 个文件范围、编译/测试源码指纹未改变、HEAD/index 未改变，Node 实际执行共享计算生成五模式 fixture 对照。证据为 ignored `test-results/v121/browser-regression/final-verification.json` 与 `final-report.md`，15 个旧失败的截图/trace/原断言完整保留在 before/。
+- 本轮浏览器修复具备后续提交条件，但没有执行 commit/push/tag/Release，HEAD 仍为 `f9cec36ca3d3373ba2e9edf2e0844d30dc66933d`。这不是新一轮原生 Komari / Full 发行验收；正式发布前仍需单独完成对应关卡。1.6.1、真实公网 traceroute/ASN 未验证，生产及市场未操作。
+
+## 当前任务：v1.2.1 UI / 五分类管理 / UUID 独立流量周期（M4 / M5 / M6）
+
+- 用户授权在 v1.2.0 已发布基线 `f9cec36ca3d3373ba2e9edf2e0844d30dc66933d` 上开发、隔离测试、正常提交/FF 推送及正式发布 v1.2.1，禁止覆盖 v1.2.0、生产数据/Agent/监控任务和市场写入。当前既有 worktree/branch clean，没有其他写入 Agent，Release/附件 ID 与 SHA 已读回保存于本次 scratch 基线；v1.2.1 tag 尚不存在。
+- 明确展示边界：前台原有流量进度条/已用/剩余/百分比只更换计算口径，不增加卡片高度，不显示重置日、下次重置、时间范围、倒计时或其图标。重置日、当前区间、下一边界、周期用量仅在后台「节点与卡片 → 流量周期」逐节点表格展示/保存。
+- 事实修正：v1.2.0 只有累计计数器展示，未发现仍启用的自然月重置逻辑；本次不恢复旧月初默认，不删除历史缓存。UUID 配置默认未设置，持久化现有托管主题配置；不存 tags 或仅 localStorage。
+- 已核对官方 1.6.0 源码：`public:queryMetrics` 支持明确时区 start/end、按 UUID 的 traffic.up/down sum 和 net.total.* 基线；服务端 TrafficCounterDelta 保留重启/回绕安全处理。使用服务端可求和增量，缺基线/保留不足/无数据时失败关闭为数据不足，不把缺失值当 0。服务层共享查询与缓存，不改原始计数器/历史。
+- 计划：统一顶部标签排版；底部回程 CU 红 / CT 蓝 / CM 绿三栏胶囊与可展开详情；原生 manifest 分类从 10 合并为 5，增强管理同样五分类并保留所有旧字段/default/未知设置；逐 UUID 周期编辑器与 Shanghai 日历边界、流量专项、UI/持久化/隔离 1.6.0 集成，验收后新 Commit 和新 Release。保留原 Ping/Transit/财务/SGD/GPU/拓扑。
+- 进度：完成前置核对与 API / 管理兼容审查；尚未宣称 v1.2.1 功能或测试完成。本次证据目录 scratch `enhanced-v121/` 与 ignored `test-results/v121/`。
+
 ## 当前授权与验收：v1.2.0 稳定发布（2026-11-12，M5 / M6）
 
 - 用户本次明确授权开发、测试、新 Commit、仅向 `casiuna/Glassmorphism-Enhanced` 快进 main、正式 v1.2.0 Release 及官方市场更新提交；下方旧 Session / 禁止发布 / Trial 身份要求均为历史，不再代表当前授权。

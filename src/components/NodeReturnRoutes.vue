@@ -1,35 +1,39 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import ProtocolRouteEvidence from '@/components/ProtocolRouteEvidence.vue'
+import ReturnRouteSummary from '@/components/ReturnRouteSummary.vue'
 import { useNodeReturnRoutes } from '@/composables/useNodeReturnRoutes'
+import { useAppStore } from '@/stores/app'
 import { RETURN_CARRIER_NAMES } from '@/utils/returnRouteClassification'
+import { returnRouteTime, summaryReturnRoutes } from '@/utils/returnRouteDisplay'
 
 const props = defineProps<{ uuid: string }>()
-const { entries, visible, configError, companionStatus } = useNodeReturnRoutes(() => props.uuid)
-const sourceNames = { manual: '手动', auto: '自动', fixture: '模拟' }
+const app = useAppStore()
+const { entries, visible, companionStatus, rawEvidence, protocolEvidence } = useNodeReturnRoutes(() => props.uuid)
+const canInspect = computed(() => app.privateFeaturesAllowed)
+const current = computed(() => summaryReturnRoutes(entries.value, canInspect.value))
+const sourceNames = { manual: '手动', auto: '自动', fixture: '模拟', replay: '历史实测回放' }
 </script>
 
 <template>
-  <section v-if="visible" data-return-routes :data-route-node="uuid" aria-label="回程线路" class="min-w-0 space-y-1 rounded-md border border-border/40 bg-slate-500/5 p-2">
-    <div class="text-[10px] text-muted-foreground">
-      回程线路 · 节点 → 国内三网
-    </div>
-    <p v-if="companionStatus" data-companion-status class="text-[9px] text-muted-foreground">
-      {{ companionStatus }}
-    </p>
-    <p v-if="configError" role="status" class="text-[10px] text-warning">
-      回程配置无效，请管理员检查主题设置。
-    </p>
-    <div class="grid min-w-0 grid-cols-3 gap-1">
-      <div v-for="entry in entries" :key="entry.carrier" :data-return-carrier="entry.carrier" :data-route-status="entry.status" class="min-w-0">
-        <span class="block text-[10px] text-muted-foreground">{{ RETURN_CARRIER_NAMES[entry.carrier] }}</span>
-        <span
-          :title="`${entry.label} · ${entry.detail} · ${entry.source ? sourceNames[entry.source] : '无来源'} · ${entry.at ?? '时间未提供'}`"
-          class="block max-w-full truncate rounded-full border border-border/70 bg-background/50 px-1.5 py-0.5 text-[10px]"
-          :class="entry.status === 'expired' ? 'text-warning' : 'text-foreground'"
-        >{{ entry.label }}</span>
-        <span v-if="entry.source" :title="entry.at ?? '时间未提供'" class="block truncate text-[9px] text-muted-foreground">
-          {{ sourceNames[entry.source] }} · {{ entry.at ? `${entry.at.slice(0, 16).replace('T', ' ')} UTC` : '时间未提供' }}
-        </span>
+  <section v-if="visible && current.length" data-return-routes :data-route-node="uuid" aria-label="线路信息" class="@container/route min-w-0" @click.stop @keydown.stop>
+    <details v-if="canInspect" class="group/routes min-w-0">
+      <summary aria-label="查看线路详情" class="block cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        <ReturnRouteSummary :entries="current" />
+      </summary>
+      <div class="mt-2 space-y-2 rounded-md border border-border/50 bg-slate-500/5 p-2 text-[10px] text-muted-foreground" data-route-details>
+        <p>线路观测 · 节点 → 国内三网；手动标注与观测均不是商业线路认证。未知、失败、过期与模拟仅在此处或管理后台显示。</p>
+        <p v-if="companionStatus" data-companion-status>
+          {{ companionStatus }}
+        </p>
+        <div v-for="entry in entries" :key="entry.carrier" class="space-y-1 break-words">
+          <p>{{ RETURN_CARRIER_NAMES[entry.carrier] }} · {{ entry.label }} · {{ entry.source ? sourceNames[entry.source] : '无来源' }} · <time :datetime="entry.at ?? undefined">{{ returnRouteTime(entry.at) }}</time></p>
+          <p>{{ entry.detail }}</p>
+          <pre v-if="rawEvidence?.[entry.carrier] && !protocolEvidence?.[entry.carrier]" class="max-h-40 overflow-auto whitespace-pre-wrap break-all">{{ JSON.stringify(rawEvidence[entry.carrier], null, 2) }}</pre>
+        </div>
+        <ProtocolRouteEvidence :uuid="uuid" :routes="protocolEvidence" />
       </div>
-    </div>
+    </details>
+    <ReturnRouteSummary v-else :entries="current" />
   </section>
 </template>

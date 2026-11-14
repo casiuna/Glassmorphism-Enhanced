@@ -1,0 +1,4 @@
+Offline synthetic UDP fixture; not a real network measurement.
+1 202.97.1.1 [AS4134] 1 ms
+2 59.43.1.1 [AS4809] 2 ms
+3 219.141.140.10 [AS4809] 3 ms

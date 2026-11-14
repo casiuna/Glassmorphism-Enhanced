@@ -2,6 +2,15 @@
 
 All notable Glassmorphism Enhanced changes are documented here. Upstream history remains in the upstream repository and preserved Git history.
 
+## 1.2.1
+
+- Preserve the Enhanced identity and existing settings while refining centered header tags and the approved equal-thirds route summary: fixed red/blue/green columns, each dot-name group centered, full names without ellipsis. Invalid or unauthorized automatic results do not create public placeholders.
+- Add UUID-keyed independent monthly traffic reset days with native managed-setting persistence, conservative history coverage, and existing up/down/min/max/sum semantics. Preserve cumulative counters, historical data, Ping, Transit and finance behavior; no front-card reset countdown is introduced.
+- Consolidate Enhanced management into five ordered categories, with route switches, TTL, manual routes and Ping/Transit together in 03. Add node selection and three manual-label inputs without Plugin, Helper or remote execution; advanced JSON shares the same configuration and optional diagnostics are collapsed. Bridge the theme-bundled compatibility frontend's managed-settings entry to the same editor, preserving unknown fields and per-node isolation. The server-embedded `/admin/theme_managed` remains its native editor and is not intercepted by the theme.
+- Keep experimental Companion schema1/schema2 compatibility and strictly allowlisted schema3 CDN replay evidence. This release does not claim a production-validated automatic return-route probe or reliable commercial route identification: six real historical CDN traces exist, but ASN enrichment is not authorized and the live product collection-to-submit loop is not validated. Defaults remain off; private evidence remains administrator-only.
+- Fix Full upgrade/compensating rollback when native Plugin configuration reads add candidate-manifest defaults. Existing policy values still win; non-default concurrent changes remain conflicts.
+- Komari 1.6.0 is the isolated integration target. Komari 1.6.1, physical GPU telemetry and system-service runtime are not claimed. Local precommit packages remain dirty validation artifacts, not published Release assets. See [release notes](docs/release-notes-v1.2.1.md).
+
 ## 1.2.0 — Released
 
 - Publish one checksummed Full `.tar.gz` containing a validated inner Full ZIP, with native Theme / Plugin / Helper modules, a stable version matrix, complete notices, a default-dry-run administrator/node CLI, and centralized management. The inner Full ZIP remains an installation bundle, not a native theme upload.

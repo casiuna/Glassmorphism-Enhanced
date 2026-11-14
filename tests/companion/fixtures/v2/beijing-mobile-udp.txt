@@ -1,0 +1,4 @@
+Offline synthetic UDP fixture; not a real network measurement.
+1 223.120.1.1 [AS58453] 1 ms
+2 * * *
+3 221.179.155.161 [AS58807] 3 ms

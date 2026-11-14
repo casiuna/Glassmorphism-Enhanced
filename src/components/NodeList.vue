@@ -5,7 +5,7 @@ import { Icon } from '@iconify/vue'
 import { useVirtualList } from '@vueuse/core'
 import { computed, ref, TransitionGroup, watch } from 'vue'
 import NodePingListCell from '@/components/NodePingListCell.vue'
-import TrafficProgress from '@/components/TrafficProgress.vue'
+import NodeTrafficCell from '@/components/NodeTrafficCell.vue'
 import { Badge } from '@/components/ui/badge'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import { ProgressThin } from '@/components/ui/progress-thin'
@@ -16,7 +16,7 @@ import { useAppStore } from '@/stores/app'
 import { formatCityNameZh } from '@/utils/cityNameHelper'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, formatUptimeWithFormat, getStatus } from '@/utils/helper'
 import { parseNodeDisplayTags } from '@/utils/nodeDisplayTags'
-import { getRealtimeTotalSpeed, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
+import { getRealtimeTotalSpeed, getTrafficUsedPercentage } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
 import { formatPriceWithCycle, getDaysUntilExpired, getExpireStatus } from '@/utils/tagHelper'
@@ -560,31 +560,7 @@ function buildNodeMetadataItems(node: NodeData): NodeMetadataItem[] {
                 </div>
 
                 <!-- 流量 -->
-                <div
-                  v-else-if="col.key === 'traffic'"
-                  class="group min-w-0"
-                  :title="`↑ ${formatBytes(node.net_total_up ?? 0)}\n↓ ${formatBytes(node.net_total_down ?? 0)}`"
-                  data-machine-traffic
-                >
-                  <div class="space-y-1 w-full">
-                    <div class="text-[11px] font-medium text-foreground/75 truncate">
-                      <span class="inline group-hover:hidden">
-                        {{ hasTrafficLimit(node) ? `${getTrafficUsedPercentage(node).toFixed(1)}%` : '∞' }}
-                      </span>
-                      <span class="hidden group-hover:inline">
-                        {{ formatBytes(getTrafficUsed(node)) }} /
-                        <template v-if="hasTrafficLimit(node)">{{ formatBytes(node.traffic_limit) }}</template>
-                        <template v-else>∞</template>
-                      </span>
-                    </div>
-                    <TrafficProgress
-                      v-if="hasTrafficLimit(node)"
-                      :upload="node.net_total_up ?? 0" :download="node.net_total_down ?? 0"
-                      :traffic-limit="node.traffic_limit" :traffic-limit-type="(node.traffic_limit_type || 'sum')"
-                      height="4px"
-                    />
-                  </div>
-                </div>
+                <NodeTrafficCell v-else-if="col.key === 'traffic'" :node="node" />
 
                 <!-- 速率 -->
                 <div v-else-if="col.key === 'rate'" class="min-w-0">

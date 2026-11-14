@@ -8,6 +8,7 @@ import { computed, ref, watch } from 'vue'
 import { getAuthSession, requirePermission, setAuthSessionFromLogin, verifyLogin } from '@/services/auth.service'
 
 import { parseReturnRouteConfig } from '@/utils/returnRoutes'
+import { parseTrafficCycleConfig } from '@/utils/trafficCycle'
 import { parseTransitCarrierPingRules } from '@/utils/transitCarrierPing'
 
 export type ThemeMode = 'auto' | 'light' | 'dark'
@@ -917,6 +918,7 @@ const useAppStore = defineStore('app', () => {
 
   const themeSettings = computed(() => normalizeThemeSettings(publicSettings.value?.theme_settings))
   const returnRouteConfig = computed(() => parseReturnRouteConfig(themeSettings.value.returnRouteConfig))
+  const trafficCycleConfig = computed(() => parseTrafficCycleConfig(themeSettings.value.trafficCycleConfig))
   const returnRoutesVisible = computed(() => readBooleanSetting(themeSettings.value, 'returnRoutesVisible', false))
   const returnRouteAutoEnabled = computed(() => readBooleanSetting(themeSettings.value, 'returnRouteAutoEnabled', false))
   const returnRouteCompanionEnabled = computed(() => readBooleanSetting(themeSettings.value, 'returnRouteCompanionEnabled', false))
@@ -1359,6 +1361,7 @@ const useAppStore = defineStore('app', () => {
     nodeListCustomTagsVisible,
     customTagsVisible,
     returnRouteConfig,
+    trafficCycleConfig,
     returnRoutesVisible,
     returnRouteAutoEnabled,
     returnRouteCompanionEnabled,

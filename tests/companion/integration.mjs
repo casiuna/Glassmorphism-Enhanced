@@ -11,8 +11,10 @@ import { chromium, expect } from '@playwright/test'
 
 async function main() {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+  const out = resolve(process.env.ENHANCED_ACCEPTANCE_OUT || join(root, 'test-results'))
+  mkdirSync(out, { recursive: true })
   mkdirSync(join(root, 'test-results'), { recursive: true })
-  const state = mkdtempSync(join(root, 'test-results/route-lab-'))
+  const state = mkdtempSync(join(out, 'route-lab-'))
   chmodSync(state, 0o700)
   const backend = resolve(root, '../tools/backends/komari-1.6.0')
   const short = 'enhanced-route-probe'
@@ -151,9 +153,9 @@ async function main() {
     })
     await check('real local Agent, no Ping tasks/SSH/update/external-IP discovery', async () => {
       const file = join(state, 'agent.json')
-      writeFileSync(file, JSON.stringify({ 'endpoint': origin, 'token': client.token, 'interval': 1, 'disable-auto-update': true, 'disable-web-ssh': true, 'get-ip-addr-from-nic': true, 'custom-ipv4': '192.0.2.10', 'custom-ipv6': '2001:db8::10' }), { mode: 0o600 })
+      writeFileSync(file, JSON.stringify({ endpoint: origin, token: client.token, interval: 1, disable_auto_update: true, disable_web_ssh: true, get_ip_addr_from_nic: true, custom_ipv4: '192.0.2.10', custom_ipv6: '2001:db8::10' }), { mode: 0o600 })
       const log = openSync(join(state, 'agent.log'), 'a', 0o600)
-      agent = spawn(resolve(root, '../tools/backends/komari-agent-1.5.11'), ['--config', file], { cwd: state, env: isolatedEnv, stdio: ['ignore', log, log] })
+      agent = spawn(resolve(root, '../tools/backends/komari-agent-1.5.11'), ['--config', file, '--disable-auto-update', '--disable-web-ssh', '--get-ip-addr-from-nic'], { cwd: state, env: isolatedEnv, stdio: ['ignore', log, log] })
       for (let i = 0; i < 50; i++) {
         const latest = await rpc('common:getNodesLatestStatus')
         if (latest[client.uuid])
@@ -180,7 +182,7 @@ async function main() {
       const installedPackage = spawnSync('python3', [join(root, 'tests/companion/install_archive.py'), join(root, `test-results/release/enhanced-route-helper-${helperVersion}.tar.gz`), join(state, 'helper-package'), installed], { encoding: 'utf8' })
       assert.equal(installedPackage.status, 0, 'local archive installer failed')
     })
-    const runHelper = () => spawnSync('python3', [join(installed, 'enhanced_route_helper.py'), '--config', configFile, '--once', '--fixture-dir', join(root, 'tests/companion/fixtures')], { encoding: 'utf8' })
+    const runHelper = (fixtures = 'tests/companion/fixtures') => spawnSync('python3', [join(installed, 'enhanced_route_helper.py'), '--config', configFile, '--once', '--fixture-dir', join(root, fixtures)], { encoding: 'utf8' })
     await check('real helper process: fixture -> native Agent identity -> leased result', async () => {
       const run = runHelper()
       assert.equal(run.status, 0, `redacted helper exit ${run.status}`)
@@ -205,7 +207,7 @@ async function main() {
     const settings = { themeMode: 'light', hideEarth: true, visitorInfoEnabled: false, rpcTransportMode: 'http', dataUpdateInterval: 60, disablePageAnimation: true, returnRoutesVisible: true, returnRouteAutoEnabled: true, returnRouteCompanionEnabled: true, returnRouteTtlHours: 24, transitCarrierPingRules: 'KEEP_RULE', returnRouteConfig: '{"version":1,"nodes":{}}' }
     await check('native theme ZIP upload, activation and managed settings', async () => {
       const hash = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim()
-      await upload('theme', join(root, `komari-theme-Glassmorphism-build-${hash}.zip`))
+      await upload('theme', process.env.ENHANCED_THEME_ZIP || join(root, `komari-theme-Glassmorphism-build-${hash}.zip`))
       await api(`/api/admin/theme/set?theme=${themeShort}`)
       await api(`/api/admin/theme/settings?theme=${themeShort}`, settings)
     })
@@ -216,23 +218,65 @@ async function main() {
     const page = await context.newPage()
     await page.route(url => url.origin !== origin, route => route.abort())
     const node = page.locator(`[data-route-node="${client.uuid}"]`)
-    await check('installed theme consumes real authenticated plugin snapshot; fixture is visibly marked', async () => {
+    await check('installed theme keeps fixture out of valid summary and marks authenticated diagnostics explicitly', async () => {
       await page.goto(origin)
-      await expect(node.locator('[data-return-carrier="telecom"]')).toContainText('163', { timeout: 15000 })
-      await expect(node).toContainText('模拟')
-      await expect(node.locator('[data-companion-status]')).toContainText('已连接')
-      await page.screenshot({ path: join(root, 'test-results/trial/real-1.6.0-fixture-admin.png'), fullPage: true })
+      await expect(page.getByRole('button', { name: '查看节点 Renamed Fixture Wendy 详情', exact: true })).toBeVisible()
+      await expect(node).toHaveCount(0)
+      await page.getByRole('button', { name: 'Enhanced 管理', exact: true }).click()
+      await page.locator('[data-optional-companion] > summary').click()
+      await page.getByRole('combobox', { name: '管理节点 UUID', exact: true }).selectOption(client.uuid)
+      await expect(page.locator('[data-helper-status]')).toContainText('模拟 fixture')
+      await expect(page.locator('[data-enhanced-versions]')).toContainText(pluginVersion)
+      await page.screenshot({ path: join(out, 'real-1.6.0-fixture-admin.png'), fullPage: true })
+      await page.getByRole('button', { name: '关闭', exact: true }).click()
     })
     await check('real backend managed-setting save preserves manual priority and unrelated fields', async () => {
       settings.returnRouteConfig = JSON.stringify({ version: 1, nodes: { [client.uuid]: { manual: { telecom: { label: '手动覆盖', updatedAt: new Date().toISOString() } } } } })
       await api(`/api/admin/theme/settings?theme=${themeShort}`, settings)
       await page.reload()
       await expect(node.locator('[data-return-carrier="telecom"]')).toContainText('手动覆盖')
-      await expect(node.locator('[data-return-carrier="unicom"]')).toContainText('9929')
+      await expect(node.locator('[data-return-carrier="unicom"]')).toHaveCount(0)
       const publicData = await api('/api/public')
       assert.equal(publicData.theme_settings.transitCarrierPingRules, 'KEEP_RULE')
       const actualClient = (await request(`/api/admin/client/${client.uuid}`)).payload
       assert.equal((actualClient.data ?? actualClient).tags, 'USER_KEEP;upstream:Fixture Other')
+    })
+    await check('schema2 helper archive -> native UUID/lease -> independent TCP/UDP persisted results', async () => {
+      const before = (await request(`${endpoint}/snapshot`)).payload.nodes[client.uuid].latest
+      assert.equal(before.schema, 1, 'legacy schema was exercised first')
+      await new Promise(resolve => setTimeout(resolve, Math.max(0, Date.parse(before.collectedAt) + 60050 - Date.now())))
+      assert.equal((await request(`${endpoint}/enqueue`, { uuid: client.uuid, city: 'beijing' })).response.status, 200)
+      const config = JSON.parse(readFileSync(configFile, 'utf8'))
+      writeFileSync(configFile, JSON.stringify({ ...config, probeProtocols: ['udp', 'tcp'], addressFamily: 4, cymruEnabled: false, cymruConsent: false, prefixHints: true }), { mode: 0o600 })
+      const run = runHelper('tests/companion/fixtures/v2')
+      assert.equal(run.status, 0, `redacted schema2 helper exit ${run.status}`)
+      assert.equal(run.stdout.trim(), 'fixture-accepted')
+      const latest = (await request(`${endpoint}/snapshot`)).payload.nodes[client.uuid].latest
+      assert.equal(latest.schema, 2)
+      assert.equal(latest.source, 'fixture')
+      assert.deepEqual(latest.protocols, ['udp', 'tcp'])
+      assert.notDeepEqual(latest.carriers.telecom.udp.hops, latest.carriers.telecom.tcp.hops)
+      assert.deepEqual(latest.carriers.mobile.tcp.hops[0].asns, [])
+      assert.deepEqual(latest.carriers.mobile.tcp.hops[0].prefixHints, ['CMI'])
+      assert(!JSON.stringify(latest).includes(client.token))
+    })
+    await check('schema2 keeps native cross-node authentication and guest privacy boundaries', async () => {
+      const latest = (await request(`${endpoint}/snapshot`)).payload.nodes[client.uuid].latest
+      assert.equal((await request(`${endpoint}/result`, { token: other.token, uuid: client.uuid, job_id: 'c'.repeat(48), lease: 'd'.repeat(48), result: latest }, false)).response.status, 400)
+      assert.equal((await request(`${endpoint}/snapshot`, undefined, false)).response.status, 403)
+    })
+    await check('real installed UI exposes protocol disagreement and administrator-only evidence; manual stays first', async () => {
+      await page.reload()
+      await expect(node.locator('[data-return-carrier="telecom"]')).toContainText('手动覆盖')
+      await expect(node.locator('[data-return-carrier="mobile"]')).toHaveCount(0)
+      await page.getByRole('button', { name: 'Enhanced 管理', exact: true }).click()
+      await page.locator('[data-optional-companion] > summary').click()
+      await page.getByRole('combobox', { name: '管理节点 UUID', exact: true }).selectOption(client.uuid)
+      const proof = page.getByRole('dialog').locator('[data-protocol-evidence]')
+      await expect(proof).toBeVisible()
+      await expect(proof.locator('[data-protocol-trace]')).toHaveCount(6)
+      await expect(proof).toContainText('模拟 fixture')
+      await expect(proof.locator('[data-protocol-carrier="telecom"]')).toContainText('TCP/UDP 路径不同（未合并）')
     })
     await check('TTL expiration via browser clock; manual result does not expire', async () => {
       settings.returnRouteTtlHours = 1
@@ -243,17 +287,26 @@ async function main() {
       })
       await page.reload()
       await expect(node.locator('[data-return-carrier="telecom"]')).toContainText('手动覆盖')
-      await expect(node.locator('[data-return-carrier="unicom"]')).toContainText('已过期')
+      await expect(node.locator('[data-return-carrier="unicom"]')).toHaveCount(0)
+      await page.getByRole('button', { name: 'Enhanced 管理', exact: true }).click()
+      await page.locator('[data-optional-companion] > summary').click()
+      await page.getByRole('combobox', { name: '管理节点 UUID', exact: true }).selectOption(client.uuid)
+      await expect(page.getByRole('dialog').locator('[data-protocol-evidence]')).toContainText('expired')
     })
     await check('anonymous theme keeps manual settings but never fetches private snapshot', async () => {
       const guest = await browser.newPage()
+      await guest.route(url => url.origin !== origin, route => route.abort())
       let privateRequests = 0
       guest.on('request', (request) => {
         if (request.url().includes('/enhanced-route-probe/'))
           privateRequests++
       })
       await guest.goto(origin)
-      await expect(guest.locator(`[data-route-node="${client.uuid}"]`)).toContainText('自动结果仅管理员可见')
+      const publicLine = guest.locator(`[data-route-node="${client.uuid}"]`)
+      await expect(publicLine.locator('[data-return-carrier="telecom"]')).toHaveText('手动覆盖')
+      await expect(publicLine.locator('[data-return-carrier]')).toHaveCount(1)
+      await expect(publicLine.locator('summary,pre,time,[data-route-details]')).toHaveCount(0)
+      await expect(guest.getByRole('button', { name: 'Enhanced 管理', exact: true })).toHaveCount(0)
       assert.equal(privateRequests, 0)
       await guest.close()
     })
@@ -264,6 +317,7 @@ async function main() {
       await ready('/api/version')
       await login()
       assert.equal((await request(`${endpoint}/snapshot`)).payload.nodes[client.uuid].latest.source, 'fixture')
+      assert.equal((await request(`${endpoint}/snapshot`)).payload.nodes[client.uuid].latest.schema, 2)
     })
     await check('per-node poll bursts are rate limited', async () => {
       const statuses = []
@@ -290,7 +344,7 @@ async function main() {
     await stop(agent)
     await stop(server)
     const report = { backend: '1.6.0', stateRoot: state, realTracerouteExecuted: false, checks: reports, passed: reports.filter(r => r.passed).length, failed: reports.filter(r => !r.passed).length }
-    writeFileSync(join(root, 'test-results/companion-integration.json'), `${JSON.stringify(report, null, 2)}\n`)
+    writeFileSync(join(out, 'companion-integration.json'), `${JSON.stringify(report, null, 2)}\n`)
     process.stdout.write(`INTEGRATION passed=${report.passed} failed=${report.failed}\n`)
   }
 }
